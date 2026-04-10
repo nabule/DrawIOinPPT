@@ -33,7 +33,10 @@ namespace DrawioPpt.PowerPointAddIn.Services
             context.ShapeName = shape.Name;
             context.AlternativeText = shape.AlternativeText ?? string.Empty;
             context.DiagramId = ReadDiagramId(shape);
-            context.IsManagedShape = !string.IsNullOrEmpty(context.DiagramId) || _serializer.CanDeserialize(context.AlternativeText);
+            context.IsManagedShape =
+                !string.IsNullOrEmpty(context.DiagramId) ||
+                !string.IsNullOrEmpty(ReadDiagramPartId(shape)) ||
+                _serializer.CanDeserialize(context.AlternativeText);
             return context;
         }
 
@@ -45,6 +48,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             TryDeleteTag(shape, KnownMetadata.DiagramIdTagName);
+            TryDeleteTag(shape, KnownMetadata.DiagramPartIdTagName);
             if (_serializer.CanDeserialize(shape.AlternativeText))
             {
                 shape.AlternativeText = string.Empty;
@@ -129,6 +133,11 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
         public void Save(PptInterop.Shape shape, DiagramEnvelope envelope)
         {
+            Save(shape, envelope, string.Empty);
+        }
+
+        public void Save(PptInterop.Shape shape, DiagramEnvelope envelope, string customXmlPartId)
+        {
             if (shape == null)
             {
                 throw new ArgumentNullException("shape");
@@ -140,7 +149,12 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             TryDeleteTag(shape, KnownMetadata.DiagramIdTagName);
+            TryDeleteTag(shape, KnownMetadata.DiagramPartIdTagName);
             shape.Tags.Add(KnownMetadata.DiagramIdTagName, envelope.DiagramId ?? string.Empty);
+            if (!string.IsNullOrWhiteSpace(customXmlPartId))
+            {
+                shape.Tags.Add(KnownMetadata.DiagramPartIdTagName, customXmlPartId);
+            }
             shape.AlternativeText = _serializer.Serialize(envelope);
         }
 
@@ -185,6 +199,17 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             string value = shape.Tags[KnownMetadata.DiagramIdTagName];
+            return value ?? string.Empty;
+        }
+
+        public string ReadDiagramPartId(PptInterop.Shape shape)
+        {
+            if (shape == null || shape.Tags == null)
+            {
+                return string.Empty;
+            }
+
+            string value = shape.Tags[KnownMetadata.DiagramPartIdTagName];
             return value ?? string.Empty;
         }
 

@@ -20,6 +20,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
         private readonly ShapeMetadataService _shapeMetadataService;
         private readonly DesktopEditorPathDetector _desktopEditorPathDetector;
         private readonly DesktopEditorLauncher _desktopEditorLauncher;
+        private readonly PresentationDiagramStore _presentationDiagramStore;
         private readonly SvgFileProvider _svgFileProvider;
         private readonly SvgMarkupFileStore _svgMarkupFileStore;
         private readonly PowerPointSvgShapeService _svgShapeService;
@@ -40,6 +41,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _shapeMetadataService = new ShapeMetadataService(_envelopeSerializer, new PresentationSidecarPathBuilder());
             _desktopEditorPathDetector = new DesktopEditorPathDetector();
             _desktopEditorLauncher = new DesktopEditorLauncher();
+            _presentationDiagramStore = new PresentationDiagramStore(_envelopeSerializer);
             _svgFileProvider = new SvgFileProvider();
             _svgMarkupFileStore = new SvgMarkupFileStore();
             _svgShapeService = new PowerPointSvgShapeService(_selectedShapeAccessor);
@@ -110,7 +112,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             string svgPath = _svgFileProvider.GetSvgPath(envelope, _settings, workingFile);
             SuppressAutoOpenForSeconds(2);
             PptInterop.Shape shape = _svgShapeService.InsertOnActiveSlide(_application, svgPath, envelope.DiagramName);
-            _shapeMetadataService.Save(shape, envelope);
+            SaveManagedEnvelope(shape, envelope);
             _currentSelection = _shapeMetadataService.BuildSelectionContext(shape);
             RaiseSelectionStateChanged();
 
@@ -144,7 +146,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
             string presentationPath = _selectedShapeAccessor.GetPresentationFullName(_application);
             DiagramEnvelope envelope = _shapeMetadataService.CreateOrUpdateEnvelope(shape, _settings, presentationPath);
-            _shapeMetadataService.Save(shape, envelope);
+            SaveManagedEnvelope(shape, envelope);
             _currentSelection = _shapeMetadataService.BuildSelectionContext(shape);
             RaiseSelectionStateChanged();
 
@@ -173,7 +175,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             DiagramEnvelope envelope;
-            if (!_shapeMetadataService.TryRead(shape, out envelope))
+            if (!TryReadManagedEnvelope(shape, out envelope))
             {
                 _userNotifier.ShowInfo("当前图形缺少可读取的 Draw.io 元数据。", "DrawioPpt");
                 return;
@@ -197,6 +199,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 return;
             }
 
+            DeleteManagedEnvelope(shape);
             _shapeMetadataService.Clear(shape);
             _currentSelection = new SelectionContext();
             _currentSelection.HasSelection = true;
@@ -218,7 +221,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             DiagramEnvelope envelope;
-            if (!_shapeMetadataService.TryRead(shape, out envelope))
+            if (!TryReadManagedEnvelope(shape, out envelope))
             {
                 _userNotifier.ShowInfo("当前图形没有可刷新的 Draw.io 元数据。", "DrawioPpt");
                 return;
@@ -291,7 +294,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
             PptInterop.Shape shape = e.Selection.ShapeRange[1];
             DiagramEnvelope envelope;
-            if (!_shapeMetadataService.TryRead(shape, out envelope))
+            if (!TryReadManagedEnvelope(shape, out envelope))
             {
                 return;
             }
@@ -321,7 +324,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             DiagramEnvelope envelope;
-            if (!_shapeMetadataService.TryRead(shape, out envelope))
+            if (!TryReadManagedEnvelope(shape, out envelope))
             {
                 return;
             }
@@ -354,7 +357,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             string svgPath = _svgFileProvider.GetSvgPath(envelope, _settings, filePath);
             SuppressAutoOpenForSeconds(2);
             PptInterop.Shape newShape = _svgShapeService.Replace(shape, svgPath);
-            _shapeMetadataService.Save(newShape, envelope);
+            SaveManagedEnvelope(newShape, envelope);
             _currentSelection = _shapeMetadataService.BuildSelectionContext(newShape);
             RaiseSelectionStateChanged();
 
@@ -377,7 +380,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 string workingFile = _desktopEditorLauncher.PrepareWorkingFile(envelope, _settings, presentationPath);
                 envelope.SidecarPath = workingFile;
                 envelope.UpdatedUtc = DateTime.UtcNow;
-                _shapeMetadataService.Save(shape, envelope);
+                SaveManagedEnvelope(shape, envelope);
 
                 if (!LaunchDesktopEditor(envelope, workingFile, explicitUserAction))
                 {
@@ -495,7 +498,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
                 SuppressAutoOpenForSeconds(2);
                 PptInterop.Shape newShape = _svgShapeService.Replace(shape, svgPath);
-                _shapeMetadataService.Save(newShape, envelope);
+                SaveManagedEnvelope(newShape, envelope);
                 _currentSelection = _shapeMetadataService.BuildSelectionContext(newShape);
                 RaiseSelectionStateChanged();
             }
@@ -552,7 +555,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             DiagramEnvelope envelope;
-            if (!_shapeMetadataService.TryRead(shape, out envelope))
+            if (!TryReadManagedEnvelope(shape, out envelope))
             {
                 return;
             }
@@ -562,6 +565,83 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 _lastAutoOpenedDiagramId = diagramId;
                 _lastAutoOpenUtc = DateTime.UtcNow;
             }
+        }
+
+        private bool TryReadManagedEnvelope(PptInterop.Shape shape, out DiagramEnvelope envelope)
+        {
+            envelope = null;
+            if (shape == null)
+            {
+                return false;
+            }
+
+            DiagramEnvelope fallbackEnvelope = null;
+            bool hasFallbackEnvelope = _shapeMetadataService.TryRead(shape, out fallbackEnvelope);
+            PptInterop.Presentation presentation = _selectedShapeAccessor.GetPresentation(shape) ?? _application.ActivePresentation;
+            string diagramId = _currentSelection != null && _currentSelection.ShapeId == shape.Id
+                ? _currentSelection.DiagramId
+                : string.Empty;
+
+            if (string.IsNullOrWhiteSpace(diagramId))
+            {
+                SelectionContext context = _shapeMetadataService.BuildSelectionContext(shape);
+                diagramId = context.DiagramId;
+            }
+
+            string partId = _shapeMetadataService.ReadDiagramPartId(shape);
+            string resolvedPartId;
+            DiagramEnvelope storedEnvelope;
+            if (_presentationDiagramStore.TryRead(presentation, diagramId, partId, out storedEnvelope, out resolvedPartId))
+            {
+                envelope = storedEnvelope;
+
+                if (!string.Equals(partId, resolvedPartId, StringComparison.OrdinalIgnoreCase) || !hasFallbackEnvelope)
+                {
+                    _shapeMetadataService.Save(shape, storedEnvelope, resolvedPartId);
+                }
+
+                return true;
+            }
+
+            if (hasFallbackEnvelope)
+            {
+                envelope = fallbackEnvelope;
+                return true;
+            }
+
+            return false;
+        }
+
+        private void SaveManagedEnvelope(PptInterop.Shape shape, DiagramEnvelope envelope)
+        {
+            if (shape == null || envelope == null)
+            {
+                return;
+            }
+
+            PptInterop.Presentation presentation = _selectedShapeAccessor.GetPresentation(shape) ?? _application.ActivePresentation;
+            string existingPartId = _shapeMetadataService.ReadDiagramPartId(shape);
+            string storedPartId = _presentationDiagramStore.Upsert(presentation, envelope, existingPartId);
+
+            if (string.IsNullOrWhiteSpace(storedPartId))
+            {
+                storedPartId = existingPartId;
+            }
+
+            _shapeMetadataService.Save(shape, envelope, storedPartId);
+        }
+
+        private void DeleteManagedEnvelope(PptInterop.Shape shape)
+        {
+            if (shape == null)
+            {
+                return;
+            }
+
+            PptInterop.Presentation presentation = _selectedShapeAccessor.GetPresentation(shape) ?? _application.ActivePresentation;
+            string partId = _shapeMetadataService.ReadDiagramPartId(shape);
+            SelectionContext context = _shapeMetadataService.BuildSelectionContext(shape);
+            _presentationDiagramStore.Delete(presentation, context.DiagramId, partId);
         }
 
         private void SuppressAutoOpenForSeconds(int seconds)

@@ -42,6 +42,17 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
             return application.ActivePresentation.FullName ?? string.Empty;
         }
 
+        public PptInterop.Presentation GetPresentation(PptInterop.Shape shape)
+        {
+            PptInterop.Slide slide = GetParentSlide(shape);
+            if (slide == null)
+            {
+                return null;
+            }
+
+            return slide.Parent as PptInterop.Presentation;
+        }
+
         public PptInterop.Slide GetActiveSlide(PptInterop.Application application, bool createIfMissing)
         {
             if (application == null || application.ActivePresentation == null)

@@ -60,6 +60,8 @@
 - 已支持清除图形绑定
 - 已支持从选中的图形还原元数据并刷新 Ribbon 状态
 - 已支持通过新建流程生成带元数据的图形
+- 已把 envelope 同步保存到 `Presentation.CustomXMLParts`
+- 已支持通过 `customXmlPartId` 或 `diagramId` 从文档级存储恢复图形元数据
 
 ### M2：SVG 插入与替换
 
@@ -192,8 +194,11 @@
 ### 高风险
 
 - SVG 替换后对象属性丢失
-- 大型 XML 写入 `AlternativeText` 触发边界问题
 - 外部编辑器保存时机不稳定
+
+已缓解：
+
+- 大型 XML 不再只依赖 `AlternativeText`，当前已落到文档级 `CustomXMLParts`
 
 ### 中风险
 

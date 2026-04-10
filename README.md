@@ -18,6 +18,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 已验证 `draw.io Desktop` CLI 导出 SVG，并收紧了导出参数。
 - 已支持当前用户级插件注册，无需管理员权限。
 - 已接入 URL 模式编辑器首版：`WebView2 + diagrams.net embed`，保存后会把 SVG 和 XML 回写到 PPT 图形。
+- 已把 Draw.io 源数据同步写入 `Presentation.CustomXMLParts`，图形保留 `diagramId/customXmlPartId` 引用，并继续兼容旧的 `AlternativeText` 回退。
 
 ## 目录结构
 
@@ -31,7 +32,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 宿主：C# + PowerPoint COM Add-in
 - Office 接口：`Microsoft.Office.Interop.PowerPoint`
 - Ribbon：`Microsoft.Office.Core.IRibbonExtensibility`
-- 初始元数据存储策略：`Shape.Tags + Shape.AlternativeText`
+- 当前元数据存储策略：`Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText 回退兼容`
 - 外部编辑器模式：
   - 本地桌面版 draw.io/diagrams.net
   - 配置化 URL 模式（`WebView2`）
@@ -87,4 +88,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
 1. 实机验证 URL 模式的 save/export 消息链路
 2. 提升替换图形时对动画、超链接和层级的保真
 3. 增加保存日志与错误追踪
-4. 评估从 `AlternativeText` 迁移到更稳的文档级存储方案
+4. 收紧 `AlternativeText` 的回退职责，进一步减小单个 shape 的元数据负担

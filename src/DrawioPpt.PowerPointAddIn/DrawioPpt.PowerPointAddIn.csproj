@@ -69,6 +69,7 @@
     <Compile Include="Services\DesktopSvgExporter.cs" />
     <Compile Include="Services\DiagramVisualSvgService.cs" />
     <Compile Include="Services\PowerPointSvgShapeService.cs" />
+    <Compile Include="Services\PresentationDiagramStore.cs" />
     <Compile Include="Services\ShapeMetadataService.cs" />
     <Compile Include="Services\SvgMarkupFileStore.cs" />
     <Compile Include="Services\SvgFileProvider.cs" />
