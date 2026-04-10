@@ -3,29 +3,21 @@ param(
     [switch]$X86
 )
 
-$frameworkRoot = "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319"
-if ($X86) {
-    $frameworkRoot = "C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319"
+function Remove-RegistryKeyTree {
+    param(
+        [string]$SubKey
+    )
+
+    [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree($SubKey, $false)
 }
 
-$regasmPath = Join-Path $frameworkRoot "RegAsm.exe"
-$platformFolder = "x64"
-if ($X86) {
-    $platformFolder = "x86"
-}
+$progId = "Greensoft.DrawioPptAddIn"
+$className = "DrawioPpt.PowerPointAddIn.Connect"
+$clsid = "{0B8996D8-D6B9-4D61-8E8C-6F2081BFEA31}"
 
-$dllPath = Join-Path $PSScriptRoot ("..\\src\\DrawioPpt.PowerPointAddIn\\bin\\{0}\\{1}\\DrawioPpt.PowerPointAddIn.dll" -f $platformFolder, $Configuration)
+Remove-RegistryKeyTree -SubKey ("Software\\Microsoft\\Office\\PowerPoint\\Addins\\$progId")
+Remove-RegistryKeyTree -SubKey ("Software\\Microsoft\\Office\\PowerPoint\\Addins\\$className")
+Remove-RegistryKeyTree -SubKey ("Software\\Classes\\$progId")
+Remove-RegistryKeyTree -SubKey ("Software\\Classes\\CLSID\\$clsid")
 
-if (-not (Test-Path $regasmPath)) {
-    throw "RegAsm.exe not found: $regasmPath"
-}
-
-if (-not (Test-Path $dllPath)) {
-    throw "Add-in assembly not found: $dllPath"
-}
-
-& $regasmPath $dllPath /unregister
-
-if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
-}
+Write-Host "Unregistered DrawioPpt for current user."

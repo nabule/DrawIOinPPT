@@ -2,7 +2,7 @@
 
 PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编辑和更新 Draw.io 图形。
 
-当前仓库已经完成初始骨架，并进入 `M1 - 元数据 MVP` 的第一步，重点完成了以下内容：
+当前仓库已经完成初始骨架，并推进到了可实机联调的阶段，重点完成了以下内容：
 
 - 明确技术路线：PowerPoint 原生 COM Add-in，先不考虑 WPS。
 - 固化模块边界：宿主层、元数据层、外部编辑器层、文件与路径层。
@@ -15,6 +15,9 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 已支持双击已绑定图形直接打开外部编辑器。
 - 已支持 `AutoOpenOnSelection` 设置，选中已绑定图形时可自动进入编辑。
 - 已支持自动探测本机已安装的 `draw.io` / `diagrams.net` 桌面版路径。
+- 已验证 `draw.io Desktop` CLI 导出 SVG，并收紧了导出参数。
+- 已支持当前用户级插件注册，无需管理员权限。
+- 已接入 URL 模式编辑器首版：`WebView2 + diagrams.net embed`，保存后会把 SVG 和 XML 回写到 PPT 图形。
 
 ## 目录结构
 
@@ -31,7 +34,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 初始元数据存储策略：`Shape.Tags + Shape.AlternativeText`
 - 外部编辑器模式：
   - 本地桌面版 draw.io/diagrams.net
-  - 配置化 URL 模式
+  - 配置化 URL 模式（`WebView2`）
 
 ## 构建前提
 
@@ -46,7 +49,8 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 当前机器可用的本地工具路径：
 
 - `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe`
-- `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe`
+- `C:\Program Files\draw.io\draw.io.exe`
+- WebView2 Runtime：已检测
 
 ## 本地验证
 
@@ -62,7 +66,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
-当前默认按 `x64` 构建，与本机 PowerPoint x64 对齐。
+构建脚本会自动恢复 `Microsoft.Web.WebView2` 包，并默认按 `x64` 构建，与本机 PowerPoint x64 对齐。
 
 注册插件：
 
@@ -78,9 +82,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
 
 ## 下一步
 
-按照 [docs/development-plan.md](docs/development-plan.md) 推进，优先完成：
+按照 [docs/development-plan.md](docs/development-plan.md) 继续推进，优先完成：
 
-1. 验证 draw.io Desktop 的 CLI 导出兼容性并收紧参数
-2. 提升替换图形时对动画和超链接的保真
-3. 接入 URL 模式编辑器
-4. 增加日志与安装验证
+1. 实机验证 URL 模式的 save/export 消息链路
+2. 提升替换图形时对动画、超链接和层级的保真
+3. 增加保存日志与错误追踪
+4. 评估从 `AlternativeText` 迁移到更稳的文档级存储方案

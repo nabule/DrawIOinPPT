@@ -21,6 +21,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
         private readonly DesktopEditorPathDetector _desktopEditorPathDetector;
         private readonly DesktopEditorLauncher _desktopEditorLauncher;
         private readonly SvgFileProvider _svgFileProvider;
+        private readonly SvgMarkupFileStore _svgMarkupFileStore;
         private readonly PowerPointSvgShapeService _svgShapeService;
         private readonly DesktopDiagramMonitor _desktopDiagramMonitor;
         private readonly UserNotifier _userNotifier;
@@ -40,6 +41,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _desktopEditorPathDetector = new DesktopEditorPathDetector();
             _desktopEditorLauncher = new DesktopEditorLauncher();
             _svgFileProvider = new SvgFileProvider();
+            _svgMarkupFileStore = new SvgMarkupFileStore();
             _svgShapeService = new PowerPointSvgShapeService(_selectedShapeAccessor);
             _desktopDiagramMonitor = new DesktopDiagramMonitor(RefreshDiagramFromMonitoredFile);
             _userNotifier = new UserNotifier();
@@ -93,8 +95,17 @@ namespace DrawioPpt.PowerPointAddIn.Services
             string presentationPath = _selectedShapeAccessor.GetPresentationFullName(_application);
             string diagramName = BuildNextDiagramName();
             DiagramEnvelope envelope = _shapeMetadataService.CreateNewEnvelope(_settings, presentationPath, diagramName);
-            string workingFile = _desktopEditorLauncher.PrepareWorkingFile(envelope, _settings, presentationPath);
-            envelope.SidecarPath = workingFile;
+            string workingFile = envelope.SidecarPath;
+
+            if (_settings.EditorMode == EditorMode.Desktop)
+            {
+                workingFile = _desktopEditorLauncher.PrepareWorkingFile(envelope, _settings, presentationPath);
+                envelope.SidecarPath = workingFile;
+            }
+            else
+            {
+                WriteSidecarFile(envelope);
+            }
 
             string svgPath = _svgFileProvider.GetSvgPath(envelope, _settings, workingFile);
             SuppressAutoOpenForSeconds(2);
@@ -103,7 +114,12 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _currentSelection = _shapeMetadataService.BuildSelectionContext(shape);
             RaiseSelectionStateChanged();
 
-            bool launched = LaunchDesktopEditor(envelope, workingFile, false);
+            bool launched = TryOpenShapeForEditing(shape, envelope, false);
+            if (_settings.EditorMode == EditorMode.Url)
+            {
+                return;
+            }
+
             string message =
                 "已创建新的 Draw.io 图形。" +
                 Environment.NewLine + "Diagram ID: " + envelope.DiagramId +
@@ -376,12 +392,35 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 return true;
             }
 
+            if (_settings.EditorMode == EditorMode.Url)
+            {
+                if (string.IsNullOrWhiteSpace(_settings.EditorUrl))
+                {
+                    if (explicitUserAction)
+                    {
+                        _userNotifier.ShowInfo("请先在设置中配置 URL 模式编辑器地址。", "DrawioPpt");
+                    }
+
+                    return false;
+                }
+
+                WriteSidecarFile(envelope);
+                using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(_settings.EditorUrl, envelope.DiagramName, envelope.DrawioXml))
+                {
+                    form.DiagramSaved += delegate(object sender, UrlDiagramSavedEventArgs args)
+                    {
+                        ApplyUrlEditorSave(shape, envelope, args);
+                    };
+
+                    form.ShowDialog();
+                }
+
+                return true;
+            }
+
             if (explicitUserAction)
             {
-                string detail = "URL 模式编辑器尚未接入。";
-                detail += Environment.NewLine + "Editor URL: " + _settings.EditorUrl;
-                detail += Environment.NewLine + "Shape Name: " + envelope.DiagramName;
-                _userNotifier.ShowInfo(detail, "DrawioPpt");
+                _userNotifier.ShowInfo("当前编辑模式不受支持。", "DrawioPpt");
             }
 
             return false;
@@ -432,6 +471,54 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _desktopEditorLauncher.Launch(_settings.DesktopEditorPath, workingFile);
             _desktopDiagramMonitor.Track(envelope.DiagramId, workingFile);
             return true;
+        }
+
+        private void ApplyUrlEditorSave(PptInterop.Shape originalShape, DiagramEnvelope envelope, UrlDiagramSavedEventArgs args)
+        {
+            if (envelope == null || args == null || string.IsNullOrWhiteSpace(args.Xml) || string.IsNullOrWhiteSpace(args.SvgMarkup))
+            {
+                return;
+            }
+
+            try
+            {
+                envelope.DrawioXml = args.Xml;
+                envelope.UpdatedUtc = DateTime.UtcNow;
+                WriteSidecarFile(envelope);
+
+                string svgPath = _svgMarkupFileStore.Write(envelope, args.SvgMarkup);
+                PptInterop.Shape shape = _selectedShapeAccessor.FindShapeByDiagramId(_application, envelope.DiagramId) ?? originalShape;
+                if (shape == null)
+                {
+                    return;
+                }
+
+                SuppressAutoOpenForSeconds(2);
+                PptInterop.Shape newShape = _svgShapeService.Replace(shape, svgPath);
+                _shapeMetadataService.Save(newShape, envelope);
+                _currentSelection = _shapeMetadataService.BuildSelectionContext(newShape);
+                RaiseSelectionStateChanged();
+            }
+            catch (Exception ex)
+            {
+                _userNotifier.ShowInfo("URL 模式保存后刷新失败。" + Environment.NewLine + ex.Message, "DrawioPpt");
+            }
+        }
+
+        private static void WriteSidecarFile(DiagramEnvelope envelope)
+        {
+            if (envelope == null || string.IsNullOrWhiteSpace(envelope.SidecarPath))
+            {
+                return;
+            }
+
+            string directory = Path.GetDirectoryName(envelope.SidecarPath);
+            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllText(envelope.SidecarPath, envelope.DrawioXml ?? string.Empty);
         }
 
         private void MaybeAutoOpenSelection()

@@ -25,8 +25,8 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
             string[] argumentsToTry = new string[]
             {
-                string.Format("--export --format svg --output {0} {1}", Quote(outputSvgPath), Quote(drawioFilePath)),
-                string.Format("-x -f svg -o {0} {1}", Quote(outputSvgPath), Quote(drawioFilePath))
+                string.Format("-x -f svg -e --embed-svg-images -o {0} {1}", Quote(outputSvgPath), Quote(drawioFilePath)),
+                string.Format("--export --format svg --embed-diagram --embed-svg-images --output {0} {1}", Quote(outputSvgPath), Quote(drawioFilePath))
             };
 
             int index;
@@ -67,4 +67,3 @@ namespace DrawioPpt.PowerPointAddIn.Services
         }
     }
 }
-

@@ -11,9 +11,12 @@ namespace DrawioPpt.PowerPointAddIn
 {
     [ComVisible(true)]
     [Guid("0B8996D8-D6B9-4D61-8E8C-6F2081BFEA31")]
-    [ProgId("Greensoft.DrawioPptAddIn")]
+    [ProgId(AddInProgId)]
     public class Connect : IDTExtensibility2, IRibbonExtensibility
     {
+        public const string AddInProgId = "Greensoft.DrawioPptAddIn";
+
+        private const string OfficeAddinsRegistryRoot = "Software\\Microsoft\\Office\\PowerPoint\\Addins\\";
         private PptInterop.Application _application;
         private AddInHost _host;
         private RibbonController _ribbonController;
@@ -162,7 +165,7 @@ namespace DrawioPpt.PowerPointAddIn
         [ComRegisterFunction]
         public static void Register(Type type)
         {
-            string keyName = "Software\\Microsoft\\Office\\PowerPoint\\Addins\\" + type.FullName;
+            string keyName = OfficeAddinsRegistryRoot + AddInProgId;
             using (RegistryKey key = Registry.CurrentUser.CreateSubKey(keyName))
             {
                 if (key == null)
@@ -180,7 +183,7 @@ namespace DrawioPpt.PowerPointAddIn
         [ComUnregisterFunction]
         public static void Unregister(Type type)
         {
-            string keyName = "Software\\Microsoft\\Office\\PowerPoint\\Addins\\" + type.FullName;
+            string keyName = OfficeAddinsRegistryRoot + AddInProgId;
             Registry.CurrentUser.DeleteSubKeyTree(keyName, false);
         }
     }
