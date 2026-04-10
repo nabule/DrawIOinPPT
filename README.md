@@ -2,12 +2,14 @@
 
 PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编辑和更新 Draw.io 图形。
 
-当前仓库处于 `v0.1.0-initial` 阶段，重点完成了以下内容：
+当前仓库已经完成初始骨架，并进入 `M1 - 元数据 MVP` 的第一步，重点完成了以下内容：
 
 - 明确技术路线：PowerPoint 原生 COM Add-in，先不考虑 WPS。
 - 固化模块边界：宿主层、元数据层、外部编辑器层、文件与路径层。
 - 建立可继续开发的代码骨架：解决方案、项目、Ribbon、选中图形监听、设置与元数据模型。
 - 建立后续迭代计划：从元数据 MVP 到外部编辑器联动，再到 SVG 插入与自动更新。
+- 已支持给选中的现有图形写入和清除 Draw.io 元数据。
+- 已支持识别带元数据的图形，并在 Ribbon 上反馈状态。
 
 ## 目录结构
 
@@ -71,8 +73,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
 
 按照 [docs/development-plan.md](docs/development-plan.md) 推进，优先完成：
 
-1. 元数据写入与读取 MVP
+1. 补齐真正的新建 Draw.io 图形流程
 2. SVG 插入与更新
 3. 本地 draw.io 进程联动
 4. 自动保存监听与回写
-

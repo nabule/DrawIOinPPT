@@ -9,21 +9,28 @@ namespace DrawioPpt.PowerPointAddIn.Services
 {
     public class AddInHost : IDisposable
     {
+        private readonly PptInterop.Application _application;
         private readonly IDiagramEnvelopeSerializer _envelopeSerializer;
         private readonly IPluginSettingsStore _settingsStore;
         private readonly SelectionMonitor _selectionMonitor;
+        private readonly SelectedShapeAccessor _selectedShapeAccessor;
+        private readonly ShapeMetadataService _shapeMetadataService;
         private readonly UserNotifier _userNotifier;
         private PluginSettings _settings;
         private SelectionContext _currentSelection;
 
         public AddInHost(PptInterop.Application application)
         {
+            _application = application;
             _envelopeSerializer = new DiagramEnvelopeSerializer();
             _settingsStore = new FilePluginSettingsStore();
+            _selectedShapeAccessor = new SelectedShapeAccessor();
+            _shapeMetadataService = new ShapeMetadataService(_envelopeSerializer, new PresentationSidecarPathBuilder());
             _userNotifier = new UserNotifier();
             _selectionMonitor = new SelectionMonitor(application, new PowerPointShapeSelectionReader(_envelopeSerializer));
             _selectionMonitor.SelectionChanged += OnSelectionChanged;
             _currentSelection = new SelectionContext();
+            _settings = new PluginSettings();
         }
 
         public event EventHandler SelectionStateChanged;
@@ -31,6 +38,11 @@ namespace DrawioPpt.PowerPointAddIn.Services
         public bool HasEditableSelection
         {
             get { return _currentSelection != null && _currentSelection.IsManagedShape; }
+        }
+
+        public bool HasSingleShapeSelection
+        {
+            get { return _currentSelection != null && _currentSelection.HasSingleShape; }
         }
 
         public void Start()
@@ -60,6 +72,30 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _userNotifier.ShowInfo(message, "DrawioPpt");
         }
 
+        public void BindSelectedShape()
+        {
+            PptInterop.Shape shape = _selectedShapeAccessor.GetSingleSelectedShape(_application);
+            if (shape == null)
+            {
+                _userNotifier.ShowInfo("请先选中一个图形，再执行绑定。", "DrawioPpt");
+                return;
+            }
+
+            string presentationPath = _selectedShapeAccessor.GetPresentationFullName(_application);
+            DiagramEnvelope envelope = _shapeMetadataService.CreateOrUpdateEnvelope(shape, _settings, presentationPath);
+            _shapeMetadataService.Save(shape, envelope);
+            _currentSelection = _shapeMetadataService.BuildSelectionContext(shape);
+            RaiseSelectionStateChanged();
+
+            string message =
+                "已为当前图形写入 Draw.io 元数据。" +
+                Environment.NewLine + "Shape Name: " + shape.Name +
+                Environment.NewLine + "Diagram ID: " + envelope.DiagramId +
+                Environment.NewLine + "Sidecar: " + envelope.SidecarPath;
+
+            _userNotifier.ShowInfo(message, "DrawioPpt");
+        }
+
         public void EditSelectedDiagram()
         {
             if (_currentSelection == null || !_currentSelection.IsManagedShape)
@@ -82,6 +118,26 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
             detail += Environment.NewLine + Environment.NewLine + "下一阶段会在这里接外部编辑器并回写 SVG。";
             _userNotifier.ShowInfo(detail, "DrawioPpt");
+        }
+
+        public void ClearSelectedShapeBinding()
+        {
+            PptInterop.Shape shape = _selectedShapeAccessor.GetSingleSelectedShape(_application);
+            if (shape == null)
+            {
+                _userNotifier.ShowInfo("请先选中一个图形，再执行清除绑定。", "DrawioPpt");
+                return;
+            }
+
+            _shapeMetadataService.Clear(shape);
+            _currentSelection = new SelectionContext();
+            _currentSelection.HasSelection = true;
+            _currentSelection.HasSingleShape = true;
+            _currentSelection.ShapeId = shape.Id;
+            _currentSelection.ShapeName = shape.Name;
+            RaiseSelectionStateChanged();
+
+            _userNotifier.ShowInfo("已清除当前图形上的 Draw.io 绑定信息。", "DrawioPpt");
         }
 
         public void OpenSettings()
@@ -122,7 +178,11 @@ namespace DrawioPpt.PowerPointAddIn.Services
         private void OnSelectionChanged(object sender, SelectionContextChangedEventArgs e)
         {
             _currentSelection = e.Context;
+            RaiseSelectionStateChanged();
+        }
 
+        private void RaiseSelectionStateChanged()
+        {
             EventHandler handler = this.SelectionStateChanged;
             if (handler != null)
             {

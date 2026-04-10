@@ -29,9 +29,24 @@ namespace DrawioPpt.PowerPointAddIn.Ribbon
             _host.EditSelectedDiagram();
         }
 
+        public void OnBindSelectedShape(IRibbonControl control)
+        {
+            _host.BindSelectedShape();
+        }
+
+        public void OnClearSelectedShape(IRibbonControl control)
+        {
+            _host.ClearSelectedShapeBinding();
+        }
+
         public void OnOpenSettings(IRibbonControl control)
         {
             _host.OpenSettings();
+        }
+
+        public bool GetSingleShapeEnabled(IRibbonControl control)
+        {
+            return _host.HasSingleShapeSelection;
         }
 
         public bool GetEditEnabled(IRibbonControl control)
@@ -53,4 +68,3 @@ namespace DrawioPpt.PowerPointAddIn.Ribbon
         }
     }
 }
-

@@ -87,6 +87,22 @@ namespace DrawioPpt.PowerPointAddIn
             }
         }
 
+        public void OnBindSelectedShape(IRibbonControl control)
+        {
+            if (_ribbonController != null)
+            {
+                _ribbonController.OnBindSelectedShape(control);
+            }
+        }
+
+        public void OnClearSelectedShape(IRibbonControl control)
+        {
+            if (_ribbonController != null)
+            {
+                _ribbonController.OnClearSelectedShape(control);
+            }
+        }
+
         public void OnOpenSettings(IRibbonControl control)
         {
             if (_ribbonController != null)
@@ -113,6 +129,16 @@ namespace DrawioPpt.PowerPointAddIn
             }
 
             return _ribbonController.GetSelectionStatus(control);
+        }
+
+        public bool GetSingleShapeEnabled(IRibbonControl control)
+        {
+            if (_ribbonController == null)
+            {
+                return false;
+            }
+
+            return _ribbonController.GetSingleShapeEnabled(control);
         }
 
         [ComRegisterFunction]

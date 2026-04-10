@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Connect.cs" />
+    <Compile Include="PowerPoint\SelectedShapeAccessor.cs" />
     <Compile Include="PowerPoint\PowerPointShapeSelectionReader.cs" />
     <Compile Include="PowerPoint\SelectionContext.cs" />
     <Compile Include="PowerPoint\SelectionContextChangedEventArgs.cs" />
@@ -50,8 +51,8 @@
     <Compile Include="Ribbon\RibbonController.cs" />
     <Compile Include="Ribbon\RibbonXmlProvider.cs" />
     <Compile Include="Services\AddInHost.cs" />
+    <Compile Include="Services\ShapeMetadataService.cs" />
     <Compile Include="Services\UserNotifier.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
-

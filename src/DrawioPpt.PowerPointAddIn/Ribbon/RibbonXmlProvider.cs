@@ -11,7 +11,9 @@ namespace DrawioPpt.PowerPointAddIn.Ribbon
       <tab id='Greensoft.DrawioPpt.Tab' label='Draw.io'>
         <group id='Greensoft.DrawioPpt.Group' label='Draw.io 图形'>
           <button id='Greensoft.DrawioPpt.New' label='新建图形' size='large' imageMso='InsertSmartArtGraphic' onAction='OnNewDiagram' />
+          <button id='Greensoft.DrawioPpt.Bind' label='绑定选中图形' imageMso='ObjectBringToFront' onAction='OnBindSelectedShape' getEnabled='GetSingleShapeEnabled' />
           <button id='Greensoft.DrawioPpt.Edit' label='编辑选中图形' size='large' imageMso='DiagramCycle' onAction='OnEditSelectedDiagram' getEnabled='GetEditEnabled' />
+          <button id='Greensoft.DrawioPpt.Clear' label='清除绑定' imageMso='Delete' onAction='OnClearSelectedShape' getEnabled='GetSingleShapeEnabled' />
           <button id='Greensoft.DrawioPpt.Settings' label='设置' imageMso='FileProperties' onAction='OnOpenSettings' />
           <labelControl id='Greensoft.DrawioPpt.Status' getLabel='GetSelectionStatus' />
         </group>
@@ -22,4 +24,3 @@ namespace DrawioPpt.PowerPointAddIn.Ribbon
         }
     }
 }
-
