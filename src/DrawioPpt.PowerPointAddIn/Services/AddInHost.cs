@@ -19,6 +19,9 @@ namespace DrawioPpt.PowerPointAddIn.Services
         private readonly SelectedShapeAccessor _selectedShapeAccessor;
         private readonly ShapeMetadataService _shapeMetadataService;
         private readonly DesktopEditorLauncher _desktopEditorLauncher;
+        private readonly SvgFileProvider _svgFileProvider;
+        private readonly PowerPointSvgShapeService _svgShapeService;
+        private readonly DesktopDiagramMonitor _desktopDiagramMonitor;
         private readonly UserNotifier _userNotifier;
         private PluginSettings _settings;
         private SelectionContext _currentSelection;
@@ -31,6 +34,9 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _selectedShapeAccessor = new SelectedShapeAccessor();
             _shapeMetadataService = new ShapeMetadataService(_envelopeSerializer, new PresentationSidecarPathBuilder());
             _desktopEditorLauncher = new DesktopEditorLauncher();
+            _svgFileProvider = new SvgFileProvider();
+            _svgShapeService = new PowerPointSvgShapeService(_selectedShapeAccessor);
+            _desktopDiagramMonitor = new DesktopDiagramMonitor(RefreshDiagramFromMonitoredFile);
             _userNotifier = new UserNotifier();
             _selectionMonitor = new SelectionMonitor(application, new PowerPointShapeSelectionReader(_envelopeSerializer));
             _selectionMonitor.SelectionChanged += OnSelectionChanged;
@@ -59,20 +65,39 @@ namespace DrawioPpt.PowerPointAddIn.Services
         public void Dispose()
         {
             _selectionMonitor.Dispose();
+            _desktopDiagramMonitor.Dispose();
         }
 
         public void CreateNewDiagram()
         {
+            if (_application == null || _application.ActivePresentation == null)
+            {
+                _userNotifier.ShowInfo("请先打开或创建一个 PowerPoint 演示文稿。", "DrawioPpt");
+                return;
+            }
+
+            string presentationPath = _selectedShapeAccessor.GetPresentationFullName(_application);
+            string diagramName = BuildNextDiagramName();
+            DiagramEnvelope envelope = _shapeMetadataService.CreateNewEnvelope(_settings, presentationPath, diagramName);
+            string workingFile = _desktopEditorLauncher.PrepareWorkingFile(envelope, _settings, presentationPath);
+            envelope.SidecarPath = workingFile;
+
+            string svgPath = _svgFileProvider.GetSvgPath(envelope, _settings, workingFile);
+            PptInterop.Shape shape = _svgShapeService.InsertOnActiveSlide(_application, svgPath, envelope.DiagramName);
+            _shapeMetadataService.Save(shape, envelope);
+            _currentSelection = _shapeMetadataService.BuildSelectionContext(shape);
+            RaiseSelectionStateChanged();
+
+            bool launched = TryLaunchDesktopEditor(envelope, workingFile);
             string message =
-                "初始版本已完成宿主骨架。" +
-                Environment.NewLine + Environment.NewLine +
-                "下一阶段将把这里接到真正的 Draw.io 新建流程，包括：" +
-                Environment.NewLine +
-                "- 启动本地或 URL 编辑器" +
-                Environment.NewLine +
-                "- 生成 SVG" +
-                Environment.NewLine +
-                "- 写入 diagram 元数据";
+                "已创建新的 Draw.io 图形。" +
+                Environment.NewLine + "Diagram ID: " + envelope.DiagramId +
+                Environment.NewLine + "Working file: " + workingFile;
+
+            if (!launched)
+            {
+                message += Environment.NewLine + "当前未启动外部编辑器，图形先以 SVG 预览插入。";
+            }
 
             _userNotifier.ShowInfo(message, "DrawioPpt");
         }
@@ -125,17 +150,15 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
             if (_settings.EditorMode == EditorMode.Desktop)
             {
-                if (string.IsNullOrWhiteSpace(_settings.DesktopEditorPath) || !File.Exists(_settings.DesktopEditorPath))
-                {
-                    _userNotifier.ShowInfo("请先在设置中配置本地 draw.io/diagrams.net 路径。", "DrawioPpt");
-                    return;
-                }
-
                 string workingFile = _desktopEditorLauncher.PrepareWorkingFile(envelope, _settings, _selectedShapeAccessor.GetPresentationFullName(_application));
                 envelope.SidecarPath = workingFile;
                 envelope.UpdatedUtc = DateTime.UtcNow;
                 _shapeMetadataService.Save(shape, envelope);
-                _desktopEditorLauncher.Launch(_settings.DesktopEditorPath, workingFile);
+                if (!TryLaunchDesktopEditor(envelope, workingFile))
+                {
+                    _userNotifier.ShowInfo("请先在设置中配置本地 draw.io/diagrams.net 路径。", "DrawioPpt");
+                    return;
+                }
 
                 _userNotifier.ShowInfo("已启动外部编辑器。" + Environment.NewLine + workingFile, "DrawioPpt");
                 return;
@@ -165,6 +188,31 @@ namespace DrawioPpt.PowerPointAddIn.Services
             RaiseSelectionStateChanged();
 
             _userNotifier.ShowInfo("已清除当前图形上的 Draw.io 绑定信息。", "DrawioPpt");
+        }
+
+        public void RefreshSelectedDiagram()
+        {
+            PptInterop.Shape shape = _selectedShapeAccessor.GetSingleSelectedShape(_application);
+            if (shape == null)
+            {
+                _userNotifier.ShowInfo("请先选中一个图形。", "DrawioPpt");
+                return;
+            }
+
+            DiagramEnvelope envelope;
+            if (!_shapeMetadataService.TryRead(shape, out envelope))
+            {
+                _userNotifier.ShowInfo("当前图形没有可刷新的 Draw.io 元数据。", "DrawioPpt");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(envelope.SidecarPath) || !File.Exists(envelope.SidecarPath))
+            {
+                _userNotifier.ShowInfo("当前图形还没有可读取的 .drawio 工作文件。", "DrawioPpt");
+                return;
+            }
+
+            RefreshDiagramFromFile(shape, envelope, envelope.SidecarPath, true);
         }
 
         public void OpenSettings()
@@ -206,6 +254,109 @@ namespace DrawioPpt.PowerPointAddIn.Services
         {
             _currentSelection = e.Context;
             RaiseSelectionStateChanged();
+        }
+
+        private string BuildNextDiagramName()
+        {
+            return "Drawio Diagram " + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+        }
+
+        private void RefreshDiagramFromMonitoredFile(string diagramId, string filePath)
+        {
+            if (!_settings.AutoUpdateOnSave)
+            {
+                return;
+            }
+
+            PptInterop.Shape shape = _selectedShapeAccessor.FindShapeByDiagramId(_application, diagramId);
+            if (shape == null)
+            {
+                return;
+            }
+
+            DiagramEnvelope envelope;
+            if (!_shapeMetadataService.TryRead(shape, out envelope))
+            {
+                return;
+            }
+
+            RefreshDiagramFromFile(shape, envelope, filePath, false);
+        }
+
+        private void RefreshDiagramFromFile(PptInterop.Shape shape, DiagramEnvelope envelope, string filePath, bool notifyUser)
+        {
+            if (shape == null || envelope == null || string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                return;
+            }
+
+            string xmlContent;
+            if (!TryReadWorkingFile(filePath, out xmlContent))
+            {
+                if (notifyUser)
+                {
+                    _userNotifier.ShowInfo("当前无法读取 .drawio 文件，可能仍在保存中。请稍后重试。", "DrawioPpt");
+                }
+
+                return;
+            }
+
+            envelope.DrawioXml = xmlContent;
+            envelope.SidecarPath = filePath;
+            envelope.UpdatedUtc = DateTime.UtcNow;
+
+            string svgPath = _svgFileProvider.GetSvgPath(envelope, _settings, filePath);
+            PptInterop.Shape newShape = _svgShapeService.Replace(shape, svgPath);
+            _shapeMetadataService.Save(newShape, envelope);
+            _currentSelection = _shapeMetadataService.BuildSelectionContext(newShape);
+            RaiseSelectionStateChanged();
+
+            if (notifyUser)
+            {
+                _userNotifier.ShowInfo("已刷新当前图形。", "DrawioPpt");
+            }
+        }
+
+        private static bool TryReadWorkingFile(string filePath, out string xmlContent)
+        {
+            xmlContent = string.Empty;
+
+            int attempt;
+            for (attempt = 0; attempt < 3; attempt++)
+            {
+                try
+                {
+                    xmlContent = File.ReadAllText(filePath);
+                    return true;
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+
+                System.Threading.Thread.Sleep(250);
+            }
+
+            return false;
+        }
+
+        private bool TryLaunchDesktopEditor(DiagramEnvelope envelope, string workingFile)
+        {
+            if (_settings.EditorMode != EditorMode.Desktop)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(_settings.DesktopEditorPath) || !File.Exists(_settings.DesktopEditorPath))
+            {
+                return false;
+            }
+
+            _desktopEditorLauncher.Launch(_settings.DesktopEditorPath, workingFile);
+            _desktopDiagramMonitor.Track(envelope.DiagramId, workingFile);
+            return true;
         }
 
         private void RaiseSelectionStateChanged()

@@ -100,6 +100,33 @@ namespace DrawioPpt.PowerPointAddIn.Services
             return envelope;
         }
 
+        public DiagramEnvelope CreateNewEnvelope(PluginSettings settings, string presentationPath, string diagramName)
+        {
+            if (settings == null)
+            {
+                settings = new PluginSettings();
+            }
+
+            DiagramEnvelope envelope = new DiagramEnvelope();
+            envelope.DiagramId = Guid.NewGuid().ToString("N");
+            envelope.DiagramName = string.IsNullOrWhiteSpace(diagramName) ? "Drawio Diagram" : diagramName;
+            envelope.EditorMode = settings.EditorMode;
+            envelope.EditorTarget = settings.EditorMode == EditorMode.Desktop ? settings.DesktopEditorPath : settings.EditorUrl;
+            envelope.UpdatedUtc = DateTime.UtcNow;
+            envelope.DrawioXml = BuildPlaceholderXml(envelope.DiagramId, envelope.DiagramName);
+
+            if (settings.KeepSidecarFile && !string.IsNullOrWhiteSpace(presentationPath))
+            {
+                envelope.SidecarPath = _pathBuilder.BuildPath(
+                    presentationPath,
+                    envelope.DiagramId,
+                    envelope.DiagramName,
+                    settings.SidecarFolderName);
+            }
+
+            return envelope;
+        }
+
         public void Save(PptInterop.Shape shape, DiagramEnvelope envelope)
         {
             if (shape == null)

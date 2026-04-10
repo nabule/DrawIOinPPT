@@ -55,8 +55,13 @@
     <Compile Include="Ribbon\RibbonController.cs" />
     <Compile Include="Ribbon\RibbonXmlProvider.cs" />
     <Compile Include="Services\AddInHost.cs" />
+    <Compile Include="Services\DesktopDiagramMonitor.cs" />
     <Compile Include="Services\DesktopEditorLauncher.cs" />
+    <Compile Include="Services\DesktopSvgExporter.cs" />
+    <Compile Include="Services\DiagramVisualSvgService.cs" />
+    <Compile Include="Services\PowerPointSvgShapeService.cs" />
     <Compile Include="Services\ShapeMetadataService.cs" />
+    <Compile Include="Services\SvgFileProvider.cs" />
     <Compile Include="UI\SettingsForm.cs" />
     <Compile Include="Services\UserNotifier.cs" />
   </ItemGroup>

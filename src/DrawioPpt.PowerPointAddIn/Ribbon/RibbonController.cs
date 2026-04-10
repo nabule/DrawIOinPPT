@@ -29,6 +29,11 @@ namespace DrawioPpt.PowerPointAddIn.Ribbon
             _host.EditSelectedDiagram();
         }
 
+        public void OnRefreshSelectedDiagram(IRibbonControl control)
+        {
+            _host.RefreshSelectedDiagram();
+        }
+
         public void OnBindSelectedShape(IRibbonControl control)
         {
             _host.BindSelectedShape();
@@ -47,6 +52,11 @@ namespace DrawioPpt.PowerPointAddIn.Ribbon
         public bool GetSingleShapeEnabled(IRibbonControl control)
         {
             return _host.HasSingleShapeSelection;
+        }
+
+        public bool GetManagedShapeEnabled(IRibbonControl control)
+        {
+            return _host.HasEditableSelection;
         }
 
         public bool GetEditEnabled(IRibbonControl control)

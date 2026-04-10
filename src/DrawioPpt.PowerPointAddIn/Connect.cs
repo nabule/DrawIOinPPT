@@ -87,6 +87,14 @@ namespace DrawioPpt.PowerPointAddIn
             }
         }
 
+        public void OnRefreshSelectedDiagram(IRibbonControl control)
+        {
+            if (_ribbonController != null)
+            {
+                _ribbonController.OnRefreshSelectedDiagram(control);
+            }
+        }
+
         public void OnBindSelectedShape(IRibbonControl control)
         {
             if (_ribbonController != null)
@@ -129,6 +137,16 @@ namespace DrawioPpt.PowerPointAddIn
             }
 
             return _ribbonController.GetSelectionStatus(control);
+        }
+
+        public bool GetManagedShapeEnabled(IRibbonControl control)
+        {
+            if (_ribbonController == null)
+            {
+                return false;
+            }
+
+            return _ribbonController.GetManagedShapeEnabled(control);
         }
 
         public bool GetSingleShapeEnabled(IRibbonControl control)
