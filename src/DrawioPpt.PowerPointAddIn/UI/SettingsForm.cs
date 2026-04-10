@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using DrawioPpt.Core.Models;
+using DrawioPpt.PowerPointAddIn.Services;
 
 namespace DrawioPpt.PowerPointAddIn.UI
 {
@@ -15,11 +16,14 @@ namespace DrawioPpt.PowerPointAddIn.UI
         private readonly CheckBox _keepSidecarCheckBox;
         private readonly TextBox _sidecarFolderTextBox;
         private readonly Button _browseButton;
+        private readonly Button _detectButton;
         private readonly Button _okButton;
         private readonly Button _cancelButton;
+        private readonly DesktopEditorPathDetector _pathDetector;
 
-        public SettingsForm(PluginSettings settings)
+        public SettingsForm(PluginSettings settings, DesktopEditorPathDetector pathDetector)
         {
+            _pathDetector = pathDetector;
             this.Settings = Clone(settings);
 
             this.Text = "DrawioPpt Settings";
@@ -44,6 +48,12 @@ namespace DrawioPpt.PowerPointAddIn.UI
             _browseButton.Location = new Point(480, 52);
             _browseButton.Width = 64;
             _browseButton.Click += OnBrowseDesktopPath;
+
+            _detectButton = new Button();
+            _detectButton.Text = "Detect";
+            _detectButton.Location = new Point(480, 80);
+            _detectButton.Width = 64;
+            _detectButton.Click += OnDetectDesktopPath;
 
             Label urlLabel = CreateLabel("Editor URL", 16, 96);
             _editorUrlTextBox = CreateTextBox(150, 92, 394);
@@ -71,6 +81,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             this.Controls.Add(desktopLabel);
             this.Controls.Add(_desktopPathTextBox);
             this.Controls.Add(_browseButton);
+            this.Controls.Add(_detectButton);
             this.Controls.Add(urlLabel);
             this.Controls.Add(_editorUrlTextBox);
             this.Controls.Add(_autoOpenCheckBox);
@@ -153,6 +164,23 @@ namespace DrawioPpt.PowerPointAddIn.UI
                     _desktopPathTextBox.Text = dialog.FileName;
                 }
             }
+        }
+
+        private void OnDetectDesktopPath(object sender, EventArgs e)
+        {
+            if (_pathDetector == null)
+            {
+                return;
+            }
+
+            string detectedPath = _pathDetector.Detect();
+            if (string.IsNullOrWhiteSpace(detectedPath))
+            {
+                MessageBox.Show(this, "未检测到已安装的 draw.io/diagrams.net 桌面版。", "DrawioPpt", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            _desktopPathTextBox.Text = detectedPath;
         }
 
         private void OnOk(object sender, EventArgs e)

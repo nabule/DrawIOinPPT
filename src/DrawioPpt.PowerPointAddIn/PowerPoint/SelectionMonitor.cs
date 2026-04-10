@@ -16,6 +16,7 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
         }
 
         public event EventHandler<SelectionContextChangedEventArgs> SelectionChanged;
+        public event EventHandler<SelectionDoubleClickEventArgs> SelectionDoubleClicked;
 
         public void Start()
         {
@@ -25,6 +26,7 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
             }
 
             _application.WindowSelectionChange += OnWindowSelectionChange;
+            _application.WindowBeforeDoubleClick += OnWindowBeforeDoubleClick;
             _started = true;
         }
 
@@ -33,6 +35,7 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
             if (_started && _application != null)
             {
                 _application.WindowSelectionChange -= OnWindowSelectionChange;
+                _application.WindowBeforeDoubleClick -= OnWindowBeforeDoubleClick;
                 _started = false;
             }
         }
@@ -47,6 +50,19 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
 
             SelectionContext context = _reader.Read(selection);
             handler(this, new SelectionContextChangedEventArgs(context));
+        }
+
+        private void OnWindowBeforeDoubleClick(PptInterop.Selection selection, ref bool cancel)
+        {
+            EventHandler<SelectionDoubleClickEventArgs> handler = this.SelectionDoubleClicked;
+            if (handler == null)
+            {
+                return;
+            }
+
+            SelectionDoubleClickEventArgs args = new SelectionDoubleClickEventArgs(selection);
+            handler(this, args);
+            cancel = args.Cancel;
         }
     }
 }
