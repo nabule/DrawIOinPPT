@@ -29,6 +29,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="Extensibility" />
     <Reference Include="office" />
@@ -51,7 +52,9 @@
     <Compile Include="Ribbon\RibbonController.cs" />
     <Compile Include="Ribbon\RibbonXmlProvider.cs" />
     <Compile Include="Services\AddInHost.cs" />
+    <Compile Include="Services\DesktopEditorLauncher.cs" />
     <Compile Include="Services\ShapeMetadataService.cs" />
+    <Compile Include="UI\SettingsForm.cs" />
     <Compile Include="Services\UserNotifier.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

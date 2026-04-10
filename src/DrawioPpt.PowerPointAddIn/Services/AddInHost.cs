@@ -1,8 +1,11 @@
 using System;
+using System.IO;
+using System.Windows.Forms;
 using DrawioPpt.Core.Contracts;
 using DrawioPpt.Core.Models;
 using DrawioPpt.Core.Services;
 using DrawioPpt.PowerPointAddIn.PowerPoint;
+using DrawioPpt.PowerPointAddIn.UI;
 using PptInterop = Microsoft.Office.Interop.PowerPoint;
 
 namespace DrawioPpt.PowerPointAddIn.Services
@@ -15,6 +18,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
         private readonly SelectionMonitor _selectionMonitor;
         private readonly SelectedShapeAccessor _selectedShapeAccessor;
         private readonly ShapeMetadataService _shapeMetadataService;
+        private readonly DesktopEditorLauncher _desktopEditorLauncher;
         private readonly UserNotifier _userNotifier;
         private PluginSettings _settings;
         private SelectionContext _currentSelection;
@@ -26,6 +30,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _settingsStore = new FilePluginSettingsStore();
             _selectedShapeAccessor = new SelectedShapeAccessor();
             _shapeMetadataService = new ShapeMetadataService(_envelopeSerializer, new PresentationSidecarPathBuilder());
+            _desktopEditorLauncher = new DesktopEditorLauncher();
             _userNotifier = new UserNotifier();
             _selectionMonitor = new SelectionMonitor(application, new PowerPointShapeSelectionReader(_envelopeSerializer));
             _selectionMonitor.SelectionChanged += OnSelectionChanged;
@@ -104,19 +109,41 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 return;
             }
 
-            string detail = "已识别到可编辑图形。";
-            detail += Environment.NewLine + "Shape ID: " + _currentSelection.ShapeId;
-            detail += Environment.NewLine + "Shape Name: " + _currentSelection.ShapeName;
-            detail += Environment.NewLine + "Diagram ID: " + _currentSelection.DiagramId;
-
-            if (_envelopeSerializer.CanDeserialize(_currentSelection.AlternativeText))
+            PptInterop.Shape shape = _selectedShapeAccessor.GetSingleSelectedShape(_application);
+            if (shape == null)
             {
-                DiagramEnvelope envelope = _envelopeSerializer.Deserialize(_currentSelection.AlternativeText);
-                detail += Environment.NewLine + "Editor Mode: " + envelope.EditorMode;
-                detail += Environment.NewLine + "Updated UTC: " + envelope.UpdatedUtc.ToString("u");
+                _userNotifier.ShowInfo("请先选中一个已绑定的图形。", "DrawioPpt");
+                return;
             }
 
-            detail += Environment.NewLine + Environment.NewLine + "下一阶段会在这里接外部编辑器并回写 SVG。";
+            DiagramEnvelope envelope;
+            if (!_shapeMetadataService.TryRead(shape, out envelope))
+            {
+                _userNotifier.ShowInfo("当前图形缺少可读取的 Draw.io 元数据。", "DrawioPpt");
+                return;
+            }
+
+            if (_settings.EditorMode == EditorMode.Desktop)
+            {
+                if (string.IsNullOrWhiteSpace(_settings.DesktopEditorPath) || !File.Exists(_settings.DesktopEditorPath))
+                {
+                    _userNotifier.ShowInfo("请先在设置中配置本地 draw.io/diagrams.net 路径。", "DrawioPpt");
+                    return;
+                }
+
+                string workingFile = _desktopEditorLauncher.PrepareWorkingFile(envelope, _settings, _selectedShapeAccessor.GetPresentationFullName(_application));
+                envelope.SidecarPath = workingFile;
+                envelope.UpdatedUtc = DateTime.UtcNow;
+                _shapeMetadataService.Save(shape, envelope);
+                _desktopEditorLauncher.Launch(_settings.DesktopEditorPath, workingFile);
+
+                _userNotifier.ShowInfo("已启动外部编辑器。" + Environment.NewLine + workingFile, "DrawioPpt");
+                return;
+            }
+
+            string detail = "URL 模式编辑器尚未接入。";
+            detail += Environment.NewLine + "Editor URL: " + _settings.EditorUrl;
+            detail += Environment.NewLine + "Shape Name: " + _currentSelection.ShapeName;
             _userNotifier.ShowInfo(detail, "DrawioPpt");
         }
 
@@ -142,17 +169,17 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
         public void OpenSettings()
         {
-            string message =
-                "当前设置摘要：" +
-                Environment.NewLine + "Mode: " + _settings.EditorMode +
-                Environment.NewLine + "Desktop Path: " + _settings.DesktopEditorPath +
-                Environment.NewLine + "Editor URL: " + _settings.EditorUrl +
-                Environment.NewLine + "Keep Sidecar: " + _settings.KeepSidecarFile +
-                Environment.NewLine +
-                Environment.NewLine +
-                "下一阶段将补完整设置对话框。";
+            using (SettingsForm form = new SettingsForm(_settings))
+            {
+                if (form.ShowDialog() != DialogResult.OK)
+                {
+                    return;
+                }
 
-            _userNotifier.ShowInfo(message, "DrawioPpt");
+                _settings = form.Settings;
+                _settingsStore.Save(_settings);
+                _userNotifier.ShowInfo("设置已保存。", "DrawioPpt");
+            }
         }
 
         public string GetSelectionSummary()
