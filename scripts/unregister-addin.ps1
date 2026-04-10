@@ -9,7 +9,12 @@ if ($X86) {
 }
 
 $regasmPath = Join-Path $frameworkRoot "RegAsm.exe"
-$dllPath = Join-Path $PSScriptRoot ("..\\src\\DrawioPpt.PowerPointAddIn\\bin\\{0}\\DrawioPpt.PowerPointAddIn.dll" -f $Configuration)
+$platformFolder = "x64"
+if ($X86) {
+    $platformFolder = "x86"
+}
+
+$dllPath = Join-Path $PSScriptRoot ("..\\src\\DrawioPpt.PowerPointAddIn\\bin\\{0}\\{1}\\DrawioPpt.PowerPointAddIn.dll" -f $platformFolder, $Configuration)
 
 if (-not (Test-Path $regasmPath)) {
     throw "RegAsm.exe not found: $regasmPath"

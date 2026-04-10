@@ -57,6 +57,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
+当前默认按 `x64` 构建，与本机 PowerPoint x64 对齐。
+
 注册插件：
 
 ```powershell

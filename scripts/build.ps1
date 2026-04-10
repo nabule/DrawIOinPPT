@@ -1,5 +1,6 @@
 param(
-    [string]$Configuration = "Debug"
+    [string]$Configuration = "Debug",
+    [string]$Platform = "x64"
 )
 
 $solutionPath = Join-Path $PSScriptRoot "..\\DrawioPpt.sln"
@@ -13,9 +14,8 @@ if (-not (Test-Path $msbuildPath)) {
     throw "MSBuild.exe not found: $msbuildPath"
 }
 
-& $msbuildPath $solutionPath /p:Configuration=$Configuration /p:Platform="Any CPU"
+& $msbuildPath $solutionPath /p:Configuration=$Configuration /p:Platform=$Platform
 
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
-
