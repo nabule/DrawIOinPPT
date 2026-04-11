@@ -17,21 +17,24 @@ namespace DrawioPpt.PowerPointAddIn.UI
         private readonly string _editorUrl;
         private readonly string _diagramName;
         private readonly string _initialXml;
+        private readonly bool _useOfficeCompatibleSvgLabels;
         private readonly JavaScriptSerializer _serializer;
         private readonly PluginTraceLog _traceLog;
         private readonly WebView2 _webView;
         private readonly Timer _deadlineTimer;
         private bool _loadSent;
+        private bool _configureSent;
         private bool _closeAfterExport;
         private string _pendingXml;
         private DateTime? _initDeadlineUtc;
         private DateTime? _exportDeadlineUtc;
 
-        public UrlDiagramEditorForm(string editorUrl, string diagramName, string initialXml, PluginTraceLog traceLog)
+        public UrlDiagramEditorForm(string editorUrl, string diagramName, string initialXml, bool useOfficeCompatibleSvgLabels, PluginTraceLog traceLog)
         {
             _editorUrl = editorUrl ?? string.Empty;
             _diagramName = string.IsNullOrWhiteSpace(diagramName) ? "Draw.io Diagram" : diagramName;
             _initialXml = initialXml ?? string.Empty;
+            _useOfficeCompatibleSvgLabels = useOfficeCompatibleSvgLabels;
             _serializer = new JavaScriptSerializer();
             _serializer.MaxJsonLength = int.MaxValue;
             _traceLog = traceLog ?? new PluginTraceLog();
@@ -77,7 +80,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
                 _webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
                 _webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                 _webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
-                _traceLog.Info("UrlEditor", "Navigating embedded editor to " + EnsureEmbedUrl(_editorUrl));
+                _traceLog.Info("UrlEditor", "Navigating embedded editor to " + EnsureEmbedUrl(_editorUrl, _useOfficeCompatibleSvgLabels));
                 _webView.NavigateToString(BuildHostPageHtml());
             }
             catch (Exception ex)
@@ -128,6 +131,17 @@ namespace DrawioPpt.PowerPointAddIn.UI
             }
 
             _traceLog.Info("UrlEditor", "Received draw.io event: " + eventName);
+
+            if (string.Equals(eventName, "configure", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!_configureSent)
+                {
+                    _configureSent = true;
+                    SendConfigureAction();
+                }
+
+                return;
+            }
 
             if (string.Equals(eventName, "init", StringComparison.OrdinalIgnoreCase))
             {
@@ -246,9 +260,29 @@ namespace DrawioPpt.PowerPointAddIn.UI
             Task task = _webView.CoreWebView2.ExecuteScriptAsync(script);
         }
 
+        private void SendConfigureAction()
+        {
+            Dictionary<string, object> configuration = BuildEditorConfiguration();
+            if (configuration == null)
+            {
+                SendAction(new Dictionary<string, object>
+                {
+                    { "action", "configure" }
+                });
+                return;
+            }
+
+            _traceLog.Info("UrlEditor", "Applying MS Office-compatible SVG label configuration (simpleLabels=true).");
+            SendAction(new Dictionary<string, object>
+            {
+                { "action", "configure" },
+                { "config", configuration }
+            });
+        }
+
         private string BuildHostPageHtml()
         {
-            string editorUrl = EnsureEmbedUrl(_editorUrl);
+            string editorUrl = EnsureEmbedUrl(_editorUrl, _useOfficeCompatibleSvgLabels);
             string escapedUrl = SecurityElement.Escape(editorUrl);
 
             StringBuilder builder = new StringBuilder();
@@ -288,7 +322,20 @@ namespace DrawioPpt.PowerPointAddIn.UI
             return builder.ToString();
         }
 
-        private static string EnsureEmbedUrl(string editorUrl)
+        private Dictionary<string, object> BuildEditorConfiguration()
+        {
+            if (!_useOfficeCompatibleSvgLabels)
+            {
+                return null;
+            }
+
+            Dictionary<string, object> configuration = new Dictionary<string, object>();
+            configuration["simpleLabels"] = true;
+            configuration["settingsName"] = "drawioppt-office";
+            return configuration;
+        }
+
+        private static string EnsureEmbedUrl(string editorUrl, bool useOfficeCompatibleSvgLabels)
         {
             string value = string.IsNullOrWhiteSpace(editorUrl)
                 ? "https://embed.diagrams.net/?embed=1&proto=json&spin=1&saveAndExit=1"
@@ -313,6 +360,11 @@ namespace DrawioPpt.PowerPointAddIn.UI
                 value.IndexOf("noSaveBtn=1", StringComparison.OrdinalIgnoreCase) < 0)
             {
                 value = AppendQueryParameter(value, "saveAndExit=1");
+            }
+
+            if (useOfficeCompatibleSvgLabels && value.IndexOf("configure=", StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                value = AppendQueryParameter(value, "configure=1");
             }
 
             return value;

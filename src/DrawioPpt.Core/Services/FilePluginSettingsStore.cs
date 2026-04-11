@@ -37,6 +37,7 @@ namespace DrawioPpt.Core.Services
             PluginSettings settings = new PluginSettings();
             settings.DesktopEditorPath = Read(root, "desktopEditorPath", settings.DesktopEditorPath);
             settings.EditorUrl = Read(root, "editorUrl", settings.EditorUrl);
+            settings.UseOfficeCompatibleSvgLabels = Read(root, "useOfficeCompatibleSvgLabels", settings.UseOfficeCompatibleSvgLabels);
             settings.AutoOpenOnSelection = Read(root, "autoOpenOnSelection", settings.AutoOpenOnSelection);
             settings.AutoUpdateOnSave = Read(root, "autoUpdateOnSave", settings.AutoUpdateOnSave);
             settings.KeepSidecarFile = Read(root, "keepSidecarFile", settings.KeepSidecarFile);
@@ -71,6 +72,7 @@ namespace DrawioPpt.Core.Services
                     new XElement("editorMode", settings.EditorMode.ToString()),
                     new XElement("desktopEditorPath", settings.DesktopEditorPath ?? string.Empty),
                     new XElement("editorUrl", settings.EditorUrl ?? string.Empty),
+                    new XElement("useOfficeCompatibleSvgLabels", settings.UseOfficeCompatibleSvgLabels),
                     new XElement("autoOpenOnSelection", settings.AutoOpenOnSelection),
                     new XElement("autoUpdateOnSave", settings.AutoUpdateOnSave),
                     new XElement("keepSidecarFile", settings.KeepSidecarFile),
@@ -116,4 +118,3 @@ namespace DrawioPpt.Core.Services
         }
     }
 }
-

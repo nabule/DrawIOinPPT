@@ -31,6 +31,7 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 - 支持把原始 XML 存入 `Presentation.CustomXMLParts`
 - 支持旧版 `AlternativeText` 元数据自动迁移
 - 支持日志记录与 URL 模式自检
+- 支持在 URL 模式自动启用 `simpleLabels`，改善 PowerPoint 中 SVG 标签缩放清晰度
 
 ### 已提供的辅助能力
 
@@ -81,6 +82,8 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
   - 选中已绑定图形时自动打开编辑器
 - `Auto update on save`
   - 保存 `.drawio` 后自动刷新图形
+- `Use MS Office-compatible SVG labels`
+  - 在 URL 模式下自动向 draw.io 嵌入编辑器下发 `{ "simpleLabels": true }`
 - `Keep sidecar file next to PPT`
   - 在 PPT 同目录保留 `.drawio` 工作文件
 
@@ -145,6 +148,7 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 
 - 需要安装桌面版 Draw.io
 - 首次配置要确保 `Desktop Path` 正确
+- 如果想让导出的 SVG 标签在 PowerPoint 中缩放更清晰，建议在 draw.io Desktop 中手动设置 `simpleLabels`
 
 ### URL 模式
 
@@ -153,11 +157,18 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 - 不依赖本地桌面编辑器
 - 易于接入私有化 URL
 - 可先用 `Test URL` 自检
+- `v0.6.1` 已自动注入 Office 兼容 SVG 标签配置
 
 注意：
 
 - 目标 URL 必须支持 draw.io embed 协议
 - 会受到网络、代理、私有部署差异影响
+
+URL 模式下的 SVG 标签清晰度优化：
+
+1. 插件会自动给 embed URL 加上 `configure=1`
+2. 在编辑器握手阶段自动发送 `{ "simpleLabels": true }`
+3. 导出的 SVG 在 PowerPoint 中缩放时，文字边缘通常会更干净
 
 ## 8. 数据保存策略
 
@@ -196,6 +207,7 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 - 暂未提供 MSI/Setup Wizard 形式的安装器，当前以脚本安装为主
 - 动画和复杂格式保真仍不是最终形态
 - 多人同时编辑同一 PPT 的冲突处理还没有专门优化
+- `simpleLabels` 目前只对 URL 模式由插件自动控制，桌面模式仍需用户在 draw.io Desktop 中手工设置
 
 ## 11. 当前建议的使用边界
 

@@ -18,6 +18,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 已验证 `draw.io Desktop` CLI 导出 SVG，并收紧了导出参数。
 - 已支持当前用户级插件注册，无需管理员权限。
 - 已接入 URL 模式编辑器首版：`WebView2 + diagrams.net embed`，保存后会把 SVG 和 XML 回写到 PPT 图形。
+- 已在 URL 模式自动启用 `simpleLabels` 配置，提升 PowerPoint 中缩放 SVG 标签时的边缘清晰度。
 - 已把 Draw.io 源数据同步写入 `Presentation.CustomXMLParts`，图形保留 `diagramId/customXmlPartId` 引用，并继续兼容旧的 `AlternativeText` 回退。
 - 已支持旧版 `AlternativeText` 元数据在读取时自动补写到 `CustomXMLParts`。
 - 已支持低频自动清理没有任何图形引用的孤儿 `CustomXMLPart`，减少文档膨胀。
@@ -38,8 +39,8 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - [用户手册](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/user-guide.md)
 - [回归清单](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/regression-checklist.md)
 - [详细开发计划](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/development-plan.md)
-- [完整 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v0.6.0.md)
-- [v0.6.0-stable 发布说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-notes-v0.6.0-stable.md)
+- [完整 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v0.6.1.md)
+- [v0.6.1-stable 发布说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-notes-v0.6.1-stable.md)
 - [待优化功能点](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/optimization-backlog.md)
 
 ## 当前技术选择

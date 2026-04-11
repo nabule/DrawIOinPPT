@@ -11,6 +11,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
         private readonly ComboBox _editorModeComboBox;
         private readonly TextBox _desktopPathTextBox;
         private readonly TextBox _editorUrlTextBox;
+        private readonly CheckBox _officeCompatibleLabelsCheckBox;
         private readonly CheckBox _autoOpenCheckBox;
         private readonly CheckBox _autoUpdateCheckBox;
         private readonly CheckBox _keepSidecarCheckBox;
@@ -32,7 +33,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.ClientSize = new Size(560, 280);
+            this.ClientSize = new Size(560, 306);
 
             Label modeLabel = CreateLabel("Editor Mode", 16, 20);
             _editorModeComboBox = new ComboBox();
@@ -65,22 +66,23 @@ namespace DrawioPpt.PowerPointAddIn.UI
             _testUrlButton.Width = 64;
             _testUrlButton.Click += OnTestUrl;
 
-            _autoOpenCheckBox = CreateCheckBox("Auto open on selection", 150, 128);
-            _autoUpdateCheckBox = CreateCheckBox("Auto update on save", 150, 154);
-            _keepSidecarCheckBox = CreateCheckBox("Keep sidecar file next to PPT", 150, 180);
+            _officeCompatibleLabelsCheckBox = CreateCheckBox("Use MS Office-compatible SVG labels", 150, 122);
+            _autoOpenCheckBox = CreateCheckBox("Auto open on selection", 150, 148);
+            _autoUpdateCheckBox = CreateCheckBox("Auto update on save", 150, 174);
+            _keepSidecarCheckBox = CreateCheckBox("Keep sidecar file next to PPT", 150, 200);
 
-            Label sidecarLabel = CreateLabel("Sidecar Folder", 16, 216);
-            _sidecarFolderTextBox = CreateTextBox(150, 212, 394);
+            Label sidecarLabel = CreateLabel("Sidecar Folder", 16, 236);
+            _sidecarFolderTextBox = CreateTextBox(150, 232, 394);
 
             _okButton = new Button();
             _okButton.Text = "OK";
-            _okButton.Location = new Point(388, 244);
+            _okButton.Location = new Point(388, 270);
             _okButton.DialogResult = DialogResult.OK;
             _okButton.Click += OnOk;
 
             _cancelButton = new Button();
             _cancelButton.Text = "Cancel";
-            _cancelButton.Location = new Point(472, 244);
+            _cancelButton.Location = new Point(472, 270);
             _cancelButton.DialogResult = DialogResult.Cancel;
 
             this.Controls.Add(modeLabel);
@@ -92,6 +94,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             this.Controls.Add(urlLabel);
             this.Controls.Add(_editorUrlTextBox);
             this.Controls.Add(_testUrlButton);
+            this.Controls.Add(_officeCompatibleLabelsCheckBox);
             this.Controls.Add(_autoOpenCheckBox);
             this.Controls.Add(_autoUpdateCheckBox);
             this.Controls.Add(_keepSidecarCheckBox);
@@ -141,6 +144,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             clone.EditorMode = source.EditorMode;
             clone.DesktopEditorPath = source.DesktopEditorPath;
             clone.EditorUrl = source.EditorUrl;
+            clone.UseOfficeCompatibleSvgLabels = source.UseOfficeCompatibleSvgLabels;
             clone.AutoOpenOnSelection = source.AutoOpenOnSelection;
             clone.AutoUpdateOnSave = source.AutoUpdateOnSave;
             clone.KeepSidecarFile = source.KeepSidecarFile;
@@ -153,6 +157,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             _editorModeComboBox.SelectedItem = settings.EditorMode;
             _desktopPathTextBox.Text = settings.DesktopEditorPath ?? string.Empty;
             _editorUrlTextBox.Text = settings.EditorUrl ?? string.Empty;
+            _officeCompatibleLabelsCheckBox.Checked = settings.UseOfficeCompatibleSvgLabels;
             _autoOpenCheckBox.Checked = settings.AutoOpenOnSelection;
             _autoUpdateCheckBox.Checked = settings.AutoUpdateOnSave;
             _keepSidecarCheckBox.Checked = settings.KeepSidecarFile;
@@ -218,7 +223,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             bool saved = false;
             int svgLength = 0;
 
-            using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(draftSettings.EditorUrl, envelope.DiagramName, envelope.DrawioXml, traceLog))
+            using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(draftSettings.EditorUrl, envelope.DiagramName, envelope.DrawioXml, draftSettings.UseOfficeCompatibleSvgLabels, traceLog))
             {
                 form.DiagramSaved += delegate(object testSender, UrlDiagramSavedEventArgs args)
                 {
@@ -261,6 +266,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
                 : (EditorMode)_editorModeComboBox.SelectedItem;
             updated.DesktopEditorPath = _desktopPathTextBox.Text;
             updated.EditorUrl = _editorUrlTextBox.Text;
+            updated.UseOfficeCompatibleSvgLabels = _officeCompatibleLabelsCheckBox.Checked;
             updated.AutoOpenOnSelection = _autoOpenCheckBox.Checked;
             updated.AutoUpdateOnSave = _autoUpdateCheckBox.Checked;
             updated.KeepSidecarFile = _keepSidecarCheckBox.Checked;
@@ -279,7 +285,15 @@ namespace DrawioPpt.PowerPointAddIn.UI
             envelope.DrawioXml =
                 "<mxfile host=\"DrawioPpt\">" +
                 "<diagram id=\"" + envelope.DiagramId + "\" name=\"DrawioPpt URL Test\">" +
-                "<mxGraphModel />" +
+                "<mxGraphModel dx=\"1000\" dy=\"1000\" grid=\"1\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"1\" pageScale=\"1\" pageWidth=\"850\" pageHeight=\"1100\" math=\"0\" shadow=\"0\">" +
+                "<root>" +
+                "<mxCell id=\"0\"/>" +
+                "<mxCell id=\"1\" parent=\"0\"/>" +
+                "<mxCell id=\"2\" value=\"URL Test\" style=\"rounded=1;whiteSpace=wrap;html=1;\" vertex=\"1\" parent=\"1\">" +
+                "<mxGeometry x=\"120\" y=\"120\" width=\"140\" height=\"60\" as=\"geometry\"/>" +
+                "</mxCell>" +
+                "</root>" +
+                "</mxGraphModel>" +
                 "</diagram>" +
                 "</mxfile>";
             return envelope;

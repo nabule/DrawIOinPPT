@@ -459,7 +459,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
                 WriteSidecarFile(envelope);
                 _traceLog.Info("AddInHost", "Opening URL editor for diagram " + envelope.DiagramId + " with URL " + _settings.EditorUrl + ".");
-                using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(_settings.EditorUrl, envelope.DiagramName, envelope.DrawioXml, _traceLog))
+                using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(_settings.EditorUrl, envelope.DiagramName, envelope.DrawioXml, _settings.UseOfficeCompatibleSvgLabels, _traceLog))
                 {
                     form.DiagramSaved += delegate(object sender, UrlDiagramSavedEventArgs args)
                     {

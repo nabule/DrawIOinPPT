@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v0.6.0-stable",
+    [string]$Version = "v0.6.1-stable",
     [switch]$SkipBuild,
     [switch]$KeepInstalled
 )
@@ -109,9 +109,15 @@ function Compile-And-Run-PowerPointUrlE2E {
 <body>
 <script>
 (function () {
+  var waitingForConfigure = window.location.search.indexOf('configure=1') >= 0;
   function send(message) { window.parent.postMessage(message, '*'); }
   window.addEventListener('message', function (event) {
     var data = event.data || {};
+    if (data.action === 'configure') {
+      waitingForConfigure = false;
+      setTimeout(function () { send({ event: 'init' }); }, 50);
+      return;
+    }
     if (data.action === 'load') {
       window.__xml = data.xml || '';
       setTimeout(function () { send({ event: 'save', xml: window.__xml, exit: 1 }); }, 120);
@@ -122,7 +128,14 @@ function Compile-And-Run-PowerPointUrlE2E {
       setTimeout(function () { send({ event: 'export', data: 'data:image/svg+xml;utf8,' + encodeURIComponent(svg) }); }, 120);
     }
   });
-  setTimeout(function () { send({ event: 'init' }); }, 120);
+  setTimeout(function () {
+    if (waitingForConfigure) {
+      send({ event: 'configure' });
+      return;
+    }
+
+    send({ event: 'init' });
+  }, 120);
 })();
 </script>
 </body>
@@ -150,6 +163,7 @@ public static class PowerPointUrlE2E
         PluginSettings settings = new PluginSettings();
         settings.EditorMode = EditorMode.Url;
         settings.EditorUrl = "http://127.0.0.1:$serverPort/mock-editor.html";
+        settings.UseOfficeCompatibleSvgLabels = true;
         settings.AutoOpenOnSelection = false;
         settings.AutoUpdateOnSave = true;
         settings.KeepSidecarFile = true;

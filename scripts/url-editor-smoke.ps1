@@ -11,8 +11,10 @@ $mockHtmlPath = Join-Path $tempRoot "mock-editor.html"
 $smokeSourcePath = Join-Path $tempRoot "url-editor-smoke.cs"
 $smokeExePath = Join-Path $tempRoot "url-editor-smoke.exe"
 $serverPort = Get-Random -Minimum 8600 -Maximum 8999
-$powerPointBin = Join-Path $repoRoot "src\\DrawioPpt.PowerPointAddIn\\bin\\x64\\Debug"
-$coreBin = Join-Path $repoRoot "src\\DrawioPpt.Core\\bin\\x64\\Debug"
+$powerPointReleaseBin = Join-Path $repoRoot "src\\DrawioPpt.PowerPointAddIn\\bin\\x64\\Release"
+$powerPointDebugBin = Join-Path $repoRoot "src\\DrawioPpt.PowerPointAddIn\\bin\\x64\\Debug"
+$coreReleaseBin = Join-Path $repoRoot "src\\DrawioPpt.Core\\bin\\x64\\Release"
+$coreDebugBin = Join-Path $repoRoot "src\\DrawioPpt.Core\\bin\\x64\\Debug"
 $packageBin = Join-Path $repoRoot "bin"
 $webView2Package = Join-Path $repoRoot "packages\\Microsoft.Web.WebView2.1.0.3856.49"
 $cscPath = "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe"
@@ -32,7 +34,7 @@ function Get-SmokeInputPath {
     throw "$Label not found. Checked: $($Candidates -join '; ')"
 }
 
-if (-not $SkipBuild -and (Test-Path $buildScript) -and (Test-Path $powerPointBin)) {
+if (-not $SkipBuild -and (Test-Path $buildScript) -and ((Test-Path $powerPointReleaseBin) -or (Test-Path $powerPointDebugBin))) {
     & powershell -ExecutionPolicy Bypass -File $buildScript
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
@@ -61,9 +63,15 @@ New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 <body>
 <script>
 (function () {
+  var waitingForConfigure = window.location.search.indexOf('configure=1') >= 0;
   function send(message) { window.parent.postMessage(message, '*'); }
   window.addEventListener('message', function (event) {
     var data = event.data || {};
+    if (data.action === 'configure') {
+      waitingForConfigure = false;
+      setTimeout(function () { send({ event: 'init' }); }, 50);
+      return;
+    }
     if (data.action === 'load') {
       window.__xml = data.xml || '';
       setTimeout(function () { send({ event: 'save', xml: window.__xml, exit: 1 }); }, 100);
@@ -74,7 +82,14 @@ New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
       setTimeout(function () { send({ event: 'export', data: 'data:image/svg+xml;utf8,' + encodeURIComponent(svg) }); }, 100);
     }
   });
-  setTimeout(function () { send({ event: 'init' }); }, 100);
+  setTimeout(function () {
+    if (waitingForConfigure) {
+      send({ event: 'configure' });
+      return;
+    }
+
+    send({ event: 'init' });
+  }, 100);
 })();
 </script>
 </body>
@@ -102,7 +117,7 @@ public static class UrlEditorSmoke
         string savedSvg = string.Empty;
         string savedXml = string.Empty;
 
-        using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(editorUrl, "URL Smoke", xml, traceLog))
+        using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(editorUrl, "URL Smoke", xml, true, traceLog))
         {
             form.DiagramSaved += delegate(object sender, UrlDiagramSavedEventArgs args)
             {
@@ -125,12 +140,14 @@ public static class UrlEditorSmoke
 "@ | Set-Content -Path $smokeSourcePath -Encoding UTF8
 
 $powerPointDll = Get-SmokeInputPath -Candidates @(
-    (Join-Path $powerPointBin "DrawioPpt.PowerPointAddIn.dll"),
+    (Join-Path $powerPointReleaseBin "DrawioPpt.PowerPointAddIn.dll"),
+    (Join-Path $powerPointDebugBin "DrawioPpt.PowerPointAddIn.dll"),
     (Join-Path $packageBin "DrawioPpt.PowerPointAddIn.dll")
 ) -Label "DrawioPpt.PowerPointAddIn.dll"
 
 $coreDll = Get-SmokeInputPath -Candidates @(
-    (Join-Path $coreBin "DrawioPpt.Core.dll"),
+    (Join-Path $coreReleaseBin "DrawioPpt.Core.dll"),
+    (Join-Path $coreDebugBin "DrawioPpt.Core.dll"),
     (Join-Path $packageBin "DrawioPpt.Core.dll")
 ) -Label "DrawioPpt.Core.dll"
 

@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v0.6.0-stable",
+    [string]$Version = "v0.6.1-stable",
     [string]$Configuration = "Release",
     [string]$Platform = "x64",
     [switch]$SkipBuild
@@ -12,6 +12,8 @@ $buildScript = Join-Path $PSScriptRoot "build.ps1"
 $releaseRoot = Join-Path $repoRoot ("artifacts\\releases\\" + $Version)
 $packageRoot = Join-Path $releaseRoot "package"
 $zipPath = Join-Path $releaseRoot ("DrawioPpt-" + $Version + ".zip")
+$releaseNotesName = "release-notes-" + $Version + ".md"
+$e2eDocName = "e2e-test-report-" + ($Version -replace "-stable$", "") + ".md"
 $addInBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.PowerPointAddIn\\bin\\{0}\\{1}" -f $Platform, $Configuration)
 $coreBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.Core\\bin\\{0}\\{1}" -f $Platform, $Configuration)
 
@@ -51,8 +53,8 @@ Copy-Item (Join-Path $repoRoot "docs\\installation.md") (Join-Path $packageRoot 
 Copy-Item (Join-Path $repoRoot "docs\\user-guide.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "docs\\optimization-backlog.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "docs\\regression-checklist.md") (Join-Path $packageRoot "docs") -Force
-Copy-Item (Join-Path $repoRoot "docs\\release-notes-v0.6.0-stable.md") (Join-Path $packageRoot "docs") -Force
-Copy-Item (Join-Path $repoRoot "docs\\e2e-test-report-v0.6.0.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseNotesName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot ("docs\\" + $e2eDocName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "scripts\\register-addin.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\unregister-addin.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -94,8 +96,8 @@ Contents:
 - docs\user-guide.md
 - docs\optimization-backlog.md
 - docs\regression-checklist.md
-- docs\release-notes-v0.6.0-stable.md
-- docs\e2e-test-report-v0.6.0.md
+- docs\$releaseNotesName
+- docs\$e2eDocName
 "@ | Set-Content -Path $manifestPath -Encoding UTF8
 
 Compress-Archive -Path (Join-Path $packageRoot "*") -DestinationPath $zipPath -Force
