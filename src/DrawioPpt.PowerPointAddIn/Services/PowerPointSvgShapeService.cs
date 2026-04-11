@@ -8,10 +8,17 @@ namespace DrawioPpt.PowerPointAddIn.Services
     public class PowerPointSvgShapeService
     {
         private readonly SelectedShapeAccessor _shapeAccessor;
+        private readonly SvgPowerPointSupportService _svgSupportService;
 
         public PowerPointSvgShapeService(SelectedShapeAccessor shapeAccessor)
+            : this(shapeAccessor, new SvgPowerPointSupportService())
+        {
+        }
+
+        public PowerPointSvgShapeService(SelectedShapeAccessor shapeAccessor, SvgPowerPointSupportService svgSupportService)
         {
             _shapeAccessor = shapeAccessor;
+            _svgSupportService = svgSupportService;
         }
 
         public PptInterop.Shape InsertOnActiveSlide(PptInterop.Application application, string svgFilePath, string shapeName)
@@ -39,9 +46,10 @@ namespace DrawioPpt.PowerPointAddIn.Services
             float height = slideHeight * 0.38f;
             float left = (slideWidth - width) / 2f;
             float top = (slideHeight - height) / 2f;
+            string renderSvgPath = PreparePresentationSvg(svgFilePath, width, height);
 
             PptInterop.Shape shape = slide.Shapes.AddPicture(
-                svgFilePath,
+                renderSvgPath,
                 MsoTriState.msoFalse,
                 MsoTriState.msoTrue,
                 left,
@@ -68,12 +76,15 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             ShapeSnapshot snapshot = ShapeSnapshot.Capture(existingShape);
-            TryPickupFormatting(existingShape);
+            // PowerPoint's PickUp/Apply pipeline corrupts SVG pictures and turns them into
+            // solid black shapes after replacement. Keep geometry/metadata/animation, but
+            // let the newly inserted SVG keep its own vector styling.
             TryPickupAnimation(existingShape);
             existingShape.Delete();
+            string renderSvgPath = PreparePresentationSvg(svgFilePath, snapshot.Width, snapshot.Height);
 
             PptInterop.Shape newShape = slide.Shapes.AddPicture(
-                svgFilePath,
+                renderSvgPath,
                 MsoTriState.msoFalse,
                 MsoTriState.msoTrue,
                 snapshot.Left,
@@ -81,7 +92,6 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 snapshot.Width,
                 snapshot.Height);
 
-            TryApplyFormatting(newShape);
             TryApplyAnimation(newShape);
             newShape.Rotation = snapshot.Rotation;
             TrySetShapeName(newShape, snapshot.Name);
@@ -94,6 +104,16 @@ namespace DrawioPpt.PowerPointAddIn.Services
             MoveToZOrder(newShape, snapshot.ZOrderPosition);
             newShape.Select(MsoTriState.msoFalse);
             return newShape;
+        }
+
+        private string PreparePresentationSvg(string svgFilePath, float targetWidth, float targetHeight)
+        {
+            if (_svgSupportService == null)
+            {
+                return svgFilePath;
+            }
+
+            return _svgSupportService.PrepareForPresentation(svgFilePath, targetWidth, targetHeight);
         }
 
         private static void MoveToZOrder(PptInterop.Shape shape, int targetPosition)

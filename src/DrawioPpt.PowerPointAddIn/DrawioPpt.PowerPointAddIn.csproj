@@ -33,6 +33,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Xml" />
     <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="Extensibility" />
@@ -75,6 +76,7 @@
     <Compile Include="Services\SvgDiagramDataEmbedder.cs" />
     <Compile Include="Services\SvgMarkupFileStore.cs" />
     <Compile Include="Services\SvgFileProvider.cs" />
+    <Compile Include="Services\SvgPowerPointSupportService.cs" />
     <Compile Include="UI\SettingsForm.cs" />
     <Compile Include="UI\UrlDiagramEditorForm.cs" />
     <Compile Include="UI\UrlDiagramSavedEventArgs.cs" />

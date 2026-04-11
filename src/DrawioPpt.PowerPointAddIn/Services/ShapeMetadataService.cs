@@ -88,7 +88,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 envelope.DrawioXml = BuildPlaceholderXml(envelope.DiagramId, envelope.DiagramName);
             }
 
-            if (settings.KeepSidecarFile && !string.IsNullOrWhiteSpace(presentationPath))
+            if (settings.KeepSidecarFile && _pathBuilder.CanBuildPath(presentationPath))
             {
                 envelope.SidecarPath = _pathBuilder.BuildPath(
                     presentationPath,
@@ -119,7 +119,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             envelope.UpdatedUtc = DateTime.UtcNow;
             envelope.DrawioXml = BuildPlaceholderXml(envelope.DiagramId, envelope.DiagramName);
 
-            if (settings.KeepSidecarFile && !string.IsNullOrWhiteSpace(presentationPath))
+            if (settings.KeepSidecarFile && _pathBuilder.CanBuildPath(presentationPath))
             {
                 envelope.SidecarPath = _pathBuilder.BuildPath(
                     presentationPath,

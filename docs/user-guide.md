@@ -148,6 +148,7 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 
 - 需要安装桌面版 Draw.io
 - 首次配置要确保 `Desktop Path` 正确
+- 如果当前 PPT 还没有先保存到磁盘，插件会先把 `.drawio` 工作文件放到系统临时目录，避免未保存演示文稿生成无效相对路径
 - 如果想让导出的 SVG 标签在 PowerPoint 中缩放更清晰，建议在 draw.io Desktop 中手动设置 `simpleLabels`
 
 ### URL 模式

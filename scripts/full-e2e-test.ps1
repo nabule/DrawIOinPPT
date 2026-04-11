@@ -110,7 +110,11 @@ function Compile-And-Run-PowerPointUrlE2E {
 <script>
 (function () {
   var waitingForConfigure = window.location.search.indexOf('configure=1') >= 0;
+  var currentLabel = 'Round1';
   function send(message) { window.parent.postMessage(message, '*'); }
+  function buildXml(label) {
+    return '<mxfile host="DrawioPpt"><diagram id="powerpoint-url-e2e" name="' + label + '"><mxGraphModel dx="1000" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="2" value="' + label + '" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="120" y="120" width="220" height="60" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>';
+  }
   window.addEventListener('message', function (event) {
     var data = event.data || {};
     if (data.action === 'configure') {
@@ -119,12 +123,13 @@ function Compile-And-Run-PowerPointUrlE2E {
       return;
     }
     if (data.action === 'load') {
-      window.__xml = data.xml || '';
-      setTimeout(function () { send({ event: 'save', xml: window.__xml, exit: 1 }); }, 120);
+      var xml = data.xml || '';
+      currentLabel = xml.indexOf('Round1') >= 0 ? 'Round2' : 'Round1';
+      setTimeout(function () { send({ event: 'save', xml: buildXml(currentLabel), exit: 1 }); }, 120);
       return;
     }
     if (data.action === 'export') {
-      var svg = '<svg xmlns="http://www.w3.org/2000/svg" content="old"><text x="10" y="20">e2e</text></svg>';
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" content="' + currentLabel + '"><rect x="10" y="10" width="220" height="80" fill="#dff1ff" stroke="#1f5fa8"/><text x="30" y="58">' + currentLabel + '</text></svg>';
       setTimeout(function () { send({ event: 'export', data: 'data:image/svg+xml;utf8,' + encodeURIComponent(svg) }); }, 120);
     }
   });
@@ -145,6 +150,7 @@ function Compile-And-Run-PowerPointUrlE2E {
     @"
 using System;
 using System.IO;
+using System.Threading;
 using System.Windows.Forms;
 using DrawioPpt.Core.Models;
 using DrawioPpt.Core.Services;
@@ -154,6 +160,67 @@ using PptInterop = Microsoft.Office.Interop.PowerPoint;
 
 public static class PowerPointUrlE2E
 {
+    private static PptInterop.Shape GetLastShape(PptInterop.Presentation presentation)
+    {
+        PptInterop.Slide slide = presentation.Slides[1];
+        return slide.Shapes[slide.Shapes.Count];
+    }
+
+    private static DiagramEnvelope ReadEnvelope(PptInterop.Shape shape, DiagramEnvelopeSerializer serializer)
+    {
+        if (shape == null || serializer == null)
+        {
+            return null;
+        }
+
+        string alternativeText = shape.AlternativeText ?? string.Empty;
+        if (!serializer.CanDeserialize(alternativeText))
+        {
+            return null;
+        }
+
+        return serializer.Deserialize(alternativeText);
+    }
+
+    private static bool HasDiagramState(PptInterop.Shape shape, DiagramEnvelopeSerializer serializer, string expectedText)
+    {
+        DiagramEnvelope envelope = ReadEnvelope(shape, serializer);
+        if (envelope == null)
+        {
+            return false;
+        }
+
+        string partId = shape.Tags["DRAWIO_PPT_PART_ID"] ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(shape.Tags["DRAWIO_PPT_ID"]) &&
+               !string.IsNullOrWhiteSpace(partId) &&
+               !string.IsNullOrWhiteSpace(envelope.DrawioXml) &&
+               envelope.DrawioXml.IndexOf(expectedText, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static void SaveAndClosePresentation(ref PptInterop.Presentation presentation)
+    {
+        if (presentation == null)
+        {
+            return;
+        }
+
+        presentation.Save();
+        presentation.Saved = MsoTriState.msoTrue;
+        presentation.Close();
+        presentation = null;
+    }
+
+    private static void DisposeHost(ref AddInHost host)
+    {
+        if (host == null)
+        {
+            return;
+        }
+
+        host.Dispose();
+        host = null;
+    }
+
     [STAThread]
     public static int Main()
     {
@@ -167,12 +234,13 @@ public static class PowerPointUrlE2E
         settings.AutoOpenOnSelection = false;
         settings.AutoUpdateOnSave = true;
         settings.KeepSidecarFile = true;
-        settings.SidecarFolderName = "drawio-e2e";
+        settings.SidecarFolderName = "drawio-e2e-reopen";
         new FilePluginSettingsStore().Save(settings);
 
         PptInterop.Application application = null;
         AddInHost host = null;
         PptInterop.Presentation presentation = null;
+        DiagramEnvelopeSerializer serializer = new DiagramEnvelopeSerializer();
 
         try
         {
@@ -200,31 +268,48 @@ public static class PowerPointUrlE2E
             host.Start();
 
             host.CreateNewDiagram();
-            System.Threading.Thread.Sleep(1200);
+            Thread.Sleep(1800);
 
-            PptInterop.Slide slide = presentation.Slides[1];
-            PptInterop.Shape shape = slide.Shapes[slide.Shapes.Count];
+            PptInterop.Shape shape = GetLastShape(presentation);
+            bool createdManagedShape = HasDiagramState(shape, serializer, "Round1");
             string diagramId = shape.Tags["DRAWIO_PPT_ID"] ?? string.Empty;
-            string partId = shape.Tags["DRAWIO_PPT_PART_ID"] ?? string.Empty;
-            bool createdManagedShape = !string.IsNullOrWhiteSpace(diagramId) && !string.IsNullOrWhiteSpace(partId);
-
-            shape.Select(MsoTriState.msoTrue);
-            host.EditSelectedDiagram();
-            System.Threading.Thread.Sleep(1200);
-
-            slide = presentation.Slides[1];
-            shape = slide.Shapes[slide.Shapes.Count];
-            string editedPartId = shape.Tags["DRAWIO_PPT_PART_ID"] ?? string.Empty;
-            string alternativeText = shape.AlternativeText ?? string.Empty;
-            bool editedManagedShape = !string.IsNullOrWhiteSpace(editedPartId) && alternativeText.Length > 0;
-            bool customXmlStored = presentation.CustomXMLParts.Count > 0;
-
             Console.WriteLine("CreatedManagedShape=" + createdManagedShape);
-            Console.WriteLine("EditedManagedShape=" + editedManagedShape);
-            Console.WriteLine("CustomXmlCount=" + presentation.CustomXMLParts.Count);
+            Console.WriteLine("CreatedDiagramId=" + diagramId);
+            Console.WriteLine("CreatedCustomXmlCount=" + presentation.CustomXMLParts.Count);
+
+            SaveAndClosePresentation(ref presentation);
+            DisposeHost(ref host);
+            Thread.Sleep(1200);
+
+            presentation = application.Presentations.Open(presentationPath, MsoTriState.msoFalse, MsoTriState.msoFalse, MsoTriState.msoTrue);
+            presentation.Slides[1].Select();
+            host = new AddInHost(application);
+            host.Start();
+
+            shape = GetLastShape(presentation);
+            shape.Select(MsoTriState.msoFalse);
+            Thread.Sleep(800);
+            host.EditSelectedDiagram();
+            Thread.Sleep(1800);
+
+            shape = GetLastShape(presentation);
+            bool reopenedEditApplied = HasDiagramState(shape, serializer, "Round2");
+            Console.WriteLine("ReopenedEditApplied=" + reopenedEditApplied);
+            Console.WriteLine("EditedCustomXmlCount=" + presentation.CustomXMLParts.Count);
+
+            SaveAndClosePresentation(ref presentation);
+            DisposeHost(ref host);
+            Thread.Sleep(1200);
+
+            presentation = application.Presentations.Open(presentationPath, MsoTriState.msoFalse, MsoTriState.msoFalse, MsoTriState.msoTrue);
+            shape = GetLastShape(presentation);
+            bool persistedAfterReopen = HasDiagramState(shape, serializer, "Round2") && presentation.CustomXMLParts.Count > 0;
+            PptInterop.Slide slide = presentation.Slides[1];
+            Console.WriteLine("PersistedAfterReopen=" + persistedAfterReopen);
+            Console.WriteLine("FinalCustomXmlCount=" + presentation.CustomXMLParts.Count);
             Console.WriteLine("ShapeCount=" + slide.Shapes.Count);
 
-            return createdManagedShape && editedManagedShape && customXmlStored ? 0 : 1;
+            return createdManagedShape && reopenedEditApplied && persistedAfterReopen ? 0 : 1;
         }
         catch (Exception ex)
         {
@@ -246,8 +331,7 @@ public static class PowerPointUrlE2E
             {
                 try
                 {
-                    presentation.Saved = MsoTriState.msoTrue;
-                    presentation.Close();
+                    SaveAndClosePresentation(ref presentation);
                 }
                 catch
                 {
@@ -256,7 +340,7 @@ public static class PowerPointUrlE2E
 
             if (host != null)
             {
-                host.Dispose();
+                DisposeHost(ref host);
             }
 
             if (application != null)

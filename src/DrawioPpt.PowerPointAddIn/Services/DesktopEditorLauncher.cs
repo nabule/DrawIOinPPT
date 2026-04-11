@@ -9,6 +9,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
 {
     public class DesktopEditorLauncher
     {
+        private static readonly Encoding Utf8WithoutBom = new UTF8Encoding(false);
         private readonly PresentationSidecarPathBuilder _pathBuilder;
 
         public DesktopEditorLauncher()
@@ -34,9 +35,9 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             string targetPath = envelope.SidecarPath;
-            if (string.IsNullOrWhiteSpace(targetPath))
+            if (string.IsNullOrWhiteSpace(targetPath) || !Path.IsPathRooted(targetPath))
             {
-                if (settings.KeepSidecarFile && !string.IsNullOrWhiteSpace(presentationPath))
+                if (settings.KeepSidecarFile && _pathBuilder.CanBuildPath(presentationPath))
                 {
                     targetPath = _pathBuilder.BuildPath(presentationPath, envelope.DiagramId, envelope.DiagramName, settings.SidecarFolderName);
                 }
@@ -52,7 +53,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 Directory.CreateDirectory(directory);
             }
 
-            File.WriteAllText(targetPath, envelope.DrawioXml ?? string.Empty, Encoding.UTF8);
+            File.WriteAllText(targetPath, envelope.DrawioXml ?? string.Empty, Utf8WithoutBom);
             return targetPath;
         }
 
@@ -68,9 +69,11 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 throw new ArgumentException("Draw.io file path is required.", "drawioFilePath");
             }
 
+            string fullDrawioFilePath = Path.GetFullPath(drawioFilePath);
             ProcessStartInfo startInfo = new ProcessStartInfo();
             startInfo.FileName = editorExecutablePath;
-            startInfo.Arguments = Quote(drawioFilePath);
+            startInfo.Arguments = Quote(fullDrawioFilePath);
+            startInfo.WorkingDirectory = Path.GetDirectoryName(fullDrawioFilePath);
             startInfo.UseShellExecute = true;
             Process.Start(startInfo);
         }
@@ -87,4 +90,3 @@ namespace DrawioPpt.PowerPointAddIn.Services
         }
     }
 }
-

@@ -9,17 +9,19 @@ namespace DrawioPpt.PowerPointAddIn.Services
         private readonly DesktopSvgExporter _desktopSvgExporter;
         private readonly DiagramVisualSvgService _visualSvgService;
         private readonly SvgDiagramDataEmbedder _embedder;
+        private readonly SvgPowerPointSupportService _svgSupportService;
 
         public SvgFileProvider()
-            : this(new DesktopSvgExporter(), new DiagramVisualSvgService(), new SvgDiagramDataEmbedder())
+            : this(new DesktopSvgExporter(), new DiagramVisualSvgService(), new SvgDiagramDataEmbedder(), new SvgPowerPointSupportService())
         {
         }
 
-        public SvgFileProvider(DesktopSvgExporter desktopSvgExporter, DiagramVisualSvgService visualSvgService, SvgDiagramDataEmbedder embedder)
+        public SvgFileProvider(DesktopSvgExporter desktopSvgExporter, DiagramVisualSvgService visualSvgService, SvgDiagramDataEmbedder embedder, SvgPowerPointSupportService svgSupportService)
         {
             _desktopSvgExporter = desktopSvgExporter;
             _visualSvgService = visualSvgService;
             _embedder = embedder;
+            _svgSupportService = svgSupportService;
         }
 
         public string GetSvgPath(DiagramEnvelope envelope, PluginSettings settings, string drawioFilePath)
@@ -37,6 +39,11 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 string outputSvgPath = BuildDesktopExportPath(envelope.DiagramId);
                 if (_desktopSvgExporter.TryExport(settings.DesktopEditorPath, drawioFilePath, outputSvgPath))
                 {
+                    if (_svgSupportService != null)
+                    {
+                        _svgSupportService.SanitizeFile(outputSvgPath);
+                    }
+
                     if (_embedder != null)
                     {
                         _embedder.EnsureEmbeddedFile(outputSvgPath, envelope.DrawioXml);

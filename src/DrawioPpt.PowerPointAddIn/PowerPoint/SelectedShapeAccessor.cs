@@ -148,6 +148,12 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
             return null;
         }
 
+        public void SelectParentSlide(PptInterop.Shape shape)
+        {
+            PptInterop.Slide slide = GetParentSlide(shape);
+            TryActivateSlide(slide);
+        }
+
         public void CollectManagedDiagramReferences(PptInterop.Presentation presentation, ISet<string> diagramIds, ISet<string> partIds)
         {
             if (presentation == null)

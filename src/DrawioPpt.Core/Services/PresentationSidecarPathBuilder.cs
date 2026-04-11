@@ -5,11 +5,26 @@ namespace DrawioPpt.Core.Services
 {
     public class PresentationSidecarPathBuilder
     {
-        public string BuildPath(string presentationPath, string diagramId, string diagramName, string sidecarFolderName)
+        public bool CanBuildPath(string presentationPath)
         {
             if (string.IsNullOrWhiteSpace(presentationPath))
             {
-                throw new ArgumentException("Presentation path is required.", "presentationPath");
+                return false;
+            }
+
+            if (!Path.IsPathRooted(presentationPath))
+            {
+                return false;
+            }
+
+            return !string.IsNullOrWhiteSpace(Path.GetDirectoryName(presentationPath));
+        }
+
+        public string BuildPath(string presentationPath, string diagramId, string diagramName, string sidecarFolderName)
+        {
+            if (!CanBuildPath(presentationPath))
+            {
+                throw new ArgumentException("A saved presentation path is required.", "presentationPath");
             }
 
             if (string.IsNullOrWhiteSpace(diagramId))
@@ -53,4 +68,3 @@ namespace DrawioPpt.Core.Services
         }
     }
 }
-

@@ -7,6 +7,8 @@ namespace DrawioPpt.PowerPointAddIn.Services
 {
     public class DesktopDiagramMonitor : IDisposable
     {
+        private const int MonitorIntervalMilliseconds = 500;
+        private const int RefreshQuietPeriodMilliseconds = 1200;
         private readonly Action<string, string> _refreshAction;
         private readonly Dictionary<string, MonitoredDiagram> _monitoredDiagrams;
         private readonly Timer _timer;
@@ -16,7 +18,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _refreshAction = refreshAction;
             _monitoredDiagrams = new Dictionary<string, MonitoredDiagram>(StringComparer.OrdinalIgnoreCase);
             _timer = new Timer();
-            _timer.Interval = 1500;
+            _timer.Interval = MonitorIntervalMilliseconds;
             _timer.Tick += OnTimerTick;
             _timer.Start();
         }
@@ -28,10 +30,13 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 return;
             }
 
+            DateTime lastWriteUtc = File.Exists(filePath) ? File.GetLastWriteTimeUtc(filePath) : DateTime.MinValue;
             MonitoredDiagram item = new MonitoredDiagram();
             item.DiagramId = diagramId;
             item.FilePath = filePath;
-            item.LastSeenWriteUtc = File.Exists(filePath) ? File.GetLastWriteTimeUtc(filePath) : DateTime.MinValue;
+            item.LastSeenWriteUtc = lastWriteUtc;
+            item.LastObservedWriteUtc = lastWriteUtc;
+            item.PendingRefreshAfterUtc = DateTime.MinValue;
             _monitoredDiagrams[diagramId] = item;
         }
 
@@ -55,7 +60,20 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 }
 
                 DateTime lastWriteUtc = File.GetLastWriteTimeUtc(item.FilePath);
+                if (lastWriteUtc > item.LastObservedWriteUtc)
+                {
+                    item.LastObservedWriteUtc = lastWriteUtc;
+                    item.PendingRefreshAfterUtc = DateTime.UtcNow.AddMilliseconds(RefreshQuietPeriodMilliseconds);
+                    continue;
+                }
+
                 if (lastWriteUtc <= item.LastSeenWriteUtc)
+                {
+                    item.PendingRefreshAfterUtc = DateTime.MinValue;
+                    continue;
+                }
+
+                if (item.PendingRefreshAfterUtc > DateTime.UtcNow)
                 {
                     continue;
                 }
@@ -64,9 +82,12 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 {
                     _refreshAction(item.DiagramId, item.FilePath);
                     item.LastSeenWriteUtc = lastWriteUtc;
+                    item.LastObservedWriteUtc = lastWriteUtc;
+                    item.PendingRefreshAfterUtc = DateTime.MinValue;
                 }
                 catch
                 {
+                    item.PendingRefreshAfterUtc = DateTime.UtcNow.AddMilliseconds(RefreshQuietPeriodMilliseconds);
                 }
             }
         }
@@ -76,6 +97,8 @@ namespace DrawioPpt.PowerPointAddIn.Services
             public string DiagramId { get; set; }
             public string FilePath { get; set; }
             public DateTime LastSeenWriteUtc { get; set; }
+            public DateTime LastObservedWriteUtc { get; set; }
+            public DateTime PendingRefreshAfterUtc { get; set; }
         }
     }
 }
