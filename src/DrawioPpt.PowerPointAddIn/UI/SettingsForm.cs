@@ -17,6 +17,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
         private readonly TextBox _sidecarFolderTextBox;
         private readonly Button _browseButton;
         private readonly Button _detectButton;
+        private readonly Button _testUrlButton;
         private readonly Button _okButton;
         private readonly Button _cancelButton;
         private readonly DesktopEditorPathDetector _pathDetector;
@@ -56,7 +57,13 @@ namespace DrawioPpt.PowerPointAddIn.UI
             _detectButton.Click += OnDetectDesktopPath;
 
             Label urlLabel = CreateLabel("Editor URL", 16, 96);
-            _editorUrlTextBox = CreateTextBox(150, 92, 394);
+            _editorUrlTextBox = CreateTextBox(150, 92, 320);
+
+            _testUrlButton = new Button();
+            _testUrlButton.Text = "Test";
+            _testUrlButton.Location = new Point(480, 90);
+            _testUrlButton.Width = 64;
+            _testUrlButton.Click += OnTestUrl;
 
             _autoOpenCheckBox = CreateCheckBox("Auto open on selection", 150, 128);
             _autoUpdateCheckBox = CreateCheckBox("Auto update on save", 150, 154);
@@ -84,6 +91,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             this.Controls.Add(_detectButton);
             this.Controls.Add(urlLabel);
             this.Controls.Add(_editorUrlTextBox);
+            this.Controls.Add(_testUrlButton);
             this.Controls.Add(_autoOpenCheckBox);
             this.Controls.Add(_autoUpdateCheckBox);
             this.Controls.Add(_keepSidecarCheckBox);
@@ -193,15 +201,88 @@ namespace DrawioPpt.PowerPointAddIn.UI
                 return;
             }
 
+            this.Settings = BuildSettingsFromInputs();
+        }
+
+        private void OnTestUrl(object sender, EventArgs e)
+        {
+            PluginSettings draftSettings = BuildSettingsFromInputs();
+            if (string.IsNullOrWhiteSpace(draftSettings.EditorUrl))
+            {
+                MessageBox.Show(this, "请先填写可测试的 Editor URL。", "DrawioPpt", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            PluginTraceLog traceLog = new PluginTraceLog();
+            DiagramEnvelope envelope = CreateUrlTestEnvelope(draftSettings.EditorUrl);
+            bool saved = false;
+            int svgLength = 0;
+
+            using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(draftSettings.EditorUrl, envelope.DiagramName, envelope.DrawioXml, traceLog))
+            {
+                form.DiagramSaved += delegate(object testSender, UrlDiagramSavedEventArgs args)
+                {
+                    saved = true;
+                    svgLength = args.SvgMarkup == null ? 0 : args.SvgMarkup.Length;
+                };
+
+                DialogResult result = form.ShowDialog(this);
+                if (saved)
+                {
+                    MessageBox.Show(
+                        this,
+                        "URL 模式测试成功。" +
+                        Environment.NewLine + "SVG length: " + svgLength +
+                        Environment.NewLine + "Log: " + traceLog.LogPath,
+                        "DrawioPpt",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                string detail = result == DialogResult.Cancel
+                    ? "编辑器已关闭，但没有检测到保存回调。"
+                    : "没有检测到有效的 save/export 回调。";
+
+                MessageBox.Show(
+                    this,
+                    detail + Environment.NewLine + "请检查编辑器地址和日志文件：" + Environment.NewLine + traceLog.LogPath,
+                    "DrawioPpt",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+
+        private PluginSettings BuildSettingsFromInputs()
+        {
             PluginSettings updated = new PluginSettings();
-            updated.EditorMode = (EditorMode)selectedItem;
+            updated.EditorMode = _editorModeComboBox.SelectedItem == null
+                ? EditorMode.Desktop
+                : (EditorMode)_editorModeComboBox.SelectedItem;
             updated.DesktopEditorPath = _desktopPathTextBox.Text;
             updated.EditorUrl = _editorUrlTextBox.Text;
             updated.AutoOpenOnSelection = _autoOpenCheckBox.Checked;
             updated.AutoUpdateOnSave = _autoUpdateCheckBox.Checked;
             updated.KeepSidecarFile = _keepSidecarCheckBox.Checked;
             updated.SidecarFolderName = _sidecarFolderTextBox.Text;
-            this.Settings = updated;
+            return updated;
+        }
+
+        private static DiagramEnvelope CreateUrlTestEnvelope(string editorUrl)
+        {
+            DiagramEnvelope envelope = new DiagramEnvelope();
+            envelope.DiagramId = Guid.NewGuid().ToString("N");
+            envelope.DiagramName = "DrawioPpt URL Test";
+            envelope.EditorMode = EditorMode.Url;
+            envelope.EditorTarget = editorUrl ?? string.Empty;
+            envelope.UpdatedUtc = DateTime.UtcNow;
+            envelope.DrawioXml =
+                "<mxfile host=\"DrawioPpt\">" +
+                "<diagram id=\"" + envelope.DiagramId + "\" name=\"DrawioPpt URL Test\">" +
+                "<mxGraphModel />" +
+                "</diagram>" +
+                "</mxfile>";
+            return envelope;
         }
     }
 }
