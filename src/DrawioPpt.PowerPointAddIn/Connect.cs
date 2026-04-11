@@ -162,6 +162,74 @@ namespace DrawioPpt.PowerPointAddIn
             return _ribbonController.GetSingleShapeEnabled(control);
         }
 
+        public bool GetBindEnabled(IRibbonControl control)
+        {
+            if (_ribbonController == null)
+            {
+                return false;
+            }
+
+            return _ribbonController.GetBindEnabled(control);
+        }
+
+        public string GetEditorModeSummary(IRibbonControl control)
+        {
+            if (_ribbonController == null)
+            {
+                return "当前模式：初始化中";
+            }
+
+            return _ribbonController.GetEditorModeSummary(control);
+        }
+
+        public string GetSelectionDetailSummary(IRibbonControl control)
+        {
+            if (_ribbonController == null)
+            {
+                return "状态：初始化中";
+            }
+
+            return _ribbonController.GetSelectionDetailSummary(control);
+        }
+
+        public string GetEditButtonLabel(IRibbonControl control)
+        {
+            if (_ribbonController == null)
+            {
+                return "编辑";
+            }
+
+            return _ribbonController.GetEditButtonLabel(control);
+        }
+
+        public bool GetAutoOpenPressed(IRibbonControl control)
+        {
+            if (_ribbonController == null)
+            {
+                return false;
+            }
+
+            return _ribbonController.GetAutoOpenPressed(control);
+        }
+
+        public void OnToggleAutoOpen(IRibbonControl control, bool pressed)
+        {
+            if (_ribbonController != null)
+            {
+                _ribbonController.OnToggleAutoOpen(control, pressed);
+            }
+        }
+
+        public object GetButtonImage(IRibbonControl control)
+        {
+            if (_ribbonController == null)
+            {
+                return null;
+            }
+
+            return _ribbonController.GetButtonImage(control);
+        }
+
         [ComRegisterFunction]
         public static void Register(Type type)
         {

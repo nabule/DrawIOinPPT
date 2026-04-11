@@ -74,12 +74,26 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
         public bool HasEditableSelection
         {
-            get { return ReadLiveSelectionContext().IsManagedShape; }
+            get { return GetSelectionContextForRibbon().IsManagedShape; }
         }
 
         public bool HasSingleShapeSelection
         {
-            get { return ReadLiveSelectionContext().HasSingleShape; }
+            get { return GetSelectionContextForRibbon().HasSingleShape; }
+        }
+
+        public bool CanBindSelection
+        {
+            get
+            {
+                SelectionContext selection = GetSelectionContextForRibbon();
+                return selection.HasSingleShape && !selection.IsManagedShape;
+            }
+        }
+
+        public bool IsAutoOpenOnSelectionEnabled
+        {
+            get { return _settings != null && _settings.AutoOpenOnSelection; }
         }
 
         public void Start()
@@ -193,14 +207,20 @@ namespace DrawioPpt.PowerPointAddIn.Services
         {
             ExecuteGuarded("EditSelectedDiagram", "打开图形编辑器时出现异常。", true, delegate
             {
-                ApplySelectionContext(ReadLiveSelectionContext(), false);
-                if (_currentSelection == null || !_currentSelection.IsManagedShape)
+                SelectionContext selection = _currentSelection ?? new SelectionContext();
+                if (!selection.IsManagedShape)
+                {
+                    selection = ReadLiveSelectionContext();
+                    ApplySelectionContext(selection, false);
+                }
+
+                if (selection == null || !selection.IsManagedShape)
                 {
                     _userNotifier.ShowInfo("当前未选中插件管理的 Draw.io 图形。", "DrawioPpt");
                     return;
                 }
 
-                PptInterop.Shape shape = _selectedShapeAccessor.GetSingleSelectedShape(_application);
+                PptInterop.Shape shape = ResolveManagedShape(selection);
                 if (shape == null)
                 {
                     _userNotifier.ShowInfo("请先选中一个已绑定的图形。", "DrawioPpt");
@@ -229,7 +249,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
         {
             ExecuteGuarded("ClearSelectedShapeBinding", "清除图形绑定时出现异常。", true, delegate
             {
-                PptInterop.Shape shape = _selectedShapeAccessor.GetSingleSelectedShape(_application);
+                PptInterop.Shape shape = ResolveCurrentShape();
                 if (shape == null)
                 {
                     _userNotifier.ShowInfo("请先选中一个图形，再执行清除绑定。", "DrawioPpt");
@@ -250,7 +270,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
         {
             ExecuteGuarded("RefreshSelectedDiagram", "刷新当前图形时出现异常。", true, delegate
             {
-                PptInterop.Shape shape = _selectedShapeAccessor.GetSingleSelectedShape(_application);
+                PptInterop.Shape shape = ResolveManagedShape(_currentSelection);
                 if (shape == null)
                 {
                     _userNotifier.ShowInfo("请先选中一个图形。", "DrawioPpt");
@@ -264,6 +284,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                     return;
                 }
 
+                NormalizeSidecarPath(shape, envelope);
                 if (string.IsNullOrWhiteSpace(envelope.SidecarPath) || !File.Exists(envelope.SidecarPath))
                 {
                     _userNotifier.ShowInfo("当前图形还没有可读取的 .drawio 工作文件。", "DrawioPpt");
@@ -296,23 +317,82 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
         public string GetSelectionSummary()
         {
-            SelectionContext selection = ReadLiveSelectionContext();
+            SelectionContext selection = GetSelectionContextForRibbon();
             if (selection == null || !selection.HasSelection)
             {
-                return "Draw.io: 未选中图形";
+                return "对象：未选中";
             }
 
             if (!selection.HasSingleShape)
             {
-                return "Draw.io: 请选择单个图形";
+                return "对象：多选或非图形";
             }
 
             if (selection.IsManagedShape)
             {
-                return "Draw.io: 已识别 " + selection.ShapeName;
+                return "对象：" + SummarizeShapeName(selection.ShapeName);
             }
 
-            return "Draw.io: 当前图形未绑定";
+            return "对象：" + SummarizeShapeName(selection.ShapeName);
+        }
+
+        public string GetSelectionDetailSummary()
+        {
+            SelectionContext selection = GetSelectionContextForRibbon();
+            if (selection == null || !selection.HasSelection)
+            {
+                return "状态：等待选择图形";
+            }
+
+            if (!selection.HasSingleShape)
+            {
+                return "状态：请只选择一个图形";
+            }
+
+            if (selection.IsManagedShape)
+            {
+                return "状态：已识别为 Draw.io 图形";
+            }
+
+            return "状态：普通图形，可直接绑定";
+        }
+
+        public string GetEditorModeSummary()
+        {
+            PluginSettings settings = _settings ?? new PluginSettings();
+            string modeText = settings.EditorMode == EditorMode.Url ? "URL 模式" : "桌面模式";
+            return "模式：" + modeText;
+        }
+
+        public string GetEditButtonLabel()
+        {
+            SelectionContext selection = GetSelectionContextForRibbon();
+            if (selection != null && selection.IsManagedShape)
+            {
+                return "重新编辑";
+            }
+
+            return "编辑";
+        }
+
+        public void SetAutoOpenOnSelection(bool enabled)
+        {
+            ExecuteGuarded("SetAutoOpenOnSelection", "切换自动打开设置时出现异常。", true, delegate
+            {
+                if (_settings == null)
+                {
+                    _settings = new PluginSettings();
+                }
+
+                if (_settings.AutoOpenOnSelection == enabled)
+                {
+                    return;
+                }
+
+                _settings.AutoOpenOnSelection = enabled;
+                _settingsStore.Save(_settings);
+                RaiseSelectionStateChanged();
+            });
         }
 
         private void OnSelectionChanged(object sender, SelectionContextChangedEventArgs e)
@@ -427,6 +507,28 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
         }
 
+        private void NormalizeSidecarPath(PptInterop.Shape shape, DiagramEnvelope envelope)
+        {
+            if (shape == null || envelope == null)
+            {
+                return;
+            }
+
+            PluginSettings settings = _settings ?? new PluginSettings();
+            string presentationPath = _selectedShapeAccessor.GetPresentationFullName(_application);
+            string resolvedPath = _desktopEditorLauncher.ResolvePreferredSidecarPath(envelope, settings, presentationPath);
+            string currentPath = envelope.SidecarPath ?? string.Empty;
+            string nextPath = resolvedPath ?? string.Empty;
+            if (string.Equals(currentPath, nextPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            envelope.SidecarPath = nextPath;
+            SaveManagedEnvelope(shape, envelope);
+            _traceLog.Info("AddInHost", "Normalized sidecar path for diagram " + envelope.DiagramId + " to " + nextPath + ".");
+        }
+
         private bool TryOpenShapeForEditing(PptInterop.Shape shape, DiagramEnvelope envelope, bool explicitUserAction)
         {
             if (shape == null || envelope == null)
@@ -434,6 +536,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 return false;
             }
 
+            NormalizeSidecarPath(shape, envelope);
             if (_settings.EditorMode == EditorMode.Desktop)
             {
                 string presentationPath = _selectedShapeAccessor.GetPresentationFullName(_application);
@@ -632,6 +735,39 @@ namespace DrawioPpt.PowerPointAddIn.Services
             {
                 RememberEditorLaunch(diagramId);
             }
+        }
+
+        private SelectionContext GetSelectionContextForRibbon()
+        {
+            return _currentSelection ?? new SelectionContext();
+        }
+
+        private PptInterop.Shape ResolveCurrentShape()
+        {
+            PptInterop.Shape liveShape = _selectedShapeAccessor.GetSingleSelectedShape(_application);
+            if (liveShape != null)
+            {
+                return liveShape;
+            }
+
+            return ResolveManagedShape(_currentSelection);
+        }
+
+        private PptInterop.Shape ResolveManagedShape(SelectionContext selection)
+        {
+            PptInterop.Shape liveShape = _selectedShapeAccessor.GetSingleSelectedShape(_application);
+            if (liveShape != null)
+            {
+                return liveShape;
+            }
+
+            if (selection == null || string.IsNullOrWhiteSpace(selection.DiagramId))
+            {
+                return null;
+            }
+
+            PptInterop.Presentation presentation = _selectedShapeAccessor.GetActivePresentation(_application);
+            return _selectedShapeAccessor.FindShapeByDiagramId(presentation, selection.DiagramId);
         }
 
         private SelectionContext ReadLiveSelectionContext()
@@ -891,6 +1027,17 @@ namespace DrawioPpt.PowerPointAddIn.Services
             {
                 handler(this, EventArgs.Empty);
             }
+        }
+
+        private static string SummarizeShapeName(string shapeName)
+        {
+            string normalized = string.IsNullOrWhiteSpace(shapeName) ? "未命名图形" : shapeName.Trim();
+            if (normalized.Length <= 18)
+            {
+                return normalized;
+            }
+
+            return normalized.Substring(0, 15) + "...";
         }
     }
 }

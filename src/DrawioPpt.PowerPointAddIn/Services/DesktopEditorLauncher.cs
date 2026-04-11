@@ -22,6 +22,32 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _pathBuilder = pathBuilder;
         }
 
+        public string ResolvePreferredSidecarPath(DiagramEnvelope envelope, PluginSettings settings, string presentationPath)
+        {
+            if (envelope == null)
+            {
+                throw new ArgumentNullException("envelope");
+            }
+
+            if (settings == null)
+            {
+                throw new ArgumentNullException("settings");
+            }
+
+            if (settings.KeepSidecarFile && _pathBuilder.CanBuildPath(presentationPath))
+            {
+                return _pathBuilder.BuildPath(presentationPath, envelope.DiagramId, envelope.DiagramName, settings.SidecarFolderName);
+            }
+
+            string currentPath = envelope.SidecarPath;
+            if (!string.IsNullOrWhiteSpace(currentPath) && Path.IsPathRooted(currentPath))
+            {
+                return currentPath;
+            }
+
+            return string.Empty;
+        }
+
         public string PrepareWorkingFile(DiagramEnvelope envelope, PluginSettings settings, string presentationPath)
         {
             if (envelope == null)
@@ -34,17 +60,10 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 throw new ArgumentNullException("settings");
             }
 
-            string targetPath = envelope.SidecarPath;
-            if (string.IsNullOrWhiteSpace(targetPath) || !Path.IsPathRooted(targetPath))
+            string targetPath = ResolvePreferredSidecarPath(envelope, settings, presentationPath);
+            if (string.IsNullOrWhiteSpace(targetPath))
             {
-                if (settings.KeepSidecarFile && _pathBuilder.CanBuildPath(presentationPath))
-                {
-                    targetPath = _pathBuilder.BuildPath(presentationPath, envelope.DiagramId, envelope.DiagramName, settings.SidecarFolderName);
-                }
-                else
-                {
-                    targetPath = BuildTemporaryPath(envelope.DiagramId);
-                }
+                targetPath = BuildTemporaryPath(envelope.DiagramId);
             }
 
             string directory = Path.GetDirectoryName(targetPath);

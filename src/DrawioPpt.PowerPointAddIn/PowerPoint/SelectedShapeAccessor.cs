@@ -148,6 +148,27 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
             return null;
         }
 
+        public PptInterop.Shape FindShapeByDiagramId(PptInterop.Presentation presentation, string diagramId)
+        {
+            if (presentation == null || string.IsNullOrWhiteSpace(diagramId))
+            {
+                return null;
+            }
+
+            int slideIndex;
+            for (slideIndex = 1; slideIndex <= presentation.Slides.Count; slideIndex++)
+            {
+                PptInterop.Slide slide = presentation.Slides[slideIndex];
+                PptInterop.Shape shape = FindShapeByDiagramId(slide.Shapes, diagramId);
+                if (shape != null)
+                {
+                    return shape;
+                }
+            }
+
+            return null;
+        }
+
         public void SelectParentSlide(PptInterop.Shape shape)
         {
             PptInterop.Slide slide = GetParentSlide(shape);
