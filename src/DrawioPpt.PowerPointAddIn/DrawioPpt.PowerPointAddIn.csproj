@@ -68,6 +68,7 @@
     <Compile Include="Services\DesktopEditorPathDetector.cs" />
     <Compile Include="Services\DesktopSvgExporter.cs" />
     <Compile Include="Services\DiagramVisualSvgService.cs" />
+    <Compile Include="Services\PluginTraceLog.cs" />
     <Compile Include="Services\PowerPointSvgShapeService.cs" />
     <Compile Include="Services\PresentationDiagramStore.cs" />
     <Compile Include="Services\ShapeMetadataService.cs" />

@@ -21,6 +21,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 已把 Draw.io 源数据同步写入 `Presentation.CustomXMLParts`，图形保留 `diagramId/customXmlPartId` 引用，并继续兼容旧的 `AlternativeText` 回退。
 - 已支持旧版 `AlternativeText` 元数据在读取时自动补写到 `CustomXMLParts`。
 - 已支持低频自动清理没有任何图形引用的孤儿 `CustomXMLPart`，减少文档膨胀。
+- 已为 URL 模式补充本地日志、初始化超时和导出超时诊断。
 
 ## 目录结构
 
@@ -71,6 +72,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
 构建脚本会自动恢复 `Microsoft.Web.WebView2` 包，并默认按 `x64` 构建，与本机 PowerPoint x64 对齐。
 
+日志文件默认写入：
+
+```text
+C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.log
+```
+
 注册插件：
 
 ```powershell
@@ -89,5 +96,5 @@ powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
 
 1. 实机验证 URL 模式的 save/export 消息链路
 2. 提升替换图形时对动画、超链接和层级的保真
-3. 增加保存日志与错误追踪
-4. 继续提升 URL 模式的实机验证覆盖和异常可见性
+3. 继续提升 URL 模式的实机验证覆盖和异常可见性
+4. 视需要补充更细的错误分级与诊断入口

@@ -26,6 +26,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
         private readonly SvgMarkupFileStore _svgMarkupFileStore;
         private readonly PowerPointSvgShapeService _svgShapeService;
         private readonly DesktopDiagramMonitor _desktopDiagramMonitor;
+        private readonly PluginTraceLog _traceLog;
         private readonly UserNotifier _userNotifier;
         private PluginSettings _settings;
         private SelectionContext _currentSelection;
@@ -49,6 +50,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _svgMarkupFileStore = new SvgMarkupFileStore();
             _svgShapeService = new PowerPointSvgShapeService(_selectedShapeAccessor);
             _desktopDiagramMonitor = new DesktopDiagramMonitor(RefreshDiagramFromMonitoredFile);
+            _traceLog = new PluginTraceLog();
             _userNotifier = new UserNotifier();
             _selectionMonitor = new SelectionMonitor(application, new PowerPointShapeSelectionReader(_envelopeSerializer));
             _selectionMonitor.SelectionChanged += OnSelectionChanged;
@@ -82,6 +84,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 _settings.DesktopEditorPath = _desktopEditorPathDetector.Detect();
             }
 
+            _traceLog.Info("AddInHost", "Starting add-in host. EditorMode=" + _settings.EditorMode + ", EditorUrl=" + (_settings.EditorUrl ?? string.Empty) + ", DesktopPath=" + (_settings.DesktopEditorPath ?? string.Empty));
             _selectionMonitor.Start();
             MaybeCleanupActivePresentation(true);
         }
@@ -103,6 +106,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             string presentationPath = _selectedShapeAccessor.GetPresentationFullName(_application);
             string diagramName = BuildNextDiagramName();
             DiagramEnvelope envelope = _shapeMetadataService.CreateNewEnvelope(_settings, presentationPath, diagramName);
+            _traceLog.Info("AddInHost", "Creating new diagram " + envelope.DiagramId + " in mode " + _settings.EditorMode + ".");
             string workingFile = envelope.SidecarPath;
 
             if (_settings.EditorMode == EditorMode.Desktop)
@@ -153,6 +157,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             string presentationPath = _selectedShapeAccessor.GetPresentationFullName(_application);
             DiagramEnvelope envelope = _shapeMetadataService.CreateOrUpdateEnvelope(shape, _settings, presentationPath);
             SaveManagedEnvelope(shape, envelope);
+            _traceLog.Info("AddInHost", "Bound existing shape '" + shape.Name + "' to diagram " + envelope.DiagramId + ".");
             _currentSelection = _shapeMetadataService.BuildSelectionContext(shape);
             RaiseSelectionStateChanged();
 
@@ -187,6 +192,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 return;
             }
 
+            _traceLog.Info("AddInHost", "Editing diagram " + envelope.DiagramId + " from shape '" + shape.Name + "'.");
             if (!TryOpenShapeForEditing(shape, envelope, true))
             {
                 if (_settings.EditorMode == EditorMode.Desktop)
@@ -208,6 +214,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             DeleteManagedEnvelope(shape);
             _shapeMetadataService.Clear(shape);
             MaybeCleanupActivePresentation(true);
+            _traceLog.Info("AddInHost", "Cleared binding for shape '" + shape.Name + "'.");
             _currentSelection = new SelectionContext();
             _currentSelection.HasSelection = true;
             _currentSelection.HasSingleShape = true;
@@ -240,6 +247,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 return;
             }
 
+            _traceLog.Info("AddInHost", "Refreshing diagram " + envelope.DiagramId + " from file " + envelope.SidecarPath + ".");
             RefreshDiagramFromFile(shape, envelope, envelope.SidecarPath, true);
         }
 
@@ -254,6 +262,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
                 _settings = form.Settings;
                 _settingsStore.Save(_settings);
+                _traceLog.Info("AddInHost", "Settings saved. EditorMode=" + _settings.EditorMode + ", EditorUrl=" + (_settings.EditorUrl ?? string.Empty) + ", DesktopPath=" + (_settings.DesktopEditorPath ?? string.Empty));
                 _userNotifier.ShowInfo("设置已保存。", "DrawioPpt");
             }
         }
@@ -361,6 +370,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             envelope.DrawioXml = xmlContent;
             envelope.SidecarPath = filePath;
             envelope.UpdatedUtc = DateTime.UtcNow;
+            _traceLog.Info("AddInHost", "Applying refreshed diagram " + envelope.DiagramId + " from monitored file " + filePath + ".");
 
             string svgPath = _svgFileProvider.GetSvgPath(envelope, _settings, filePath);
             SuppressAutoOpenForSeconds(2);
@@ -389,6 +399,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 envelope.SidecarPath = workingFile;
                 envelope.UpdatedUtc = DateTime.UtcNow;
                 SaveManagedEnvelope(shape, envelope);
+                _traceLog.Info("AddInHost", "Prepared desktop editor working file for diagram " + envelope.DiagramId + ": " + workingFile);
 
                 if (!LaunchDesktopEditor(envelope, workingFile, explicitUserAction))
                 {
@@ -416,7 +427,8 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 }
 
                 WriteSidecarFile(envelope);
-                using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(_settings.EditorUrl, envelope.DiagramName, envelope.DrawioXml))
+                _traceLog.Info("AddInHost", "Opening URL editor for diagram " + envelope.DiagramId + " with URL " + _settings.EditorUrl + ".");
+                using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(_settings.EditorUrl, envelope.DiagramName, envelope.DrawioXml, _traceLog))
                 {
                     form.DiagramSaved += delegate(object sender, UrlDiagramSavedEventArgs args)
                     {
@@ -476,9 +488,11 @@ namespace DrawioPpt.PowerPointAddIn.Services
                     _userNotifier.ShowInfo("请先在设置中配置本地 draw.io/diagrams.net 路径。", "DrawioPpt");
                 }
 
+                _traceLog.Warn("AddInHost", "Desktop editor path is missing or invalid.");
                 return false;
             }
 
+            _traceLog.Info("AddInHost", "Launching desktop editor for diagram " + envelope.DiagramId + " using " + _settings.DesktopEditorPath + ".");
             _desktopEditorLauncher.Launch(_settings.DesktopEditorPath, workingFile);
             _desktopDiagramMonitor.Track(envelope.DiagramId, workingFile);
             return true;
@@ -496,6 +510,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 envelope.DrawioXml = args.Xml;
                 envelope.UpdatedUtc = DateTime.UtcNow;
                 WriteSidecarFile(envelope);
+                _traceLog.Info("AddInHost", "Received URL editor save for diagram " + envelope.DiagramId + ". ExitRequested=" + args.ExitRequested);
 
                 string svgPath = _svgMarkupFileStore.Write(envelope, args.SvgMarkup);
                 PptInterop.Shape shape = _selectedShapeAccessor.FindShapeByDiagramId(_application, envelope.DiagramId) ?? originalShape;
@@ -512,6 +527,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
             catch (Exception ex)
             {
+                _traceLog.Error("AddInHost", "Failed to apply URL editor save for diagram " + envelope.DiagramId + ".", ex);
                 _userNotifier.ShowInfo("URL 模式保存后刷新失败。" + Environment.NewLine + ex.Message, "DrawioPpt");
             }
         }
@@ -603,6 +619,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             {
                 SaveManagedEnvelope(shape, fallbackEnvelope);
                 partId = _shapeMetadataService.ReadDiagramPartId(shape);
+                _traceLog.Info("AddInHost", "Rehydrated legacy AlternativeText metadata for diagram " + fallbackEnvelope.DiagramId + ".");
             }
 
             string resolvedPartId;
@@ -682,12 +699,17 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 HashSet<string> liveDiagramIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 HashSet<string> livePartIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 _selectedShapeAccessor.CollectManagedDiagramReferences(presentation, liveDiagramIds, livePartIds);
-                _presentationDiagramStore.DeleteOrphans(presentation, liveDiagramIds, livePartIds);
+                int deletedCount = _presentationDiagramStore.DeleteOrphans(presentation, liveDiagramIds, livePartIds);
                 _lastCleanupUtc = DateTime.UtcNow;
                 _lastCleanupPresentationPath = presentationPath;
+                if (deletedCount > 0)
+                {
+                    _traceLog.Info("AddInHost", "Removed " + deletedCount + " orphaned CustomXMLParts from active presentation.");
+                }
             }
-            catch
+            catch (Exception ex)
             {
+                _traceLog.Error("AddInHost", "Failed while cleaning orphaned CustomXMLParts.", ex);
             }
         }
 

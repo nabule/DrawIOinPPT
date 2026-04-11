@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
+using DrawioPpt.PowerPointAddIn.Services;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -17,18 +18,23 @@ namespace DrawioPpt.PowerPointAddIn.UI
         private readonly string _diagramName;
         private readonly string _initialXml;
         private readonly JavaScriptSerializer _serializer;
+        private readonly PluginTraceLog _traceLog;
         private readonly WebView2 _webView;
+        private readonly Timer _deadlineTimer;
         private bool _loadSent;
         private bool _closeAfterExport;
         private string _pendingXml;
+        private DateTime? _initDeadlineUtc;
+        private DateTime? _exportDeadlineUtc;
 
-        public UrlDiagramEditorForm(string editorUrl, string diagramName, string initialXml)
+        public UrlDiagramEditorForm(string editorUrl, string diagramName, string initialXml, PluginTraceLog traceLog)
         {
             _editorUrl = editorUrl ?? string.Empty;
             _diagramName = string.IsNullOrWhiteSpace(diagramName) ? "Draw.io Diagram" : diagramName;
             _initialXml = initialXml ?? string.Empty;
             _serializer = new JavaScriptSerializer();
             _serializer.MaxJsonLength = int.MaxValue;
+            _traceLog = traceLog ?? new PluginTraceLog();
 
             this.Text = _diagramName;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -41,14 +47,21 @@ namespace DrawioPpt.PowerPointAddIn.UI
             _webView = new WebView2();
             _webView.Dock = DockStyle.Fill;
             this.Controls.Add(_webView);
+            _deadlineTimer = new Timer();
+            _deadlineTimer.Interval = 1000;
+            _deadlineTimer.Tick += OnDeadlineTimerTick;
 
             this.Shown += OnShown;
+            this.FormClosed += OnFormClosed;
         }
 
         public event EventHandler<UrlDiagramSavedEventArgs> DiagramSaved;
 
         private async void OnShown(object sender, EventArgs e)
         {
+            _traceLog.Info("UrlEditor", "Opening URL editor for diagram '" + _diagramName + "'.");
+            _initDeadlineUtc = DateTime.UtcNow.AddSeconds(45);
+            _deadlineTimer.Start();
             await InitializeWebViewAsync();
         }
 
@@ -58,19 +71,19 @@ namespace DrawioPpt.PowerPointAddIn.UI
             {
                 await _webView.EnsureCoreWebView2Async();
                 _webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+                _webView.CoreWebView2.NavigationStarting += OnNavigationStarting;
+                _webView.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
+                _webView.CoreWebView2.ProcessFailed += OnProcessFailed;
                 _webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
                 _webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                 _webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+                _traceLog.Info("UrlEditor", "Navigating embedded editor to " + EnsureEmbedUrl(_editorUrl));
                 _webView.NavigateToString(BuildHostPageHtml());
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    this,
-                    "无法初始化 URL 编辑器。" + Environment.NewLine + ex.Message,
-                    "DrawioPpt",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                _traceLog.Error("UrlEditor", "Failed to initialize URL editor.", ex);
+                MessageBox.Show(this, "无法初始化 URL 编辑器。" + Environment.NewLine + ex.Message, "DrawioPpt", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
                 this.DialogResult = DialogResult.Cancel;
                 this.Close();
@@ -114,8 +127,11 @@ namespace DrawioPpt.PowerPointAddIn.UI
                 return;
             }
 
+            _traceLog.Info("UrlEditor", "Received draw.io event: " + eventName);
+
             if (string.Equals(eventName, "init", StringComparison.OrdinalIgnoreCase))
             {
+                _initDeadlineUtc = null;
                 if (!_loadSent)
                 {
                     _loadSent = true;
@@ -135,7 +151,15 @@ namespace DrawioPpt.PowerPointAddIn.UI
             if (string.Equals(eventName, "save", StringComparison.OrdinalIgnoreCase))
             {
                 _pendingXml = GetString(payload, "xml");
+                if (string.IsNullOrWhiteSpace(_pendingXml))
+                {
+                    _traceLog.Warn("UrlEditor", "Received save event without XML payload.");
+                    MessageBox.Show(this, "编辑器返回了保存事件，但没有带回 XML 数据。", "DrawioPpt", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 _closeAfterExport = GetBoolean(payload, "exit");
+                _exportDeadlineUtc = DateTime.UtcNow.AddSeconds(20);
                 SendAction(new Dictionary<string, object>
                 {
                     { "action", "export" },
@@ -147,6 +171,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
 
             if (string.Equals(eventName, "export", StringComparison.OrdinalIgnoreCase))
             {
+                _exportDeadlineUtc = null;
                 string svgMarkup = DecodeSvgMarkup(GetString(payload, "data"));
                 if (!string.IsNullOrWhiteSpace(_pendingXml) && !string.IsNullOrWhiteSpace(svgMarkup))
                 {
@@ -155,6 +180,11 @@ namespace DrawioPpt.PowerPointAddIn.UI
                     {
                         handler(this, new UrlDiagramSavedEventArgs(_pendingXml, svgMarkup, _closeAfterExport));
                     }
+                }
+                else
+                {
+                    _traceLog.Warn("UrlEditor", "Export event did not contain usable SVG markup.");
+                    MessageBox.Show(this, "编辑器已返回导出事件，但 SVG 数据为空。请检查 URL 或稍后重试。", "DrawioPpt", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
 
                 if (_closeAfterExport)
@@ -169,6 +199,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
 
             if (string.Equals(eventName, "exit", StringComparison.OrdinalIgnoreCase))
             {
+                _traceLog.Info("UrlEditor", "Editor requested exit.");
                 this.DialogResult = DialogResult.Cancel;
                 this.Close();
                 return;
@@ -181,6 +212,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
                 {
                     try
                     {
+                        _traceLog.Info("UrlEditor", "Opening external link: " + href);
                         ProcessStartInfo startInfo = new ProcessStartInfo();
                         startInfo.FileName = href;
                         startInfo.UseShellExecute = true;
@@ -197,10 +229,19 @@ namespace DrawioPpt.PowerPointAddIn.UI
         {
             if (_webView.CoreWebView2 == null)
             {
+                _traceLog.Warn("UrlEditor", "Skipped sendAction because CoreWebView2 is not ready.");
                 return;
             }
 
             string json = _serializer.Serialize(action);
+            string actionName = string.Empty;
+            Dictionary<string, object> actionDictionary = action as Dictionary<string, object>;
+            if (actionDictionary != null)
+            {
+                actionName = GetString(actionDictionary, "action");
+            }
+
+            _traceLog.Info("UrlEditor", "Sending action to draw.io: " + (string.IsNullOrWhiteSpace(actionName) ? json : actionName));
             string script = "window.dispatchHostMessage(" + json + ");";
             Task task = _webView.CoreWebView2.ExecuteScriptAsync(script);
         }
@@ -381,6 +422,58 @@ namespace DrawioPpt.PowerPointAddIn.UI
             catch
             {
                 return string.Empty;
+            }
+        }
+
+        private void OnNavigationStarting(object sender, CoreWebView2NavigationStartingEventArgs e)
+        {
+            _traceLog.Info("UrlEditor", "Navigation starting: " + (e.Uri ?? string.Empty));
+        }
+
+        private void OnNavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            _traceLog.Info("UrlEditor", "Navigation completed. Success=" + e.IsSuccess + ", WebErrorStatus=" + e.WebErrorStatus);
+        }
+
+        private void OnProcessFailed(object sender, CoreWebView2ProcessFailedEventArgs e)
+        {
+            _traceLog.Warn("UrlEditor", "WebView2 process failed: " + e.ProcessFailedKind);
+        }
+
+        private void OnDeadlineTimerTick(object sender, EventArgs e)
+        {
+            DateTime now = DateTime.UtcNow;
+
+            if (_initDeadlineUtc.HasValue && now >= _initDeadlineUtc.Value)
+            {
+                _deadlineTimer.Stop();
+                _traceLog.Warn("UrlEditor", "Timed out waiting for draw.io init event.");
+                MessageBox.Show(this, "URL 编辑器在 45 秒内没有完成初始化。请检查编辑器地址、网络连接或企业代理设置。", "DrawioPpt", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                this.DialogResult = DialogResult.Cancel;
+                this.Close();
+                return;
+            }
+
+            if (_exportDeadlineUtc.HasValue && now >= _exportDeadlineUtc.Value)
+            {
+                _exportDeadlineUtc = null;
+                _traceLog.Warn("UrlEditor", "Timed out waiting for SVG export after save event.");
+                MessageBox.Show(this, "编辑器已经触发保存，但 20 秒内没有返回 SVG 导出结果。请重试，或检查 URL 模式是否支持 embed 导出。", "DrawioPpt", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void OnFormClosed(object sender, FormClosedEventArgs e)
+        {
+            _deadlineTimer.Stop();
+            _deadlineTimer.Dispose();
+            _traceLog.Info("UrlEditor", "URL editor closed with DialogResult=" + this.DialogResult + ".");
+
+            if (_webView.CoreWebView2 != null)
+            {
+                _webView.CoreWebView2.WebMessageReceived -= OnWebMessageReceived;
+                _webView.CoreWebView2.NavigationStarting -= OnNavigationStarting;
+                _webView.CoreWebView2.NavigationCompleted -= OnNavigationCompleted;
+                _webView.CoreWebView2.ProcessFailed -= OnProcessFailed;
             }
         }
     }
