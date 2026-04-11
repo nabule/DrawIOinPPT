@@ -32,6 +32,12 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - `src/DrawioPpt.Core/`：与宿主无关的核心模型、序列化和设置存储。
 - `src/DrawioPpt.PowerPointAddIn/`：PowerPoint COM Add-in 宿主骨架。
 
+关键文档：
+
+- [安装与联调说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/installation.md)
+- [回归清单](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/regression-checklist.md)
+- [详细开发计划](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/development-plan.md)
+
 ## 当前技术选择
 
 - 宿主：C# + PowerPoint COM Add-in
@@ -74,6 +80,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 
 构建脚本会自动恢复 `Microsoft.Web.WebView2` 包，并默认按 `x64` 构建，与本机 PowerPoint x64 对齐。
 
+URL 模式烟雾测试：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
+```
+
 日志文件默认写入：
 
 ```text
@@ -92,11 +104,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
 ```
 
-## 下一步
+## 当前里程碑
 
-按照 [docs/development-plan.md](docs/development-plan.md) 继续推进，优先完成：
-
-1. 实机验证 URL 模式的 save/export 消息链路
-2. 提升替换图形时对动画、超链接和层级的保真
-3. 继续提升 URL 模式的实机验证覆盖和异常可见性
-4. 视需要补充更细的错误分级与诊断入口
+- `M0` 已完成
+- `M1` 已完成
+- `M2` 已完成
+- `M3` 已完成
+- `M4` 已完成
+- `M5` 已完成
