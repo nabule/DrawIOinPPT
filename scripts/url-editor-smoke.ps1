@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $buildScript = Join-Path $PSScriptRoot "build.ps1"
 $tempRoot = Join-Path $env:TEMP ("DrawioPpt\\url-editor-smoke-" + [Guid]::NewGuid().ToString("N"))
 $mockHtmlPath = Join-Path $tempRoot "mock-editor.html"
@@ -13,10 +13,26 @@ $smokeExePath = Join-Path $tempRoot "url-editor-smoke.exe"
 $serverPort = Get-Random -Minimum 8600 -Maximum 8999
 $powerPointBin = Join-Path $repoRoot "src\\DrawioPpt.PowerPointAddIn\\bin\\x64\\Debug"
 $coreBin = Join-Path $repoRoot "src\\DrawioPpt.Core\\bin\\x64\\Debug"
+$packageBin = Join-Path $repoRoot "bin"
 $webView2Package = Join-Path $repoRoot "packages\\Microsoft.Web.WebView2.1.0.3856.49"
 $cscPath = "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe"
 
-if (-not $SkipBuild) {
+function Get-SmokeInputPath {
+    param(
+        [string[]]$Candidates,
+        [string]$Label
+    )
+
+    foreach ($candidate in $Candidates) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path $candidate)) {
+            return $candidate
+        }
+    }
+
+    throw "$Label not found. Checked: $($Candidates -join '; ')"
+}
+
+if (-not $SkipBuild -and (Test-Path $buildScript) -and (Test-Path $powerPointBin)) {
     & powershell -ExecutionPolicy Bypass -File $buildScript
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
@@ -108,11 +124,36 @@ public static class UrlEditorSmoke
 }
 "@ | Set-Content -Path $smokeSourcePath -Encoding UTF8
 
-Copy-Item (Join-Path $powerPointBin "DrawioPpt.PowerPointAddIn.dll") $tempRoot -Force
-Copy-Item (Join-Path $coreBin "DrawioPpt.Core.dll") $tempRoot -Force
-Copy-Item (Join-Path $webView2Package "lib\\net462\\Microsoft.Web.WebView2.Core.dll") $tempRoot -Force
-Copy-Item (Join-Path $webView2Package "lib\\net462\\Microsoft.Web.WebView2.WinForms.dll") $tempRoot -Force
-Copy-Item (Join-Path $webView2Package "runtimes\\win-x64\\native\\WebView2Loader.dll") $tempRoot -Force
+$powerPointDll = Get-SmokeInputPath -Candidates @(
+    (Join-Path $powerPointBin "DrawioPpt.PowerPointAddIn.dll"),
+    (Join-Path $packageBin "DrawioPpt.PowerPointAddIn.dll")
+) -Label "DrawioPpt.PowerPointAddIn.dll"
+
+$coreDll = Get-SmokeInputPath -Candidates @(
+    (Join-Path $coreBin "DrawioPpt.Core.dll"),
+    (Join-Path $packageBin "DrawioPpt.Core.dll")
+) -Label "DrawioPpt.Core.dll"
+
+$webView2CoreDll = Get-SmokeInputPath -Candidates @(
+    (Join-Path $webView2Package "lib\\net462\\Microsoft.Web.WebView2.Core.dll"),
+    (Join-Path $packageBin "Microsoft.Web.WebView2.Core.dll")
+) -Label "Microsoft.Web.WebView2.Core.dll"
+
+$webView2WinFormsDll = Get-SmokeInputPath -Candidates @(
+    (Join-Path $webView2Package "lib\\net462\\Microsoft.Web.WebView2.WinForms.dll"),
+    (Join-Path $packageBin "Microsoft.Web.WebView2.WinForms.dll")
+) -Label "Microsoft.Web.WebView2.WinForms.dll"
+
+$webView2LoaderDll = Get-SmokeInputPath -Candidates @(
+    (Join-Path $webView2Package "runtimes\\win-x64\\native\\WebView2Loader.dll"),
+    (Join-Path $packageBin "runtimes\\win-x64\\native\\WebView2Loader.dll")
+) -Label "WebView2Loader.dll"
+
+Copy-Item $powerPointDll $tempRoot -Force
+Copy-Item $coreDll $tempRoot -Force
+Copy-Item $webView2CoreDll $tempRoot -Force
+Copy-Item $webView2WinFormsDll $tempRoot -Force
+Copy-Item $webView2LoaderDll $tempRoot -Force
 
 $compileArguments = @(
     "/nologo",

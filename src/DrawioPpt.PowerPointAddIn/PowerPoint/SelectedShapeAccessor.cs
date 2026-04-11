@@ -7,6 +7,23 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
 {
     public class SelectedShapeAccessor
     {
+        public PptInterop.Presentation GetActivePresentation(PptInterop.Application application)
+        {
+            if (application == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return application.ActivePresentation;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public PptInterop.Shape GetSingleSelectedShape(PptInterop.Application application)
         {
             if (application == null || application.ActiveWindow == null)
@@ -35,12 +52,13 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
 
         public string GetPresentationFullName(PptInterop.Application application)
         {
-            if (application == null || application.ActivePresentation == null)
+            PptInterop.Presentation presentation = GetActivePresentation(application);
+            if (presentation == null)
             {
                 return string.Empty;
             }
 
-            return application.ActivePresentation.FullName ?? string.Empty;
+            return presentation.FullName ?? string.Empty;
         }
 
         public PptInterop.Presentation GetPresentation(PptInterop.Shape shape)
@@ -56,25 +74,23 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
 
         public PptInterop.Slide GetActiveSlide(PptInterop.Application application, bool createIfMissing)
         {
-            if (application == null || application.ActivePresentation == null)
+            PptInterop.Presentation presentation = GetActivePresentation(application);
+            if (presentation == null)
             {
                 return null;
             }
 
-            if (application.ActiveWindow != null && application.ActiveWindow.View != null)
+            PptInterop.Slide activeSlide = TryGetSlideFromActiveView(application);
+            if (activeSlide != null)
             {
-                object activeSlide = application.ActiveWindow.View.Slide;
-                PptInterop.Slide typedSlide = activeSlide as PptInterop.Slide;
-                if (typedSlide != null)
-                {
-                    return typedSlide;
-                }
+                return activeSlide;
             }
 
-            PptInterop.Presentation presentation = application.ActivePresentation;
             if (presentation.Slides.Count > 0)
             {
-                return presentation.Slides[1];
+                PptInterop.Slide firstSlide = presentation.Slides[1];
+                TryActivateSlide(firstSlide);
+                return firstSlide;
             }
 
             if (!createIfMissing)
@@ -82,7 +98,9 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
                 return null;
             }
 
-            return presentation.Slides.Add(1, PptInterop.PpSlideLayout.ppLayoutBlank);
+            PptInterop.Slide createdSlide = presentation.Slides.Add(1, PptInterop.PpSlideLayout.ppLayoutBlank);
+            TryActivateSlide(createdSlide);
+            return createdSlide;
         }
 
         public PptInterop.Slide GetParentSlide(PptInterop.Shape shape)
@@ -110,12 +128,12 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
 
         public PptInterop.Shape FindShapeByDiagramId(PptInterop.Application application, string diagramId)
         {
-            if (application == null || application.ActivePresentation == null || string.IsNullOrWhiteSpace(diagramId))
+            PptInterop.Presentation presentation = GetActivePresentation(application);
+            if (presentation == null || string.IsNullOrWhiteSpace(diagramId))
             {
                 return null;
             }
 
-            PptInterop.Presentation presentation = application.ActivePresentation;
             int slideIndex;
             for (slideIndex = 1; slideIndex <= presentation.Slides.Count; slideIndex++)
             {
@@ -266,6 +284,40 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
                 {
                     partIds.Add(partId);
                 }
+            }
+        }
+
+        private static PptInterop.Slide TryGetSlideFromActiveView(PptInterop.Application application)
+        {
+            if (application == null || application.ActiveWindow == null || application.ActiveWindow.View == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                object activeSlide = application.ActiveWindow.View.Slide;
+                return activeSlide as PptInterop.Slide;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static void TryActivateSlide(PptInterop.Slide slide)
+        {
+            if (slide == null)
+            {
+                return;
+            }
+
+            try
+            {
+                slide.Select();
+            }
+            catch
+            {
             }
         }
     }

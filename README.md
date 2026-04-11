@@ -35,9 +35,12 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 关键文档：
 
 - [安装与联调说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/installation.md)
+- [用户手册](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/user-guide.md)
 - [回归清单](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/regression-checklist.md)
 - [详细开发计划](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/development-plan.md)
+- [完整 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v0.6.0.md)
 - [v0.6.0-stable 发布说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-notes-v0.6.0-stable.md)
+- [待优化功能点](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/optimization-backlog.md)
 
 ## 当前技术选择
 
@@ -91,6 +94,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1
+```
+
+完整真实全流程测试：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 ```
 
 日志文件默认写入：

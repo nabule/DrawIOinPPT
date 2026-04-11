@@ -102,7 +102,8 @@ namespace DrawioPpt.PowerPointAddIn.Services
         {
             ExecuteGuarded("CreateNewDiagram", "创建 Draw.io 图形时出现异常。", true, delegate
             {
-                if (_application == null || _application.ActivePresentation == null)
+                PptInterop.Presentation presentation = _selectedShapeAccessor.GetActivePresentation(_application);
+                if (_application == null || presentation == null)
                 {
                     _userNotifier.ShowInfo("请先打开或创建一个 PowerPoint 演示文稿。", "DrawioPpt");
                     return;
@@ -631,7 +632,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
             DiagramEnvelope fallbackEnvelope = null;
             bool hasFallbackEnvelope = _shapeMetadataService.TryRead(shape, out fallbackEnvelope);
-            PptInterop.Presentation presentation = _selectedShapeAccessor.GetPresentation(shape) ?? _application.ActivePresentation;
+            PptInterop.Presentation presentation = _selectedShapeAccessor.GetPresentation(shape) ?? _selectedShapeAccessor.GetActivePresentation(_application);
             string diagramId = _currentSelection != null && _currentSelection.ShapeId == shape.Id
                 ? _currentSelection.DiagramId
                 : string.Empty;
@@ -682,7 +683,13 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 return;
             }
 
-            PptInterop.Presentation presentation = _selectedShapeAccessor.GetPresentation(shape) ?? _application.ActivePresentation;
+            PptInterop.Presentation presentation = _selectedShapeAccessor.GetPresentation(shape) ?? _selectedShapeAccessor.GetActivePresentation(_application);
+            if (presentation == null)
+            {
+                _traceLog.Info("AddInHost", "Skipped saving managed envelope because no presentation was available.");
+                return;
+            }
+
             string existingPartId = _shapeMetadataService.ReadDiagramPartId(shape);
             string storedPartId = _presentationDiagramStore.Upsert(presentation, envelope, existingPartId);
 
@@ -701,7 +708,12 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 return;
             }
 
-            PptInterop.Presentation presentation = _selectedShapeAccessor.GetPresentation(shape) ?? _application.ActivePresentation;
+            PptInterop.Presentation presentation = _selectedShapeAccessor.GetPresentation(shape) ?? _selectedShapeAccessor.GetActivePresentation(_application);
+            if (presentation == null)
+            {
+                return;
+            }
+
             string partId = _shapeMetadataService.ReadDiagramPartId(shape);
             SelectionContext context = _shapeMetadataService.BuildSelectionContext(shape);
             _presentationDiagramStore.Delete(presentation, context.DiagramId, partId);
@@ -709,7 +721,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
         private void MaybeCleanupActivePresentation(bool force)
         {
-            PptInterop.Presentation presentation = _application != null ? _application.ActivePresentation : null;
+            PptInterop.Presentation presentation = _selectedShapeAccessor.GetActivePresentation(_application);
             if (presentation == null)
             {
                 return;

@@ -21,14 +21,20 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 throw new ArgumentNullException("application");
             }
 
+            PptInterop.Presentation presentation = _shapeAccessor.GetActivePresentation(application);
+            if (presentation == null)
+            {
+                throw new InvalidOperationException("No active presentation is available.");
+            }
+
             PptInterop.Slide slide = _shapeAccessor.GetActiveSlide(application, true);
             if (slide == null)
             {
                 throw new InvalidOperationException("No active slide is available.");
             }
 
-            float slideWidth = application.ActivePresentation.PageSetup.SlideWidth;
-            float slideHeight = application.ActivePresentation.PageSetup.SlideHeight;
+            float slideWidth = presentation.PageSetup.SlideWidth;
+            float slideHeight = presentation.PageSetup.SlideHeight;
             float width = slideWidth * 0.50f;
             float height = slideHeight * 0.38f;
             float left = (slideWidth - width) / 2f;

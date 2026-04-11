@@ -183,12 +183,27 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
         private static string BuildPlaceholderXml(string diagramId, string diagramName)
         {
+            string safeDiagramId = EscapeXml(diagramId);
+            string safeDiagramName = EscapeXml(diagramName);
             return
                 "<mxfile host=\"DrawioPpt\">" +
-                "<diagram id=\"" + diagramId + "\" name=\"" + diagramName + "\">" +
-                "<mxGraphModel />" +
+                "<diagram id=\"" + safeDiagramId + "\" name=\"" + safeDiagramName + "\">" +
+                "<mxGraphModel dx=\"1000\" dy=\"1000\" grid=\"1\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"1\" pageScale=\"1\" pageWidth=\"850\" pageHeight=\"1100\" math=\"0\" shadow=\"0\">" +
+                "<root>" +
+                "<mxCell id=\"0\"/>" +
+                "<mxCell id=\"1\" parent=\"0\"/>" +
+                "<mxCell id=\"2\" value=\"Double-click to edit\" style=\"rounded=1;whiteSpace=wrap;html=1;\" vertex=\"1\" parent=\"1\">" +
+                "<mxGeometry x=\"120\" y=\"120\" width=\"180\" height=\"60\" as=\"geometry\"/>" +
+                "</mxCell>" +
+                "</root>" +
+                "</mxGraphModel>" +
                 "</diagram>" +
                 "</mxfile>";
+        }
+
+        private static string EscapeXml(string value)
+        {
+            return System.Security.SecurityElement.Escape(value ?? string.Empty) ?? string.Empty;
         }
 
         private static string ReadDiagramId(PptInterop.Shape shape)

@@ -48,11 +48,26 @@ Copy-Item (Join-Path $addInBinRoot "Microsoft.Web.WebView2.WinForms.dll") (Join-
 Copy-Item (Join-Path $addInBinRoot "runtimes\\win-x64\\native\\WebView2Loader.dll") (Join-Path $packageRoot "bin\\runtimes\\win-x64\\native") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "README.md") $packageRoot -Force
 Copy-Item (Join-Path $repoRoot "docs\\installation.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\user-guide.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot "docs\\optimization-backlog.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "docs\\regression-checklist.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot "docs\\release-notes-v0.6.0-stable.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\e2e-test-report-v0.6.0.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "scripts\\register-addin.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\unregister-addin.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\uninstall-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\url-editor-smoke.ps1") (Join-Path $packageRoot "scripts") -Force
+
+@'
+@echo off
+powershell -ExecutionPolicy Bypass -File "%~dp0scripts\install-release.ps1" %*
+'@ | Set-Content -Path (Join-Path $packageRoot "install.cmd") -Encoding ASCII
+
+@'
+@echo off
+powershell -ExecutionPolicy Bypass -File "%~dp0scripts\uninstall-release.ps1" %*
+'@ | Set-Content -Path (Join-Path $packageRoot "uninstall.cmd") -Encoding ASCII
 
 $manifestPath = Join-Path $packageRoot "PACKAGE.txt"
 @"
@@ -68,12 +83,19 @@ Contents:
 - bin\Microsoft.Web.WebView2.Core.dll (if available)
 - bin\Microsoft.Web.WebView2.WinForms.dll (if available)
 - bin\runtimes\win-x64\native\WebView2Loader.dll (if available)
+- install.cmd
+- uninstall.cmd
 - scripts\register-addin.ps1
 - scripts\unregister-addin.ps1
+- scripts\install-release.ps1
+- scripts\uninstall-release.ps1
 - scripts\url-editor-smoke.ps1
 - docs\installation.md
+- docs\user-guide.md
+- docs\optimization-backlog.md
 - docs\regression-checklist.md
 - docs\release-notes-v0.6.0-stable.md
+- docs\e2e-test-report-v0.6.0.md
 "@ | Set-Content -Path $manifestPath -Encoding UTF8
 
 Compress-Archive -Path (Join-Path $packageRoot "*") -DestinationPath $zipPath -Force
