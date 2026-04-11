@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using DrawioPpt.Core.Contracts;
 using DrawioPpt.Core.Models;
 using Microsoft.Office.Core;
@@ -99,6 +100,52 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             DeleteDuplicates(presentation, diagramId, string.Empty, partId);
+        }
+
+        public int DeleteOrphans(PptInterop.Presentation presentation, ISet<string> liveDiagramIds, ISet<string> livePartIds)
+        {
+            if (presentation == null)
+            {
+                return 0;
+            }
+
+            int deletedCount = 0;
+            int index;
+            for (index = presentation.CustomXMLParts.Count; index >= 1; index--)
+            {
+                CustomXMLPart part = presentation.CustomXMLParts[index];
+                DiagramEnvelope envelope;
+                if (!TryDeserializePart(part, out envelope))
+                {
+                    continue;
+                }
+
+                string currentPartId = part.Id ?? string.Empty;
+                bool hasLivePartReference =
+                    livePartIds != null &&
+                    !string.IsNullOrWhiteSpace(currentPartId) &&
+                    livePartIds.Contains(currentPartId);
+                bool hasLiveDiagramReference =
+                    liveDiagramIds != null &&
+                    !string.IsNullOrWhiteSpace(envelope.DiagramId) &&
+                    liveDiagramIds.Contains(envelope.DiagramId);
+
+                if (hasLivePartReference || hasLiveDiagramReference)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    part.Delete();
+                    deletedCount++;
+                }
+                catch
+                {
+                }
+            }
+
+            return deletedCount;
         }
 
         private void DeleteDuplicates(PptInterop.Presentation presentation, string diagramId, string keepPartId, string preferredDeletePartId)

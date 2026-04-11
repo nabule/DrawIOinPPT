@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using DrawioPpt.Core;
 using PptInterop = Microsoft.Office.Interop.PowerPoint;
 
@@ -129,6 +130,21 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
             return null;
         }
 
+        public void CollectManagedDiagramReferences(PptInterop.Presentation presentation, ISet<string> diagramIds, ISet<string> partIds)
+        {
+            if (presentation == null)
+            {
+                return;
+            }
+
+            int slideIndex;
+            for (slideIndex = 1; slideIndex <= presentation.Slides.Count; slideIndex++)
+            {
+                PptInterop.Slide slide = presentation.Slides[slideIndex];
+                CollectManagedDiagramReferences(slide.Shapes, diagramIds, partIds);
+            }
+        }
+
         private static PptInterop.Shape FindShapeByDiagramId(PptInterop.Shapes shapes, string diagramId)
         {
             if (shapes == null)
@@ -158,6 +174,26 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
             return null;
         }
 
+        private static void CollectManagedDiagramReferences(PptInterop.Shapes shapes, ISet<string> diagramIds, ISet<string> partIds)
+        {
+            if (shapes == null)
+            {
+                return;
+            }
+
+            int index;
+            for (index = 1; index <= shapes.Count; index++)
+            {
+                PptInterop.Shape shape = shapes[index];
+                AddManagedDiagramReference(shape, diagramIds, partIds);
+
+                if (shape.Type == Microsoft.Office.Core.MsoShapeType.msoGroup)
+                {
+                    CollectManagedDiagramReferences(shape.GroupItems, diagramIds, partIds);
+                }
+            }
+        }
+
         private static PptInterop.Shape FindShapeByDiagramId(PptInterop.GroupShapes groupShapes, string diagramId)
         {
             if (groupShapes == null)
@@ -185,6 +221,52 @@ namespace DrawioPpt.PowerPointAddIn.PowerPoint
             }
 
             return null;
+        }
+
+        private static void CollectManagedDiagramReferences(PptInterop.GroupShapes groupShapes, ISet<string> diagramIds, ISet<string> partIds)
+        {
+            if (groupShapes == null)
+            {
+                return;
+            }
+
+            int index;
+            for (index = 1; index <= groupShapes.Count; index++)
+            {
+                PptInterop.Shape shape = groupShapes[index];
+                AddManagedDiagramReference(shape, diagramIds, partIds);
+
+                if (shape.Type == Microsoft.Office.Core.MsoShapeType.msoGroup)
+                {
+                    CollectManagedDiagramReferences(shape.GroupItems, diagramIds, partIds);
+                }
+            }
+        }
+
+        private static void AddManagedDiagramReference(PptInterop.Shape shape, ISet<string> diagramIds, ISet<string> partIds)
+        {
+            if (shape == null || shape.Tags == null)
+            {
+                return;
+            }
+
+            if (diagramIds != null)
+            {
+                string diagramId = shape.Tags[KnownMetadata.DiagramIdTagName];
+                if (!string.IsNullOrWhiteSpace(diagramId))
+                {
+                    diagramIds.Add(diagramId);
+                }
+            }
+
+            if (partIds != null)
+            {
+                string partId = shape.Tags[KnownMetadata.DiagramPartIdTagName];
+                if (!string.IsNullOrWhiteSpace(partId))
+                {
+                    partIds.Add(partId);
+                }
+            }
         }
     }
 }

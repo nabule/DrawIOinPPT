@@ -62,6 +62,7 @@
 - 已支持通过新建流程生成带元数据的图形
 - 已把 envelope 同步保存到 `Presentation.CustomXMLParts`
 - 已支持通过 `customXmlPartId` 或 `diagramId` 从文档级存储恢复图形元数据
+- 已支持旧版仅保存在 `AlternativeText` 中的元数据自动迁移到 `CustomXMLParts`
 
 ### M2：SVG 插入与替换
 
@@ -136,6 +137,8 @@
 
 ### M5：自动更新与稳定化
 
+状态：进行中
+
 目标：
 
 - 文件监听
@@ -148,6 +151,11 @@
 
 - 插件遇到异常时不会破坏现有 PPT 内容
 - 常见操作路径都有可追踪日志
+
+当前进展：
+
+- 已支持低频自动清理没有任何图形引用的孤儿 `CustomXMLPart`
+- 已验证旧版 `AlternativeText` 元数据在读取时会自动补写到文档级存储
 
 ## 4. 推荐开发顺序
 

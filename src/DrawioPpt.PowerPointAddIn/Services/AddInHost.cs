@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Windows.Forms;
 using DrawioPpt.Core.Contracts;
@@ -31,6 +32,8 @@ namespace DrawioPpt.PowerPointAddIn.Services
         private string _lastAutoOpenedDiagramId;
         private DateTime _lastAutoOpenUtc;
         private DateTime _suppressAutoOpenUntilUtc;
+        private DateTime _lastCleanupUtc;
+        private string _lastCleanupPresentationPath;
 
         public AddInHost(PptInterop.Application application)
         {
@@ -55,6 +58,8 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _lastAutoOpenedDiagramId = string.Empty;
             _lastAutoOpenUtc = DateTime.MinValue;
             _suppressAutoOpenUntilUtc = DateTime.MinValue;
+            _lastCleanupUtc = DateTime.MinValue;
+            _lastCleanupPresentationPath = string.Empty;
         }
 
         public event EventHandler SelectionStateChanged;
@@ -78,6 +83,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             _selectionMonitor.Start();
+            MaybeCleanupActivePresentation(true);
         }
 
         public void Dispose()
@@ -201,6 +207,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
             DeleteManagedEnvelope(shape);
             _shapeMetadataService.Clear(shape);
+            MaybeCleanupActivePresentation(true);
             _currentSelection = new SelectionContext();
             _currentSelection.HasSelection = true;
             _currentSelection.HasSingleShape = true;
@@ -275,6 +282,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
         {
             _currentSelection = e.Context;
             RaiseSelectionStateChanged();
+            MaybeCleanupActivePresentation(false);
             MaybeAutoOpenSelection();
         }
 
@@ -589,6 +597,14 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             string partId = _shapeMetadataService.ReadDiagramPartId(shape);
+            if (hasFallbackEnvelope &&
+                string.IsNullOrWhiteSpace(partId) &&
+                !string.IsNullOrWhiteSpace(fallbackEnvelope.DrawioXml))
+            {
+                SaveManagedEnvelope(shape, fallbackEnvelope);
+                partId = _shapeMetadataService.ReadDiagramPartId(shape);
+            }
+
             string resolvedPartId;
             DiagramEnvelope storedEnvelope;
             if (_presentationDiagramStore.TryRead(presentation, diagramId, partId, out storedEnvelope, out resolvedPartId))
@@ -642,6 +658,37 @@ namespace DrawioPpt.PowerPointAddIn.Services
             string partId = _shapeMetadataService.ReadDiagramPartId(shape);
             SelectionContext context = _shapeMetadataService.BuildSelectionContext(shape);
             _presentationDiagramStore.Delete(presentation, context.DiagramId, partId);
+        }
+
+        private void MaybeCleanupActivePresentation(bool force)
+        {
+            PptInterop.Presentation presentation = _application != null ? _application.ActivePresentation : null;
+            if (presentation == null)
+            {
+                return;
+            }
+
+            string presentationPath = presentation.FullName ?? string.Empty;
+            bool presentationChanged = !string.Equals(_lastCleanupPresentationPath, presentationPath, StringComparison.OrdinalIgnoreCase);
+            if (!force &&
+                !presentationChanged &&
+                DateTime.UtcNow.Subtract(_lastCleanupUtc).TotalSeconds < 30)
+            {
+                return;
+            }
+
+            try
+            {
+                HashSet<string> liveDiagramIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                HashSet<string> livePartIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                _selectedShapeAccessor.CollectManagedDiagramReferences(presentation, liveDiagramIds, livePartIds);
+                _presentationDiagramStore.DeleteOrphans(presentation, liveDiagramIds, livePartIds);
+                _lastCleanupUtc = DateTime.UtcNow;
+                _lastCleanupPresentationPath = presentationPath;
+            }
+            catch
+            {
+            }
         }
 
         private void SuppressAutoOpenForSeconds(int seconds)
