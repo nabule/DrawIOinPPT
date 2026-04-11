@@ -289,7 +289,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                     _settings = form.Settings;
                     _settingsStore.Save(_settings);
                     _traceLog.Info("AddInHost", "Settings saved. EditorMode=" + _settings.EditorMode + ", EditorUrl=" + (_settings.EditorUrl ?? string.Empty) + ", DesktopPath=" + (_settings.DesktopEditorPath ?? string.Empty));
-                    _userNotifier.ShowInfo("设置已保存。", "DrawioPpt");
+                    _userNotifier.ShowInfo("设置已保存。", "DrawIO&PPT");
                 }
             });
         }
