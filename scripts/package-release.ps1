@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v0.6.1-stable",
+    [string]$Version = "v1.0.0",
     [string]$Configuration = "Release",
     [string]$Platform = "x64",
     [switch]$SkipBuild
@@ -14,6 +14,8 @@ $packageRoot = Join-Path $releaseRoot "package"
 $zipPath = Join-Path $releaseRoot ("DrawioPpt-" + $Version + ".zip")
 $releaseNotesName = "release-notes-" + $Version + ".md"
 $e2eDocName = "e2e-test-report-" + ($Version -replace "-stable$", "") + ".md"
+$releaseEvidenceName = "release-evidence-" + $Version + ".md"
+$logRoot = Join-Path $repoRoot ("artifacts\\logs\\" + $Version)
 $addInBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.PowerPointAddIn\\bin\\{0}\\{1}" -f $Platform, $Configuration)
 $coreBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.Core\\bin\\{0}\\{1}" -f $Platform, $Configuration)
 
@@ -40,6 +42,7 @@ New-Item -ItemType Directory -Force -Path $packageRoot | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "docs") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "scripts") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "bin") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "logs") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "bin\\runtimes\\win-x64\\native") | Out-Null
 
 Copy-Item (Join-Path $addInBinRoot "DrawioPpt.PowerPointAddIn.dll") (Join-Path $packageRoot "bin") -Force
@@ -55,11 +58,16 @@ Copy-Item (Join-Path $repoRoot "docs\\optimization-backlog.md") (Join-Path $pack
 Copy-Item (Join-Path $repoRoot "docs\\regression-checklist.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseNotesName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot ("docs\\" + $e2eDocName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseEvidenceName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "scripts\\register-addin.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\unregister-addin.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\uninstall-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\url-editor-smoke.ps1") (Join-Path $packageRoot "scripts") -Force
+
+if (Test-Path $logRoot) {
+    Copy-Item (Join-Path $logRoot "*") (Join-Path $packageRoot "logs") -Recurse -Force
+}
 
 @'
 @echo off
@@ -98,6 +106,8 @@ Contents:
 - docs\regression-checklist.md
 - docs\$releaseNotesName
 - docs\$e2eDocName
+- docs\$releaseEvidenceName
+- logs\*
 "@ | Set-Content -Path $manifestPath -Encoding UTF8
 
 Compress-Archive -Path (Join-Path $packageRoot "*") -DestinationPath $zipPath -Force

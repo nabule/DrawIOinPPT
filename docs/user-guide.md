@@ -14,7 +14,8 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 建议配合以下文档一起看：
 
 - [安装与联调说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/installation.md)
-- [完整 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v0.6.1.md)
+- [完整 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v1.0.0.md)
+- [v1.0.0 发布说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-notes-v1.0.0.md)
 - [待优化功能点](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/optimization-backlog.md)
 
 ## 2. 当前能做什么
@@ -32,6 +33,8 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 - 兼容旧版保存在 `AlternativeText` 里的数据，并在读取时自动迁移
 - 为导出的 SVG 补写 draw.io `content` 元数据
 - 记录日志，方便排查 URL 模式和回写失败问题
+- Ribbon 已按“创建 / 当前图形 / 工作流 / 信息”重新分组
+- 已支持 sidecar `.drawio` 在 `PPT` 保存、另存为和跨机器迁移后自动按当前文档路径重定位
 
 当前仍在持续优化的点：
 
@@ -78,6 +81,7 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 - 当前有没有选中图形
 - 当前是普通图形还是已识别的 Draw.io 图形
 - 当前编辑模式是桌面模式还是 URL 模式
+- 当前“编辑”按钮是否会显示为“重新编辑”
 
 ## 5. 设置项详解
 
@@ -399,6 +403,7 @@ D:\Project\drawio\demo.图形名称.drawio
 
 - 如果当前是桌面模式，但桌面版路径未配置好，图形会先以预览形式插入
 - 如果当前 PPT 还没有先保存到磁盘，而你又开启了 sidecar，插件会先把 `.drawio` 工作文件放到系统临时目录，避免生成无效相对路径
+- 当前 PPT 后续一旦保存到正式路径，插件下次编辑时会把 sidecar 自动切换到当前 PPT 同目录下的伴随文件夹
 
 ### 7.2 重新编辑已有图形
 
@@ -485,6 +490,7 @@ D:\Project\drawio\demo.图形名称.drawio
 - 必须配置有效的桌面版路径
 - 如果开启 sidecar，`.drawio` 文件会尽量跟随 PPT 一起存放
 - 如果 PPT 尚未保存，sidecar 会先落到系统临时目录
+- 如果 PPT 已另存为、移动目录或换到另一台机器，插件会在再次编辑时优先重建到当前 PPT 路径
 - 如果希望桌面模式也优化 SVG 文本缩放清晰度，需要在桌面版 draw.io 里手工设置 `simpleLabels`
 
 ### 8.2 URL 模式
@@ -625,6 +631,10 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 - 或者你关闭了 sidecar 保留
 
 这是正常行为，目的是避免对一个还没有真实保存路径的演示文稿生成错误的相对工作文件路径。
+
+补充说明：
+
+- 如果之后你把 PPT 正式保存了，插件会在下一次编辑该图形时把 sidecar 切回当前 PPT 路径附近
 
 ### 11.5 为什么 PowerPoint 里文字缩放看起来不够清晰
 

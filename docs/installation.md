@@ -16,7 +16,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. 面向最终用户的安装
 
-如果你拿到的是发布包 `DrawioPpt-v0.6.0-stable.zip`，推荐按下面流程安装：
+如果你拿到的是发布包 `DrawioPpt-v1.0.0.zip`，推荐按下面流程安装：
 
 1. 解压 zip 到一个本地目录
 2. 确认 PowerPoint 当前没有运行
@@ -32,6 +32,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 - `scripts\uninstall-release.ps1`
 - `scripts\register-addin.ps1`
 - `scripts\unregister-addin.ps1`
+- `docs\release-notes-v1.0.0.md`
+- `docs\e2e-test-report-v1.0.0.md`
+- `docs\release-evidence-v1.0.0.md`
+- `logs\`
 
 默认安装位置：
 
@@ -110,7 +114,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 完整测试报告：
 
-- [v0.6.1 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v0.6.1.md)
+- [v1.0.0 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v1.0.0.md)
 
 ## 8. 桌面模式验证
 
@@ -121,7 +125,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 补充说明：
 
-- `v0.6.1` 已在 `Url` 模式下自动启用 MS Office 兼容的 `simpleLabels`。
+- `v1.0.0` 已在 `Url` 模式下自动启用 MS Office 兼容的 `simpleLabels`。
 - `Desktop` 模式调用的是外部桌面版 draw.io，插件目前不能替你改写该桌面应用的编辑器配置。
 - 如果你希望桌面模式导出的 SVG 标签在 PowerPoint 中缩放更清晰，建议在 draw.io Desktop 里手动设置：
   - `Extras > Configuration`
@@ -173,11 +177,11 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 ### 移动 PPT 后图形还能不能编辑
 
 - 可以，源 XML 保存在 `Presentation.CustomXMLParts`
-- 如果启用了 sidecar，还需要保证 `.drawio` 工作文件路径可用
+- `v1.0.0` 会在再次编辑时优先按当前 `PPT` 路径重建 sidecar；如果你把 sidecar 一起带走，桌面模式刷新会更顺畅
 
 ### 为什么 URL 模式里的 SVG 标签缩放更清晰
 
-- `v0.6.1` 会在 URL 嵌入编辑器里自动下发 `{ "simpleLabels": true }`
+- `v1.0.0` 会在 URL 嵌入编辑器里自动下发 `{ "simpleLabels": true }`
 - 这是 draw.io 官方针对 MS Office SVG 缩放兼容性给出的优化建议
 
 ### 安装脚本提示 PowerPoint 正在运行

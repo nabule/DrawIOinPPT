@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v0.6.1-stable",
+    [string]$Version = "v1.0.0",
     [switch]$SkipBuild,
     [switch]$KeepInstalled
 )
@@ -15,10 +15,15 @@ $packageRoot = Join-Path $releaseRoot "package"
 $installRoot = Join-Path $env:TEMP ("DrawioPpt\\installed-" + [Guid]::NewGuid().ToString("N"))
 $reportRoot = Join-Path $repoRoot "artifacts\\test-reports"
 $reportPath = Join-Path $reportRoot ("full-e2e-" + $Version + ".md")
+$logRoot = Join-Path $repoRoot ("artifacts\\logs\\" + $Version)
 $settingsPath = Join-Path $env:APPDATA "Greensoft\\DrawioPpt\\settings.xml"
 $settingsBackupPath = Join-Path $env:TEMP ("DrawioPpt\\settings-backup-" + [Guid]::NewGuid().ToString("N") + ".xml")
+$pluginLogPath = Join-Path $env:APPDATA "Greensoft\\DrawioPpt\\Logs\\drawioppt.log"
+$pluginLogSnapshotPath = Join-Path $logRoot "drawioppt-full-e2e.log"
+$transcriptPath = Join-Path $logRoot ("full-e2e-" + $Version + ".transcript.log")
 $results = New-Object System.Collections.Generic.List[string]
 $drawioExe = "C:\\Program Files\\draw.io\\draw.io.exe"
+$transcriptStarted = $false
 
 function Assert-NoRunningPowerPoint {
     $runningPowerPoint = Get-Process -Name POWERPNT -ErrorAction SilentlyContinue
@@ -454,6 +459,21 @@ function Test-DesktopExporter {
 Backup-Settings
 
 try {
+    if (-not (Test-Path $logRoot)) {
+        New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
+    }
+
+    if (Test-Path $pluginLogPath) {
+        Remove-Item $pluginLogPath -Force -ErrorAction SilentlyContinue
+    }
+
+    try {
+        Start-Transcript -Path $transcriptPath -Force | Out-Null
+        $transcriptStarted = $true
+    }
+    catch {
+    }
+
     Assert-NoRunningPowerPoint
 
     if (-not $SkipBuild) {
@@ -524,5 +544,19 @@ if (-not (Test-Path $reportRoot)) {
     "| Check | Result | Detail |",
     "| --- | --- | --- |"
 ) + $results | Set-Content -Path $reportPath -Encoding UTF8
+
+Copy-Item $reportPath (Join-Path $logRoot ("full-e2e-" + $Version + ".report.md")) -Force
+
+if (Test-Path $pluginLogPath) {
+    Copy-Item $pluginLogPath $pluginLogSnapshotPath -Force
+}
+
+if ($transcriptStarted) {
+    try {
+        Stop-Transcript | Out-Null
+    }
+    catch {
+    }
+}
 
 Write-Host "E2E report written to: $reportPath"

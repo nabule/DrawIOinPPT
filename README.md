@@ -2,6 +2,8 @@
 
 PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编辑和更新 Draw.io 图形。
 
+当前发布基线：`v1.0.0`
+
 当前仓库已经完成初始骨架，并推进到了可实机联调的阶段，重点完成了以下内容：
 
 - 明确技术路线：PowerPoint 原生 COM Add-in，先不考虑 WPS。
@@ -25,6 +27,8 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 已为 URL 模式补充本地日志、初始化超时和导出超时诊断。
 - 已统一为桌面导出、URL 导出和预览回退生成的 SVG 补写 draw.io `content` 元数据。
 - 设置窗口已支持 `Test URL`，可在保存配置前先验证当前编辑器地址。
+- 已重构 PowerPoint Ribbon 分组、状态展示和按钮图标，支持更清晰的模式/对象状态反馈。
+- 已支持 sidecar `.drawio` 在 `PPT` 另存为、路径变化和跨机器迁移后按当前文档路径自动重定位。
 
 ## 目录结构
 
@@ -39,8 +43,9 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - [用户手册](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/user-guide.md)
 - [回归清单](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/regression-checklist.md)
 - [详细开发计划](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/development-plan.md)
-- [完整 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v0.6.1.md)
-- [v0.6.1-stable 发布说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-notes-v0.6.1-stable.md)
+- [完整 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v1.0.0.md)
+- [v1.0.0 发布说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-notes-v1.0.0.md)
+- [v1.0.0 发布证据与日志索引](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-evidence-v1.0.0.md)
 - [待优化功能点](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/optimization-backlog.md)
 
 ## 当前技术选择
@@ -94,19 +99,25 @@ powershell -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
 发布打包：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.0
 ```
 
 完整真实全流程测试：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.0
 ```
 
 日志文件默认写入：
 
 ```text
 C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.log
+```
+
+发布测试日志与打包记录会额外保存在：
+
+```text
+artifacts\logs\v1.0.0\
 ```
 
 注册插件：
