@@ -1,6 +1,7 @@
 param(
     [string]$Configuration = "Debug",
-    [switch]$X86
+    [switch]$X86,
+    [string]$AssemblyPath
 )
 
 $platformFolder = "x64"
@@ -8,8 +9,28 @@ if ($X86) {
     $platformFolder = "x86"
 }
 
-$dllPath = Join-Path $PSScriptRoot ("..\\src\\DrawioPpt.PowerPointAddIn\\bin\\{0}\\{1}\\DrawioPpt.PowerPointAddIn.dll" -f $platformFolder, $Configuration)
-$dllPath = [System.IO.Path]::GetFullPath($dllPath)
+function Resolve-AddInAssemblyPath {
+    param(
+        [string]$BaseDirectory,
+        [string]$PlatformFolder,
+        [string]$Configuration,
+        [string]$ExplicitAssemblyPath
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitAssemblyPath)) {
+        return [System.IO.Path]::GetFullPath($ExplicitAssemblyPath)
+    }
+
+    $packageCandidate = Join-Path $BaseDirectory "..\\bin\\DrawioPpt.PowerPointAddIn.dll"
+    if (Test-Path $packageCandidate) {
+        return [System.IO.Path]::GetFullPath($packageCandidate)
+    }
+
+    $repoCandidate = Join-Path $BaseDirectory ("..\\src\\DrawioPpt.PowerPointAddIn\\bin\\{0}\\{1}\\DrawioPpt.PowerPointAddIn.dll" -f $PlatformFolder, $Configuration)
+    return [System.IO.Path]::GetFullPath($repoCandidate)
+}
+
+$dllPath = Resolve-AddInAssemblyPath -BaseDirectory $PSScriptRoot -PlatformFolder $platformFolder -Configuration $Configuration -ExplicitAssemblyPath $AssemblyPath
 
 if (-not (Test-Path $dllPath)) {
     throw "Add-in assembly not found: $dllPath"

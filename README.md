@@ -37,6 +37,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - [安装与联调说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/installation.md)
 - [回归清单](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/regression-checklist.md)
 - [详细开发计划](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/development-plan.md)
+- [v0.6.0-stable 发布说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-notes-v0.6.0-stable.md)
 
 ## 当前技术选择
 
@@ -84,6 +85,12 @@ URL 模式烟雾测试：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
+```
+
+发布打包：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1
 ```
 
 日志文件默认写入：

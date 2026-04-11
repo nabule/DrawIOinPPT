@@ -35,6 +35,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
 ```
 
+说明：
+
+- 在仓库开发目录中，脚本会自动定位 `src\DrawioPpt.PowerPointAddIn\bin\...`
+- 在发布包目录中，脚本会自动定位同级 `bin\DrawioPpt.PowerPointAddIn.dll`
+
 卸载：
 
 ```powershell
