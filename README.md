@@ -22,6 +22,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 已支持旧版 `AlternativeText` 元数据在读取时自动补写到 `CustomXMLParts`。
 - 已支持低频自动清理没有任何图形引用的孤儿 `CustomXMLPart`，减少文档膨胀。
 - 已为 URL 模式补充本地日志、初始化超时和导出超时诊断。
+- 已统一为桌面导出、URL 导出和预览回退生成的 SVG 补写 draw.io `content` 元数据。
 
 ## 目录结构
 

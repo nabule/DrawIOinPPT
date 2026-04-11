@@ -7,6 +7,18 @@ namespace DrawioPpt.PowerPointAddIn.Services
 {
     public class SvgMarkupFileStore
     {
+        private readonly SvgDiagramDataEmbedder _embedder;
+
+        public SvgMarkupFileStore()
+            : this(new SvgDiagramDataEmbedder())
+        {
+        }
+
+        public SvgMarkupFileStore(SvgDiagramDataEmbedder embedder)
+        {
+            _embedder = embedder;
+        }
+
         public string Write(DiagramEnvelope envelope, string svgMarkup)
         {
             if (envelope == null)
@@ -27,7 +39,10 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
             string safeId = string.IsNullOrWhiteSpace(envelope.DiagramId) ? Guid.NewGuid().ToString("N") : envelope.DiagramId;
             string filePath = Path.Combine(targetDirectory, safeId + ".svg");
-            File.WriteAllText(filePath, svgMarkup, Encoding.UTF8);
+            string finalMarkup = _embedder != null
+                ? _embedder.EnsureEmbedded(svgMarkup, envelope.DrawioXml)
+                : svgMarkup;
+            File.WriteAllText(filePath, finalMarkup, Encoding.UTF8);
             return filePath;
         }
     }

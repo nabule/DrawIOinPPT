@@ -72,6 +72,7 @@
     <Compile Include="Services\PowerPointSvgShapeService.cs" />
     <Compile Include="Services\PresentationDiagramStore.cs" />
     <Compile Include="Services\ShapeMetadataService.cs" />
+    <Compile Include="Services\SvgDiagramDataEmbedder.cs" />
     <Compile Include="Services\SvgMarkupFileStore.cs" />
     <Compile Include="Services\SvgFileProvider.cs" />
     <Compile Include="UI\SettingsForm.cs" />

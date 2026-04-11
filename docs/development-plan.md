@@ -63,6 +63,7 @@
 - 已把 envelope 同步保存到 `Presentation.CustomXMLParts`
 - 已支持通过 `customXmlPartId` 或 `diagramId` 从文档级存储恢复图形元数据
 - 已支持旧版仅保存在 `AlternativeText` 中的元数据自动迁移到 `CustomXMLParts`
+- 已支持为生成出的 SVG 补写 draw.io `content` 元数据，增强文件级可迁移性
 
 ### M2：SVG 插入与替换
 

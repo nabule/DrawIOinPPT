@@ -8,16 +8,18 @@ namespace DrawioPpt.PowerPointAddIn.Services
     {
         private readonly DesktopSvgExporter _desktopSvgExporter;
         private readonly DiagramVisualSvgService _visualSvgService;
+        private readonly SvgDiagramDataEmbedder _embedder;
 
         public SvgFileProvider()
-            : this(new DesktopSvgExporter(), new DiagramVisualSvgService())
+            : this(new DesktopSvgExporter(), new DiagramVisualSvgService(), new SvgDiagramDataEmbedder())
         {
         }
 
-        public SvgFileProvider(DesktopSvgExporter desktopSvgExporter, DiagramVisualSvgService visualSvgService)
+        public SvgFileProvider(DesktopSvgExporter desktopSvgExporter, DiagramVisualSvgService visualSvgService, SvgDiagramDataEmbedder embedder)
         {
             _desktopSvgExporter = desktopSvgExporter;
             _visualSvgService = visualSvgService;
+            _embedder = embedder;
         }
 
         public string GetSvgPath(DiagramEnvelope envelope, PluginSettings settings, string drawioFilePath)
@@ -35,11 +37,22 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 string outputSvgPath = BuildDesktopExportPath(envelope.DiagramId);
                 if (_desktopSvgExporter.TryExport(settings.DesktopEditorPath, drawioFilePath, outputSvgPath))
                 {
+                    if (_embedder != null)
+                    {
+                        _embedder.EnsureEmbeddedFile(outputSvgPath, envelope.DrawioXml);
+                    }
+
                     return outputSvgPath;
                 }
             }
 
-            return _visualSvgService.WritePreviewSvg(envelope);
+            string previewSvgPath = _visualSvgService.WritePreviewSvg(envelope);
+            if (_embedder != null)
+            {
+                _embedder.EnsureEmbeddedFile(previewSvgPath, envelope.DrawioXml);
+            }
+
+            return previewSvgPath;
         }
 
         private static string BuildDesktopExportPath(string diagramId)
@@ -55,4 +68,3 @@ namespace DrawioPpt.PowerPointAddIn.Services
         }
     }
 }
-
