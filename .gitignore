@@ -16,4 +16,6 @@ TestResults/
 *.cer
 packages/
 artifacts/
-
+docs/vibe-coding-best-practices.md
+scripts/export-project-sessions.ps1
+scripts/export-project-sessions-public.ps1
