@@ -1,5 +1,7 @@
 # Full E2E Test Report (v0.6.1-stable)
 
+[中文首页](../README.md) | [English Overview](../README.en.md)
+
 本轮完整实机测试已覆盖：
 
 - 注册并加载 PowerPoint COM Add-in

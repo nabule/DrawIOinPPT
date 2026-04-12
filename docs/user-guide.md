@@ -1,5 +1,7 @@
 # DrawioPpt 用户手册
 
+[中文](./user-guide.md) | [English](./user-guide.en.md) | [中文首页](../README.md) | [English Home](../README.en.md)
+
 ## 1. 这是什么
 
 DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io / diagrams.net 图形以“可编辑、可回写、尽量跟着 PPT 一起保存”的方式带进演示文稿。
@@ -13,10 +15,10 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 
 建议配合以下文档一起看：
 
-- [安装与联调说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/installation.md)
-- [完整 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v1.0.0.md)
-- [v1.0.0 发布说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-notes-v1.0.0.md)
-- [待优化功能点](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/optimization-backlog.md)
+- [安装与联调说明](./installation.md)
+- [完整 E2E 测试报告](./e2e-test-report-v1.0.0.md)
+- [v1.0.0 发布说明](./release-notes-v1.0.0.md)
+- [待优化功能点](./optimization-backlog.md)
 
 ## 2. 当前能做什么
 
@@ -55,7 +57,7 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 6. 再决定是否开启“选中图形时自动打开编辑器”。
 7. 最后再决定是否保留 sidecar 工作文件。
 
-如果你还没有安装插件，先看 [installation.md](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/installation.md)。
+如果你还没有安装插件，先看 [installation.md](./installation.md)。
 
 ## 4. 功能区说明
 

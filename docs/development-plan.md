@@ -1,5 +1,7 @@
 # 详细开发计划
 
+[中文](./development-plan.md) | [English](./development-plan.en.md) | [中文首页](../README.md) | [English Home](../README.en.md)
+
 ## 1. 范围
 
 首个正式目标版本是 PowerPoint Desktop 单宿主版本，不考虑 WPS。

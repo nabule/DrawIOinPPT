@@ -1,5 +1,7 @@
 # v0.6.1-stable
 
+[中文首页](../README.md) | [English Overview](../README.en.md)
+
 这是 `v0.6.0-stable` 之后的一个体验优化版本，重点收口 PowerPoint 中 SVG 标签缩放清晰度的问题，并把对应能力接入到插件的 URL 模式工作流。
 
 ## 本版本新增
@@ -27,6 +29,6 @@
 
 ## 相关文档
 
-- [安装与联调说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/installation.md)
-- [用户手册](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/user-guide.md)
-- [待优化功能点](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/optimization-backlog.md)
+- [安装与联调说明](./installation.md)
+- [用户手册](./user-guide.md)
+- [待优化功能点](./optimization-backlog.md)

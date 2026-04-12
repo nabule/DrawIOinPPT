@@ -1,5 +1,7 @@
 # 待优化功能点
 
+[中文](./optimization-backlog.md) | [English](./optimization-backlog.en.md) | [中文首页](../README.md) | [English Home](../README.en.md)
+
 ## 1. 高优先级
 
 ### 1. SVG 替换保真继续增强

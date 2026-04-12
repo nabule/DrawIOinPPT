@@ -1,5 +1,7 @@
 # 架构设计
 
+[中文](./architecture.md) | [English](./architecture.en.md) | [中文首页](../README.md) | [English Home](../README.en.md)
+
 ## 1. 目标
 
 本项目的目标是让 PowerPoint 中的 Draw.io 图形具备以下能力：

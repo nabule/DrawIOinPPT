@@ -1,5 +1,7 @@
 # v0.6.0-stable
 
+[中文首页](../README.md) | [English Overview](../README.en.md)
+
 这是当前仓库的首个稳定收口版本，目标是把 Draw.io 与 PowerPoint 的核心闭环做完整，并补齐发布前需要的稳定化与文档交付物。
 
 ## 本版本包含
@@ -36,6 +38,6 @@
 
 ## 相关文档
 
-- [安装与联调说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/installation.md)
-- [回归清单](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/regression-checklist.md)
-- [详细开发计划](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/development-plan.md)
+- [安装与联调说明](./installation.md)
+- [回归清单](./regression-checklist.md)
+- [详细开发计划](./development-plan.md)

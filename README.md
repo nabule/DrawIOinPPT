@@ -1,5 +1,7 @@
 # DrawioPpt
 
+[中文](./README.md) | [English](./README.en.md)
+
 PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编辑和更新 Draw.io 图形。
 
 当前发布基线：`v1.0.0`
@@ -39,14 +41,14 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 
 关键文档：
 
-- [安装与联调说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/installation.md)
-- [用户手册](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/user-guide.md)
-- [回归清单](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/regression-checklist.md)
-- [详细开发计划](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/development-plan.md)
-- [完整 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v1.0.0.md)
-- [v1.0.0 发布说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-notes-v1.0.0.md)
-- [v1.0.0 发布证据与日志索引](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-evidence-v1.0.0.md)
-- [待优化功能点](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/optimization-backlog.md)
+- [安装与联调说明](./docs/installation.md)
+- [用户手册](./docs/user-guide.md)
+- [回归清单](./docs/regression-checklist.md)
+- [详细开发计划](./docs/development-plan.md)
+- [完整 E2E 测试报告](./docs/e2e-test-report-v1.0.0.md)
+- [v1.0.0 发布说明](./docs/release-notes-v1.0.0.md)
+- [v1.0.0 发布证据与日志索引](./docs/release-evidence-v1.0.0.md)
+- [待优化功能点](./docs/optimization-backlog.md)
 
 ## 当前技术选择
 

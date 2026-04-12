@@ -1,5 +1,7 @@
 # 安装与联调说明
 
+[中文](./installation.md) | [English](./installation.en.md) | [中文首页](../README.md) | [English Home](../README.en.md)
+
 ## 1. 环境前提
 
 - Windows
@@ -114,7 +116,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 完整测试报告：
 
-- [v1.0.0 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v1.0.0.md)
+- [v1.0.0 E2E 测试报告](./e2e-test-report-v1.0.0.md)
 
 ## 8. 桌面模式验证
 

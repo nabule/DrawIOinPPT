@@ -1,5 +1,7 @@
 # v1.0.0
 
+[中文](./release-notes-v1.0.0.md) | [English](./release-notes-v1.0.0.en.md) | [中文首页](../README.md) | [English Home](../README.en.md)
+
 这是 DrawioPpt 的首个 `1.0` 稳定发布版本，目标是把“可编辑 Draw.io 图形跟随 PowerPoint 一起长期维护”的主流程收口到可交付状态，并把安装、测试、日志和发布材料同步完善。
 
 ## 版本定位
@@ -55,7 +57,7 @@
 
 ## 配套文档
 
-- [安装与联调说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/installation.md)
-- [用户手册](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/user-guide.md)
-- [v1.0.0 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v1.0.0.md)
-- [v1.0.0 发布证据与日志索引](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-evidence-v1.0.0.md)
+- [安装与联调说明](./installation.md)
+- [用户手册](./user-guide.md)
+- [v1.0.0 E2E 测试报告](./e2e-test-report-v1.0.0.md)
+- [v1.0.0 发布证据与日志索引](./release-evidence-v1.0.0.md)

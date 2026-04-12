@@ -1,5 +1,7 @@
 # 回归清单
 
+[中文](./regression-checklist.md) | [English](./regression-checklist.en.md) | [中文首页](../README.md) | [English Home](../README.en.md)
+
 ## 1. 构建与注册
 
 - `scripts/dev-check.ps1` 通过

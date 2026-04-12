@@ -1,4 +1,6 @@
-﻿# Full E2E Test Report (v0.6.0-stable)
+# Full E2E Test Report (v0.6.0-stable)
+
+[中文首页](../README.md) | [English Overview](../README.en.md)
 
 | Check | Result | Detail |
 | --- | --- | --- |

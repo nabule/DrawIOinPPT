@@ -1,5 +1,7 @@
 # Full E2E Test Report (v1.0.0)
 
+[中文](./e2e-test-report-v1.0.0.md) | [English](./e2e-test-report-v1.0.0.en.md) | [中文首页](../README.md) | [English Home](../README.en.md)
+
 本报告对应 `DrawioPpt v1.0.0` 的实际发布验证结果，测试执行日期为 `2026-04-12`，目标是确认发布包、安装脚本、PowerPoint 宿主加载、URL 模式回写链路、重新打开后的继续编辑，以及桌面导出能力都能在当前机器上跑通。
 
 ## 测试环境

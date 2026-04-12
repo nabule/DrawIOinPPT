@@ -1,5 +1,7 @@
 # v1.0.0 发布证据与日志索引
 
+[中文](./release-evidence-v1.0.0.md) | [English](./release-evidence-v1.0.0.en.md) | [中文首页](../README.md) | [English Home](../README.en.md)
+
 本文档汇总 `DrawioPpt v1.0.0` 的程序交付物、实际测试结果和日志位置，便于发布、验收和问题追溯。
 
 ## 发布信息
@@ -30,11 +32,11 @@
 
 ## 文档交付物
 
-- [安装与联调说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/installation.md)
-- [用户手册](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/user-guide.md)
-- [回归清单](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/regression-checklist.md)
-- [v1.0.0 发布说明](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/release-notes-v1.0.0.md)
-- [v1.0.0 E2E 测试报告](C:/Users/nabul/Desktop/greensoft/code/drawioppt/docs/e2e-test-report-v1.0.0.md)
+- [安装与联调说明](./installation.md)
+- [用户手册](./user-guide.md)
+- [回归清单](./regression-checklist.md)
+- [v1.0.0 发布说明](./release-notes-v1.0.0.md)
+- [v1.0.0 E2E 测试报告](./e2e-test-report-v1.0.0.md)
 
 ## 实际测试情况
 

@@ -1,5 +1,7 @@
 # v0.1.0-initial
 
+[中文首页](../README.md) | [English Overview](../README.en.md)
+
 这是仓库的第一个初始化版本，目标不是功能完备，而是把后续开发的地基一次搭好。
 
 本版本包含：
