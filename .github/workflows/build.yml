@@ -1,0 +1,35 @@
+name: Build DrawioPpt
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build (Release|x64)
+        shell: pwsh
+        run: |
+          ./scripts/build.ps1 -Configuration Release -Platform x64
+
+      - name: Package release
+        shell: pwsh
+        run: |
+          ./scripts/package-release.ps1 -Version v1.0.0-ci -Configuration Release -Platform x64 -SkipBuild
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DrawioPpt-package
+          path: artifacts/releases/v1.0.0-ci/**
