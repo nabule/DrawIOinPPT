@@ -4,7 +4,7 @@
 
 PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编辑和更新 Draw.io 图形。
 
-当前发布基线：`v1.0.0`
+当前发布基线：`v1.0.1`
 
 当前仓库已经完成初始骨架，并推进到了可实机联调的阶段，重点完成了以下内容：
 
@@ -45,9 +45,9 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - [用户手册](./docs/user-guide.md)
 - [回归清单](./docs/regression-checklist.md)
 - [详细开发计划](./docs/development-plan.md)
-- [完整 E2E 测试报告](./docs/e2e-test-report-v1.0.0.md)
-- [v1.0.0 发布说明](./docs/release-notes-v1.0.0.md)
-- [v1.0.0 发布证据与日志索引](./docs/release-evidence-v1.0.0.md)
+- [完整 E2E 测试报告](./docs/e2e-test-report-v1.0.1.md)
+- [v1.0.1 发布说明](./docs/release-notes-v1.0.1.md)
+- [v1.0.1 发布证据与日志索引](./docs/release-evidence-v1.0.1.md)
 - [待优化功能点](./docs/optimization-backlog.md)
 
 ## 当前技术选择
@@ -81,13 +81,13 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 先检查环境：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 ```
 
 构建：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
 构建脚本会自动恢复 `Microsoft.Web.WebView2` 包，并默认按 `x64` 构建，与本机 PowerPoint x64 对齐。
@@ -95,19 +95,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 URL 模式烟雾测试：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
 ```
 
 发布打包：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.0
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.1
 ```
 
 完整真实全流程测试：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.0
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.1
 ```
 
 日志文件默认写入：
@@ -119,19 +119,19 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 发布测试日志与打包记录会额外保存在：
 
 ```text
-artifacts\logs\v1.0.0\
+artifacts\logs\v1.0.1\
 ```
 
 注册插件：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
 ```
 
 卸载插件：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
 ```
 
 ## 当前里程碑

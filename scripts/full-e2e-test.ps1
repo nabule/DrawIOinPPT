@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.0",
+    [string]$Version = "v1.0.1",
     [switch]$SkipBuild,
     [switch]$KeepInstalled
 )
@@ -23,6 +23,7 @@ $pluginLogSnapshotPath = Join-Path $logRoot "drawioppt-full-e2e.log"
 $transcriptPath = Join-Path $logRoot ("full-e2e-" + $Version + ".transcript.log")
 $results = New-Object System.Collections.Generic.List[string]
 $drawioExe = "C:\\Program Files\\draw.io\\draw.io.exe"
+$fatalError = $null
 $transcriptStarted = $false
 
 function Assert-NoRunningPowerPoint {
@@ -78,6 +79,54 @@ function Restore-Settings {
     }
 }
 
+function Start-MockHttpServer {
+    param(
+        [int]$Port,
+        [string]$HtmlPath
+    )
+
+    $job = Start-Job -ArgumentList $Port, $HtmlPath -ScriptBlock {
+        param(
+            [int]$Port,
+            [string]$HtmlPath
+        )
+
+        $listener = New-Object System.Net.HttpListener
+        $listener.Prefixes.Add("http://127.0.0.1:$Port/")
+        $listener.Prefixes.Add("http://localhost:$Port/")
+        $listener.Start()
+
+        try {
+            while ($true) {
+                $context = $listener.GetContext()
+                try {
+                    $path = $context.Request.Url.AbsolutePath
+                    if ($path -eq "/" -or $path -eq "/mock-editor.html") {
+                        $bytes = [System.IO.File]::ReadAllBytes($HtmlPath)
+                        $context.Response.StatusCode = 200
+                        $context.Response.ContentType = "text/html; charset=utf-8"
+                        $context.Response.ContentLength64 = $bytes.Length
+                        $context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+                    }
+                    else {
+                        $context.Response.StatusCode = 404
+                    }
+                }
+                finally {
+                    $context.Response.Close()
+                }
+            }
+        }
+        finally {
+            $listener.Stop()
+            $listener.Close()
+        }
+    }
+
+    Start-Sleep -Seconds 2
+    return $job
+}
+
 function Compile-And-Run-PowerPointUrlE2E {
     param(
         [string]$InstalledRoot
@@ -94,15 +143,6 @@ function Compile-And-Run-PowerPointUrlE2E {
 
     if (-not (Test-Path $cscPath)) {
         throw "csc.exe not found: $cscPath"
-    }
-
-    $python = Get-Command python -ErrorAction SilentlyContinue
-    if (-not $python) {
-        $python = Get-Command py -ErrorAction SilentlyContinue
-    }
-
-    if (-not $python) {
-        throw "Python is required to host the mock URL editor."
     }
 
     New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
@@ -394,7 +434,7 @@ public static class PowerPointUrlE2E
         exit $LASTEXITCODE
     }
 
-    $server = Start-Process -FilePath $python.Source -ArgumentList @("-m", "http.server", "$serverPort", "--bind", "127.0.0.1") -WorkingDirectory $tempRoot -WindowStyle Hidden -PassThru
+    $server = Start-MockHttpServer -Port $serverPort -HtmlPath $mockHtmlPath
     try {
         Start-Sleep -Seconds 2
         Push-Location $tempRoot
@@ -412,8 +452,9 @@ public static class PowerPointUrlE2E
         }
     }
     finally {
-        if ($server -and -not $server.HasExited) {
-            Stop-Process -Id $server.Id -Force
+        if ($server) {
+            Stop-Job -Job $server -ErrorAction SilentlyContinue | Out-Null
+            Remove-Job -Job $server -Force -ErrorAction SilentlyContinue | Out-Null
         }
     }
 }
@@ -477,20 +518,20 @@ try {
     Assert-NoRunningPowerPoint
 
     if (-not $SkipBuild) {
-        & powershell -ExecutionPolicy Bypass -File $buildScript -Configuration Release -Platform x64
+        & powershell.exe -ExecutionPolicy Bypass -File $buildScript -Configuration Release -Platform x64
         if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
         }
     }
 
-    & powershell -ExecutionPolicy Bypass -File $packageScript -Version $Version -Configuration Release -Platform x64 -SkipBuild
+    & powershell.exe -ExecutionPolicy Bypass -File $packageScript -Version $Version -Configuration Release -Platform x64 -SkipBuild
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
     Add-Result -Name "ReleasePackage" -Passed (Test-Path $packageRoot) -Detail $packageRoot
 
     $installScript = Join-Path $packageRoot "scripts\\install-release.ps1"
-    & powershell -ExecutionPolicy Bypass -File $installScript -InstallRoot $installRoot
+    & powershell.exe -ExecutionPolicy Bypass -File $installScript -InstallRoot $installRoot
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
@@ -508,7 +549,7 @@ try {
     }
 
     $installedUrlSmoke = Join-Path $installRoot "scripts\\url-editor-smoke.ps1"
-    & powershell -ExecutionPolicy Bypass -File $installedUrlSmoke -SkipBuild
+    & powershell.exe -ExecutionPolicy Bypass -File $installedUrlSmoke -SkipBuild
     Add-Result -Name "InstalledUrlSmoke" -Passed ($LASTEXITCODE -eq 0) -Detail $installedUrlSmoke
 
     $urlE2EExitCode = Compile-And-Run-PowerPointUrlE2E -InstalledRoot $installRoot
@@ -517,18 +558,29 @@ try {
     $desktopExporterPassed = Test-DesktopExporter -ExecutablePath $drawioExe
     Add-Result -Name "DesktopExporter" -Passed $desktopExporterPassed -Detail $drawioExe
 }
+catch {
+    $fatalError = $_
+
+    $detail = $_.Exception.Message
+    if ([string]::IsNullOrWhiteSpace($detail)) {
+        $detail = $_.ToString()
+    }
+
+    $detail = $detail.Replace("|", "/").Replace("`r", " ").Replace("`n", " ").Trim()
+    $results.Add("| FatalError | FAIL | $detail |") | Out-Null
+}
 finally {
     Stop-RunningPowerPointSilently
 
     if (-not $KeepInstalled -and (Test-Path $installRoot)) {
         $uninstallScript = Join-Path $installRoot "scripts\\uninstall-release.ps1"
         if (Test-Path $uninstallScript) {
-            & powershell -ExecutionPolicy Bypass -File $uninstallScript -InstallRoot $installRoot | Out-Null
+            & powershell.exe -ExecutionPolicy Bypass -File $uninstallScript -InstallRoot $installRoot > $null
         }
     }
 
     if (Test-Path $registerRepoScript) {
-        & powershell -ExecutionPolicy Bypass -File $registerRepoScript | Out-Null
+        & powershell.exe -ExecutionPolicy Bypass -File $registerRepoScript > $null
     }
 
     Restore-Settings
@@ -557,6 +609,11 @@ if ($transcriptStarted) {
     }
     catch {
     }
+}
+
+if ($fatalError -ne $null) {
+    Write-Error $fatalError
+    exit 1
 }
 
 Write-Host "E2E report written to: $reportPath"

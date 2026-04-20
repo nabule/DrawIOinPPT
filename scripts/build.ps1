@@ -19,7 +19,7 @@ if (-not (Test-Path $restoreScriptPath)) {
     throw "Package restore script not found: $restoreScriptPath"
 }
 
-& powershell -ExecutionPolicy Bypass -File $restoreScriptPath
+& powershell.exe -ExecutionPolicy Bypass -File $restoreScriptPath
 
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE

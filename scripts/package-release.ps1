@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.0",
+    [string]$Version = "v1.0.1",
     [string]$Configuration = "Release",
     [string]$Platform = "x64",
     [switch]$SkipBuild
@@ -20,7 +20,7 @@ $addInBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.PowerPointAddIn\\bin\\{0}\\
 $coreBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.Core\\bin\\{0}\\{1}" -f $Platform, $Configuration)
 
 if (-not $SkipBuild) {
-    & powershell -ExecutionPolicy Bypass -File $buildScript -Configuration $Configuration -Platform $Platform
+    & powershell.exe -ExecutionPolicy Bypass -File $buildScript -Configuration $Configuration -Platform $Platform
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
@@ -71,12 +71,12 @@ if (Test-Path $logRoot) {
 
 @'
 @echo off
-powershell -ExecutionPolicy Bypass -File "%~dp0scripts\install-release.ps1" %*
+powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\install-release.ps1" %*
 '@ | Set-Content -Path (Join-Path $packageRoot "install.cmd") -Encoding ASCII
 
 @'
 @echo off
-powershell -ExecutionPolicy Bypass -File "%~dp0scripts\uninstall-release.ps1" %*
+powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\uninstall-release.ps1" %*
 '@ | Set-Content -Path (Join-Path $packageRoot "uninstall.cmd") -Encoding ASCII
 
 $manifestPath = Join-Path $packageRoot "PACKAGE.txt"

@@ -12,7 +12,7 @@ if ($runningPowerPoint) {
 
 $unregisterScript = Join-Path $targetRoot "scripts\\unregister-addin.ps1"
 if (Test-Path $unregisterScript) {
-    & powershell -ExecutionPolicy Bypass -File $unregisterScript
+    & powershell.exe -ExecutionPolicy Bypass -File $unregisterScript
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }

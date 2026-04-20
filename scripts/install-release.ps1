@@ -30,7 +30,7 @@ if (-not (Test-Path $registerScript)) {
     throw "Register script not found after install: $registerScript"
 }
 
-& powershell -ExecutionPolicy Bypass -File $registerScript -AssemblyPath $targetAssemblyPath
+& powershell.exe -ExecutionPolicy Bypass -File $registerScript -AssemblyPath $targetAssemblyPath
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

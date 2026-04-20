@@ -4,7 +4,7 @@
 
 DrawioPpt is a native Microsoft PowerPoint Desktop add-in that lets you insert, recognize, edit, and refresh Draw.io / diagrams.net diagrams directly inside a presentation.
 
-Current release baseline: `v1.0.0`
+Current release baseline: `v1.0.1`
 
 The repository has already moved beyond the initial scaffold and is now at a stage where real machine-level integration is available. The current implementation focuses on these outcomes:
 
@@ -48,9 +48,9 @@ English docs currently available:
 - [User guide](./docs/user-guide.en.md)
 - [Regression checklist](./docs/regression-checklist.en.md)
 - [Detailed development plan](./docs/development-plan.en.md)
-- [Full E2E test report for v1.0.0](./docs/e2e-test-report-v1.0.0.en.md)
-- [Release notes for v1.0.0](./docs/release-notes-v1.0.0.en.md)
-- [Release evidence and log index for v1.0.0](./docs/release-evidence-v1.0.0.en.md)
+- [Full E2E test report for v1.0.1](./docs/e2e-test-report-v1.0.1.en.md)
+- [Release notes for v1.0.1](./docs/release-notes-v1.0.1.en.md)
+- [Release evidence and log index for v1.0.1](./docs/release-evidence-v1.0.1.en.md)
 - [Optimization backlog](./docs/optimization-backlog.en.md)
 
 Some historical and secondary docs are still primarily in Chinese at the moment.
@@ -86,13 +86,13 @@ Verified local tool paths on the current development machine:
 Check the environment first:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 ```
 
 Build:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
 The build script restores the `Microsoft.Web.WebView2` package automatically and builds for `x64` by default to match a local `x64` PowerPoint installation.
@@ -100,19 +100,19 @@ The build script restores the `Microsoft.Web.WebView2` package automatically and
 Run the URL-mode smoke test:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
 ```
 
 Package a release:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.0
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.1
 ```
 
 Run the full real-world E2E flow:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.0
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.1
 ```
 
 Default runtime log path:
@@ -124,19 +124,19 @@ C:\Users\<your-username>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.log
 Release test logs and packaging records are also written to:
 
 ```text
-artifacts\logs\v1.0.0\
+artifacts\logs\v1.0.1\
 ```
 
 Register the add-in:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
 ```
 
 Unregister the add-in:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
 ```
 
 ## Current Milestones

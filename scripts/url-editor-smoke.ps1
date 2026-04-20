@@ -34,8 +34,56 @@ function Get-SmokeInputPath {
     throw "$Label not found. Checked: $($Candidates -join '; ')"
 }
 
+function Start-MockHttpServer {
+    param(
+        [int]$Port,
+        [string]$HtmlPath
+    )
+
+    $job = Start-Job -ArgumentList $Port, $HtmlPath -ScriptBlock {
+        param(
+            [int]$Port,
+            [string]$HtmlPath
+        )
+
+        $listener = New-Object System.Net.HttpListener
+        $listener.Prefixes.Add("http://127.0.0.1:$Port/")
+        $listener.Prefixes.Add("http://localhost:$Port/")
+        $listener.Start()
+
+        try {
+            while ($true) {
+                $context = $listener.GetContext()
+                try {
+                    $path = $context.Request.Url.AbsolutePath
+                    if ($path -eq "/" -or $path -eq "/mock-editor.html") {
+                        $bytes = [System.IO.File]::ReadAllBytes($HtmlPath)
+                        $context.Response.StatusCode = 200
+                        $context.Response.ContentType = "text/html; charset=utf-8"
+                        $context.Response.ContentLength64 = $bytes.Length
+                        $context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+                    }
+                    else {
+                        $context.Response.StatusCode = 404
+                    }
+                }
+                finally {
+                    $context.Response.Close()
+                }
+            }
+        }
+        finally {
+            $listener.Stop()
+            $listener.Close()
+        }
+    }
+
+    Start-Sleep -Seconds 2
+    return $job
+}
+
 if (-not $SkipBuild -and (Test-Path $buildScript) -and ((Test-Path $powerPointReleaseBin) -or (Test-Path $powerPointDebugBin))) {
-    & powershell -ExecutionPolicy Bypass -File $buildScript
+    & powershell.exe -ExecutionPolicy Bypass -File $buildScript
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
@@ -43,15 +91,6 @@ if (-not $SkipBuild -and (Test-Path $buildScript) -and ((Test-Path $powerPointRe
 
 if (-not (Test-Path $cscPath)) {
     throw "csc.exe not found: $cscPath"
-}
-
-$python = Get-Command python -ErrorAction SilentlyContinue
-if (-not $python) {
-    $python = Get-Command py -ErrorAction SilentlyContinue
-}
-
-if (-not $python) {
-    throw "Python is required to run the local HTTP smoke server."
 }
 
 New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
@@ -191,7 +230,7 @@ $compileArguments = @(
 
 & $cscPath @compileArguments
 
-$server = Start-Process -FilePath $python.Source -ArgumentList @("-m", "http.server", "$serverPort", "--bind", "127.0.0.1") -WorkingDirectory $tempRoot -WindowStyle Hidden -PassThru
+$server = Start-MockHttpServer -Port $serverPort -HtmlPath $mockHtmlPath
 
 try {
     Start-Sleep -Seconds 2
@@ -205,7 +244,8 @@ try {
     }
 }
 finally {
-    if ($server -and -not $server.HasExited) {
-        Stop-Process -Id $server.Id -Force
+    if ($server) {
+        Stop-Job -Job $server -ErrorAction SilentlyContinue | Out-Null
+        Remove-Job -Job $server -Force -ErrorAction SilentlyContinue | Out-Null
     }
 }
