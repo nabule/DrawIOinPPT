@@ -42,6 +42,7 @@ namespace DrawioPpt.Core.Services
             settings.AutoUpdateOnSave = Read(root, "autoUpdateOnSave", settings.AutoUpdateOnSave);
             settings.KeepSidecarFile = Read(root, "keepSidecarFile", settings.KeepSidecarFile);
             settings.SidecarFolderName = Read(root, "sidecarFolderName", settings.SidecarFolderName);
+            settings.ShowDiagramInfoDialog = Read(root, "showDiagramInfoDialog", settings.ShowDiagramInfoDialog);
 
             string editorModeText = Read(root, "editorMode", settings.EditorMode.ToString());
             EditorMode editorMode;
@@ -76,7 +77,8 @@ namespace DrawioPpt.Core.Services
                     new XElement("autoOpenOnSelection", settings.AutoOpenOnSelection),
                     new XElement("autoUpdateOnSave", settings.AutoUpdateOnSave),
                     new XElement("keepSidecarFile", settings.KeepSidecarFile),
-                    new XElement("sidecarFolderName", settings.SidecarFolderName ?? string.Empty)
+                    new XElement("sidecarFolderName", settings.SidecarFolderName ?? string.Empty),
+                    new XElement("showDiagramInfoDialog", settings.ShowDiagramInfoDialog)
                 )
             );
 

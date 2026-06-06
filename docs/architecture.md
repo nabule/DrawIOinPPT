@@ -32,6 +32,8 @@
 - 提供元数据序列化和压缩
 - 生成 sidecar 文件路径
 
+当前设置模型包含编辑器模式、桌面版路径、URL 地址、Office 兼容 SVG 标签、选中自动打开、保存后自动刷新、sidecar 保留策略，以及新建或编辑时是否显示图形信息弹窗。
+
 ### 3.2 `DrawioPpt.PowerPointAddIn`
 
 职责：
@@ -80,6 +82,7 @@
 4. 插件导出 SVG
 5. 插件将 SVG 插入当前幻灯片
 6. 插件写入 `DRAWIO_PPT_ID` 和元数据包
+7. 如果 `ShowDiagramInfoDialog` 开启，显示图形名称、Diagram ID、编辑模式和 `.drawio` 工作文件路径等信息
 
 ### 5.2 编辑
 
@@ -90,6 +93,7 @@
 5. 打开本地编辑器或 URL 编辑器
 6. 用户保存
 7. 插件重新生成 SVG 并替换展示内容
+8. 如果 `ShowDiagramInfoDialog` 开启，进入编辑流程时显示当前图形的信息弹窗
 
 ## 6. 更新策略
 

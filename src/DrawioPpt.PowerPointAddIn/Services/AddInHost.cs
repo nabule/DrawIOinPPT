@@ -157,22 +157,7 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 ApplySelectionContext(_shapeMetadataService.BuildSelectionContext(shape), false);
 
                 bool launched = TryOpenShapeForEditing(shape, envelope, false);
-                if (_settings.EditorMode == EditorMode.Url)
-                {
-                    return;
-                }
-
-                string message =
-                    "已创建新的 Draw.io 图形。" +
-                    Environment.NewLine + "Diagram ID: " + envelope.DiagramId +
-                    Environment.NewLine + "Working file: " + workingFile;
-
-                if (!launched)
-                {
-                    message += Environment.NewLine + "当前未启动外部编辑器，图形先以 SVG 预览插入。";
-                }
-
-                _userNotifier.ShowInfo(message, "DrawioPpt");
+                ShowDiagramInfoDialog("已创建新的 Draw.io 图形。", envelope, shape, workingFile, launched);
             });
         }
 
@@ -241,7 +226,11 @@ namespace DrawioPpt.PowerPointAddIn.Services
                     {
                         _userNotifier.ShowInfo("请先在设置中配置本地 draw.io/diagrams.net 路径。", "DrawioPpt");
                     }
+
+                    return;
                 }
+
+                ShowDiagramInfoDialog("已打开 Draw.io 图形编辑器。", envelope, shape, envelope.SidecarPath, true);
             });
         }
 
@@ -529,6 +518,42 @@ namespace DrawioPpt.PowerPointAddIn.Services
             _traceLog.Info("AddInHost", "Normalized sidecar path for diagram " + envelope.DiagramId + " to " + nextPath + ".");
         }
 
+        private bool ShouldShowDiagramInfoDialog()
+        {
+            return _settings == null || _settings.ShowDiagramInfoDialog;
+        }
+
+        private void ShowDiagramInfoDialog(string header, DiagramEnvelope envelope, PptInterop.Shape shape, string workingFile, bool editorLaunched)
+        {
+            if (!ShouldShowDiagramInfoDialog() || envelope == null)
+            {
+                return;
+            }
+
+            string modeText = envelope.EditorMode == EditorMode.Url ? "URL 模式" : "桌面模式";
+            string resolvedWorkingFile = string.IsNullOrWhiteSpace(workingFile) ? envelope.SidecarPath : workingFile;
+            string shapeName = shape == null ? string.Empty : shape.Name;
+            string message =
+                header +
+                Environment.NewLine + "Diagram Name: " + (envelope.DiagramName ?? string.Empty) +
+                Environment.NewLine + "Diagram ID: " + (envelope.DiagramId ?? string.Empty) +
+                Environment.NewLine + "Editor Mode: " + modeText;
+
+            if (!string.IsNullOrWhiteSpace(shapeName))
+            {
+                message += Environment.NewLine + "Shape Name: " + shapeName;
+            }
+
+            message += Environment.NewLine + "Working file: " + (resolvedWorkingFile ?? string.Empty);
+
+            if (!editorLaunched)
+            {
+                message += Environment.NewLine + "当前未启动外部编辑器，图形先以 SVG 预览插入。";
+            }
+
+            _userNotifier.ShowInfo(message, "DrawioPpt");
+        }
+
         private bool TryOpenShapeForEditing(PptInterop.Shape shape, DiagramEnvelope envelope, bool explicitUserAction)
         {
             if (shape == null || envelope == null)
@@ -549,11 +574,6 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 if (!LaunchDesktopEditor(envelope, workingFile, explicitUserAction))
                 {
                     return false;
-                }
-
-                if (explicitUserAction)
-                {
-                    _userNotifier.ShowInfo("已启动外部编辑器。" + Environment.NewLine + workingFile, "DrawioPpt");
                 }
 
                 RememberEditorLaunch(envelope.DiagramId);

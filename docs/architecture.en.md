@@ -32,6 +32,8 @@ Responsibilities:
 - Provide metadata serialization and compression
 - Generate sidecar file paths
 
+The current settings model includes editor mode, desktop editor path, URL editor address, Office-compatible SVG labels, auto-open-on-selection, auto-refresh-after-save, sidecar retention, and whether to show diagram information when creating or editing.
+
 ### 3.2 `DrawioPpt.PowerPointAddIn`
 
 Responsibilities:
@@ -80,6 +82,7 @@ If later validation shows that `AlternativeText` is not sufficient in capacity o
 4. The add-in exports SVG
 5. The add-in inserts the SVG into the current slide
 6. The add-in writes `DRAWIO_PPT_ID` and the metadata envelope
+7. If `ShowDiagramInfoDialog` is enabled, it shows the diagram name, Diagram ID, editor mode, and `.drawio` working file path
 
 ### 5.2 Edit
 
@@ -90,6 +93,7 @@ If later validation shows that `AlternativeText` is not sufficient in capacity o
 5. It opens the local editor or URL editor
 6. The user saves
 7. The add-in regenerates SVG and replaces the displayed content
+8. If `ShowDiagramInfoDialog` is enabled, it shows the current diagram information when entering the edit flow
 
 ## 6. Update Strategy
 

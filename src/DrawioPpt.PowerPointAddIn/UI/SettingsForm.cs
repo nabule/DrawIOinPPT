@@ -15,6 +15,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
         private readonly CheckBox _officeCompatibleLabelsCheckBox;
         private readonly CheckBox _autoOpenCheckBox;
         private readonly CheckBox _autoUpdateCheckBox;
+        private readonly CheckBox _diagramInfoDialogCheckBox;
         private readonly CheckBox _keepSidecarCheckBox;
         private readonly TextBox _sidecarFolderTextBox;
         private readonly Button _browseButton;
@@ -35,7 +36,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             this.MinimizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.AutoScaleMode = AutoScaleMode.Dpi;
-            this.ClientSize = new Size(700, 360);
+            this.ClientSize = new Size(700, 388);
 
             Label modeLabel = CreateLabel("编辑器模式", 16, 20);
             _editorModeComboBox = new ComboBox();
@@ -78,10 +79,11 @@ namespace DrawioPpt.PowerPointAddIn.UI
             _officeCompatibleLabelsCheckBox = CreateCheckBox("使用兼容 Microsoft Office 的 SVG 文本标签", 150, 128);
             _autoOpenCheckBox = CreateCheckBox("选中图形时自动打开编辑器", 150, 156);
             _autoUpdateCheckBox = CreateCheckBox("保存后自动刷新图形", 150, 184);
-            _keepSidecarCheckBox = CreateCheckBox("在 PPT 附近保留伴随工作文件", 150, 212);
+            _diagramInfoDialogCheckBox = CreateCheckBox("新建或编辑时显示图形信息弹窗", 150, 212);
+            _keepSidecarCheckBox = CreateCheckBox("在 PPT 附近保留伴随工作文件", 150, 240);
 
-            Label sidecarLabel = CreateLabel("伴随文件夹", 16, 248);
-            _sidecarFolderTextBox = CreateTextBox(150, 244, 510);
+            Label sidecarLabel = CreateLabel("伴随文件夹", 16, 276);
+            _sidecarFolderTextBox = CreateTextBox(150, 272, 510);
 
             _okButton = new Button();
             _okButton.Text = "确定";
@@ -99,7 +101,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             bottomButtonsPanel.WrapContents = false;
             bottomButtonsPanel.AutoSize = false;
             bottomButtonsPanel.Size = new Size(176, 34);
-            bottomButtonsPanel.Location = new Point(484, 302);
+            bottomButtonsPanel.Location = new Point(484, 330);
             bottomButtonsPanel.Controls.Add(_cancelButton);
             bottomButtonsPanel.Controls.Add(_okButton);
 
@@ -114,6 +116,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             this.Controls.Add(_officeCompatibleLabelsCheckBox);
             this.Controls.Add(_autoOpenCheckBox);
             this.Controls.Add(_autoUpdateCheckBox);
+            this.Controls.Add(_diagramInfoDialogCheckBox);
             this.Controls.Add(_keepSidecarCheckBox);
             this.Controls.Add(sidecarLabel);
             this.Controls.Add(_sidecarFolderTextBox);
@@ -173,6 +176,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             clone.UseOfficeCompatibleSvgLabels = source.UseOfficeCompatibleSvgLabels;
             clone.AutoOpenOnSelection = source.AutoOpenOnSelection;
             clone.AutoUpdateOnSave = source.AutoUpdateOnSave;
+            clone.ShowDiagramInfoDialog = source.ShowDiagramInfoDialog;
             clone.KeepSidecarFile = source.KeepSidecarFile;
             clone.SidecarFolderName = source.SidecarFolderName;
             return clone;
@@ -195,6 +199,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             _officeCompatibleLabelsCheckBox.Checked = settings.UseOfficeCompatibleSvgLabels;
             _autoOpenCheckBox.Checked = settings.AutoOpenOnSelection;
             _autoUpdateCheckBox.Checked = settings.AutoUpdateOnSave;
+            _diagramInfoDialogCheckBox.Checked = settings.ShowDiagramInfoDialog;
             _keepSidecarCheckBox.Checked = settings.KeepSidecarFile;
             _sidecarFolderTextBox.Text = settings.SidecarFolderName ?? string.Empty;
         }
@@ -303,6 +308,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             updated.UseOfficeCompatibleSvgLabels = _officeCompatibleLabelsCheckBox.Checked;
             updated.AutoOpenOnSelection = _autoOpenCheckBox.Checked;
             updated.AutoUpdateOnSave = _autoUpdateCheckBox.Checked;
+            updated.ShowDiagramInfoDialog = _diagramInfoDialogCheckBox.Checked;
             updated.KeepSidecarFile = _keepSidecarCheckBox.Checked;
             updated.SidecarFolderName = _sidecarFolderTextBox.Text;
             return updated;

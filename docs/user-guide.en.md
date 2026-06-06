@@ -260,7 +260,35 @@ Recommendation:
 - Usually keep it enabled
 - Disable it only if you suspect auto-refresh is getting in the way
 
-### 5.7 Keep Sidecar Working Files Next to the PPT
+### 5.7 Show Diagram Information When Creating or Editing
+
+UI label: `Show diagram information when creating or editing`
+
+Internal setting:
+
+- `ShowDiagramInfoDialog`
+
+What it does:
+
+- When enabled, the add-in shows diagram information when creating a new Draw.io diagram or re-editing an existing one
+- The dialog includes the diagram name, Diagram ID, editor mode, PowerPoint shape name, and `.drawio` working file path
+- If the desktop editor cannot be launched during create, the dialog also explains that only an SVG preview was inserted
+
+Enable it when:
+
+- You want to confirm which Draw.io file is being edited
+- You need to see where the sidecar `.drawio` working file is stored
+- You are validating path relocation after save-as, folder moves, or cross-machine use
+
+Disable it when:
+
+- You already know the workflow and do not want an extra information dialog each time you create or edit
+
+Default value:
+
+- Enabled
+
+### 5.8 Keep Sidecar Working Files Next to the PPT
 
 UI label: `Keep sidecar file next to PPT`
 
@@ -293,7 +321,7 @@ Disable it when:
 - You do not want extra sidecar files in the project folder
 - The deck is temporary
 
-### 5.8 Sidecar Folder
+### 5.9 Sidecar Folder
 
 UI label: `Sidecar Folder`
 
@@ -338,7 +366,7 @@ Keep the default when:
 
 - You just want the standard behavior
 
-### 5.9 What the Browse, Auto Detect, and Test URL Buttons Mean
+### 5.10 What the Browse, Auto Detect, and Test URL Buttons Mean
 
 - `Browse...`
   Lets you select the draw.io Desktop executable manually.
@@ -406,6 +434,7 @@ Additional notes:
 - If desktop mode is selected but the desktop path is not configured correctly, the shape is inserted as a preview first
 - If the PPT has not been saved to disk yet and sidecar retention is enabled, the add-in stores the `.drawio` working file in the system temp directory first to avoid invalid relative paths
 - Once the PPT is later saved to a real path, the next edit relocates the sidecar automatically to the configured folder next to the PPT
+- If `Show diagram information when creating or editing` is enabled, the add-in shows the Diagram ID, editor mode, and `.drawio` working file path
 
 ### 7.2 Re-Edit an Existing Diagram
 
@@ -422,6 +451,10 @@ Method 3:
 
 1. Enable `Auto open editor when selecting shape`.
 2. After that, selecting a bound shape opens it automatically.
+
+Additional note:
+
+- If `Show diagram information when creating or editing` is enabled, the add-in shows the current diagram's Diagram ID, editor mode, and `.drawio` working file path after entering the edit flow
 
 ### 7.3 Refresh a Diagram
 

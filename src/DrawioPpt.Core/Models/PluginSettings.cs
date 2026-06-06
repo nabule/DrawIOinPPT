@@ -12,6 +12,7 @@ namespace DrawioPpt.Core.Models
             this.AutoUpdateOnSave = true;
             this.KeepSidecarFile = true;
             this.SidecarFolderName = "drawio";
+            this.ShowDiagramInfoDialog = true;
         }
 
         public EditorMode EditorMode { get; set; }
@@ -22,5 +23,6 @@ namespace DrawioPpt.Core.Models
         public bool AutoUpdateOnSave { get; set; }
         public bool KeepSidecarFile { get; set; }
         public string SidecarFolderName { get; set; }
+        public bool ShowDiagramInfoDialog { get; set; }
     }
 }

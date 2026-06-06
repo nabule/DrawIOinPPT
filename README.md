@@ -4,7 +4,7 @@
 
 PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编辑和更新 Draw.io 图形。
 
-当前发布基线：`v1.0.1`
+当前发布基线：`v1.0.2`
 
 当前仓库已经完成初始骨架，并推进到了可实机联调的阶段，重点完成了以下内容：
 
@@ -29,6 +29,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 已为 URL 模式补充本地日志、初始化超时和导出超时诊断。
 - 已统一为桌面导出、URL 导出和预览回退生成的 SVG 补写 draw.io `content` 元数据。
 - 设置窗口已支持 `Test URL`，可在保存配置前先验证当前编辑器地址。
+- 设置窗口已支持控制新建或编辑 Draw.io 时是否显示图形信息弹窗。
 - 已重构 PowerPoint Ribbon 分组、状态展示和按钮图标，支持更清晰的模式/对象状态反馈。
 - 已支持 sidecar `.drawio` 在 `PPT` 另存为、路径变化和跨机器迁移后按当前文档路径自动重定位。
 
@@ -45,9 +46,9 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - [用户手册](./docs/user-guide.md)
 - [回归清单](./docs/regression-checklist.md)
 - [详细开发计划](./docs/development-plan.md)
-- [完整 E2E 测试报告](./docs/e2e-test-report-v1.0.1.md)
-- [v1.0.1 发布说明](./docs/release-notes-v1.0.1.md)
-- [v1.0.1 发布证据与日志索引](./docs/release-evidence-v1.0.1.md)
+- [完整 E2E 测试报告](./docs/e2e-test-report-v1.0.2.md)
+- [v1.0.2 发布说明](./docs/release-notes-v1.0.2.md)
+- [v1.0.2 发布证据与日志索引](./docs/release-evidence-v1.0.2.md)
 - [待优化功能点](./docs/optimization-backlog.md)
 
 ## 当前技术选择
@@ -101,13 +102,13 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
 发布打包：
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.2
 ```
 
 完整真实全流程测试：
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.2
 ```
 
 日志文件默认写入：
@@ -119,7 +120,7 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 发布测试日志与打包记录会额外保存在：
 
 ```text
-artifacts\logs\v1.0.1\
+artifacts\logs\v1.0.2\
 ```
 
 注册插件：
