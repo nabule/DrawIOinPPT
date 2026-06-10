@@ -4,7 +4,7 @@
 
 ## 1. 这是什么
 
-DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io / diagrams.net 图形以“可编辑、可回写、尽量跟着 PPT 一起保存”的方式带进演示文稿。
+DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io / diagrams.net 图形以“可编辑、可回写、尽量跟着 PPT 一起保存”的方式带进演示文稿。当前分支也新增了 Word Desktop 原生插件，Word 版的专门说明见 [Word 插件设计与使用说明](./word-addin.md)。
 
 它解决的核心问题是：
 
@@ -16,6 +16,7 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 建议配合以下文档一起看：
 
 - [安装与联调说明](./installation.md)
+- [Word 插件设计与使用说明](./word-addin.md)
 - [完整 E2E 测试报告](./e2e-test-report-v1.0.0.md)
 - [v1.0.0 发布说明](./release-notes-v1.0.0.md)
 - [待优化功能点](./optimization-backlog.md)

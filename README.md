@@ -2,7 +2,7 @@
 
 [中文](./README.md) | [English](./README.en.md)
 
-PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编辑和更新 Draw.io 图形。
+PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编辑和更新 Draw.io 图形；当前分支已新增 Word Desktop 原生 COM Add-in 宿主，实现同类 Draw.io 编辑闭环。
 
 当前发布基线：`v1.0.2`
 
@@ -32,6 +32,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 设置窗口已支持控制新建或编辑 Draw.io 时是否显示图形信息弹窗。
 - 已重构 PowerPoint Ribbon 分组、状态展示和按钮图标，支持更清晰的模式/对象状态反馈。
 - 已支持 sidecar `.drawio` 在 `PPT` 另存为、路径变化和跨机器迁移后按当前文档路径自动重定位。
+- 已新增 Word COM Add-in：支持在 Word 中新建、识别、编辑、刷新、绑定和清除绑定 Draw.io 图片，并通过 `Document.CustomXMLParts + AlternativeText` 保存源数据。
 
 ## 目录结构
 
@@ -39,11 +40,13 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - `scripts/`：环境检查、构建、注册与卸载脚本。
 - `src/DrawioPpt.Core/`：与宿主无关的核心模型、序列化和设置存储。
 - `src/DrawioPpt.PowerPointAddIn/`：PowerPoint COM Add-in 宿主骨架。
+- `src/DrawioPpt.WordAddIn/`：Word COM Add-in 宿主实现。
 
 关键文档：
 
 - [安装与联调说明](./docs/installation.md)
 - [用户手册](./docs/user-guide.md)
+- [Word 插件设计与使用说明](./docs/word-addin.md)
 - [回归清单](./docs/regression-checklist.md)
 - [详细开发计划](./docs/development-plan.md)
 - [完整 E2E 测试报告](./docs/e2e-test-report-v1.0.2.md)
@@ -53,10 +56,12 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 
 ## 当前技术选择
 
-- 宿主：C# + PowerPoint COM Add-in
-- Office 接口：`Microsoft.Office.Interop.PowerPoint`
+- 宿主：C# + PowerPoint COM Add-in；C# + Word COM Add-in
+- Office 接口：`Microsoft.Office.Interop.PowerPoint`、`Microsoft.Office.Interop.Word`
 - Ribbon：`Microsoft.Office.Core.IRibbonExtensibility`
-- 当前元数据存储策略：`Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText 回退兼容`
+- 当前元数据存储策略：
+  - PowerPoint：`Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText 回退兼容`
+  - Word：`Document.CustomXMLParts + InlineShape/Shape.AlternativeText 回退兼容`
 - 外部编辑器模式：
   - 本地桌面版 draw.io/diagrams.net
   - 配置化 URL 模式（`WebView2`）
@@ -69,6 +74,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 
 - Windows
 - Microsoft PowerPoint Desktop
+- Microsoft Word Desktop
 - Visual Studio 2022 或等效 MSBuild 环境
 
 当前机器可用的本地工具路径：
@@ -97,6 +103,18 @@ URL 模式烟雾测试：
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
+```
+
+Word URL 模式真实 E2E 测试：
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-url-e2e.ps1 -SkipBuild
+```
+
+Word COM Add-in 加载检查：
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1 -Configuration Debug
 ```
 
 发布打包：
@@ -129,10 +147,22 @@ artifacts\logs\v1.0.2\
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
 ```
 
+注册 Word 插件：
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-word-addin.ps1
+```
+
 卸载插件：
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
+```
+
+卸载 Word 插件：
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-word-addin.ps1
 ```
 
 ## 当前里程碑

@@ -2,7 +2,7 @@
 
 [English](./README.en.md) | [中文](./README.md)
 
-DrawioPpt is a native Microsoft PowerPoint Desktop add-in that lets you insert, recognize, edit, and refresh Draw.io / diagrams.net diagrams directly inside a presentation.
+DrawioPpt is a native Microsoft PowerPoint Desktop add-in that lets you insert, recognize, edit, and refresh Draw.io / diagrams.net diagrams directly inside a presentation. This branch also adds a native Word Desktop COM Add-in host with the same Draw.io editing loop for Word documents.
 
 Current release baseline: `v1.0.2`
 
@@ -32,6 +32,7 @@ The repository has already moved beyond the initial scaffold and is now at a sta
 - Adding a setting that controls whether diagram information is shown when creating or editing Draw.io diagrams.
 - Reworking Ribbon grouping, status display, and button icons for clearer mode and object-state feedback.
 - Re-locating sidecar `.drawio` files automatically after save-as, path changes, or cross-machine document moves, based on the current PowerPoint document path.
+- Adding a Word COM Add-in that can create, detect, edit, refresh, bind, and clear Draw.io pictures in Word, with source data stored through `Document.CustomXMLParts + AlternativeText`.
 
 ## Repository Layout
 
@@ -39,6 +40,7 @@ The repository has already moved beyond the initial scaffold and is now at a sta
 - `scripts/`: environment checks, build scripts, registration scripts, and uninstall helpers.
 - `src/DrawioPpt.Core/`: host-agnostic core models, serialization, and settings storage.
 - `src/DrawioPpt.PowerPointAddIn/`: the PowerPoint COM Add-in host implementation.
+- `src/DrawioPpt.WordAddIn/`: the Word COM Add-in host implementation.
 
 ## Key Documentation
 
@@ -47,6 +49,7 @@ English docs currently available:
 - [Architecture](./docs/architecture.en.md)
 - [Installation and local debugging guide](./docs/installation.en.md)
 - [User guide](./docs/user-guide.en.md)
+- [Word add-in design and usage](./docs/word-addin.en.md)
 - [Regression checklist](./docs/regression-checklist.en.md)
 - [Detailed development plan](./docs/development-plan.en.md)
 - [Full E2E test report for v1.0.2](./docs/e2e-test-report-v1.0.2.en.md)
@@ -58,10 +61,12 @@ Some historical and secondary docs are still primarily in Chinese at the moment.
 
 ## Current Technical Choices
 
-- Host: `C# + PowerPoint COM Add-in`
-- Office API: `Microsoft.Office.Interop.PowerPoint`
+- Host: `C# + PowerPoint COM Add-in`; `C# + Word COM Add-in`
+- Office API: `Microsoft.Office.Interop.PowerPoint`, `Microsoft.Office.Interop.Word`
 - Ribbon: `Microsoft.Office.Core.IRibbonExtensibility`
-- Metadata strategy: `Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText fallback compatibility`
+- Metadata strategy:
+  - PowerPoint: `Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText fallback compatibility`
+  - Word: `Document.CustomXMLParts + InlineShape/Shape.AlternativeText fallback compatibility`
 - External editor modes:
   - Local `draw.io` / `diagrams.net Desktop`
   - Configurable URL mode via `WebView2`
@@ -74,6 +79,7 @@ Recommended development environment:
 
 - Windows
 - Microsoft PowerPoint Desktop
+- Microsoft Word Desktop
 - Visual Studio 2022 or an equivalent MSBuild environment
 
 Verified local tool paths on the current development machine:
@@ -102,6 +108,18 @@ Run the URL-mode smoke test:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
+```
+
+Run the real Word URL-mode E2E test:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-url-e2e.ps1 -SkipBuild
+```
+
+Check Word COM Add-in loading:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1 -Configuration Debug
 ```
 
 Package a release:
@@ -134,10 +152,22 @@ Register the add-in:
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
 ```
 
+Register the Word add-in:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-word-addin.ps1
+```
+
 Unregister the add-in:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
+```
+
+Unregister the Word add-in:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-word-addin.ps1
 ```
 
 ## Current Milestones

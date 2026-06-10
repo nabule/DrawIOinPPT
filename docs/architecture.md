@@ -4,18 +4,18 @@
 
 ## 1. 目标
 
-本项目的目标是让 PowerPoint 中的 Draw.io 图形具备以下能力：
+本项目的目标是让 Office 文档中的 Draw.io 图形具备以下能力。当前已覆盖 PowerPoint Desktop，并新增 Word Desktop 宿主：
 
 - 以 SVG 方式显示，保持矢量质量。
-- 选中后可以重新进入 Draw.io 编辑。
+- 在 PowerPoint 中选中图形、在 Word 中选中图片后，可以重新进入 Draw.io 编辑。
 - 编辑器可配置为本地桌面程序或 Web URL。
-- 原始 Draw.io XML 尽量和 PPT 文件一起移动。
+- 原始 Draw.io XML 尽量和 `pptx` / `docx` 文件一起移动。
 
 ## 2. 技术路线
 
-本项目选择 **PowerPoint 原生 COM Add-in**，原因如下：
+本项目选择 **Office 原生 COM Add-in**，当前包含 PowerPoint 和 Word 两个宿主，原因如下：
 
-- 可以可靠监听 PowerPoint 的图形选择事件。
+- 可以可靠监听 Office Desktop 的选择事件。
 - 可以直接调用本地进程，适合桌面版 draw.io 联动。
 - 可以更自然地处理本地路径、临时文件和后续自动回写。
 
@@ -44,14 +44,34 @@
 - PowerPoint 对象模型交互
 - 外部编辑器启动与回写编排
 
+### 3.3 `DrawioPpt.WordAddIn`
+
+职责：
+
+- Word COM Add-in 入口与注册
+- Ribbon 命令暴露
+- Word 选中图片监听
+- Word `InlineShape` / 浮动 `Shape` 对象模型交互
+- Word 文档级 `CustomXMLParts` 存储与清理
+- 外部编辑器启动与回写编排
+
+当前 Word 宿主复用 PowerPoint 程序集中的公共编辑器和 SVG 服务，后续可以再把这些公共服务抽成独立 `OfficeShared` 项目。
+
 ## 4. 数据存储策略
 
 ### 初始版本策略
 
 为了尽快拿到可用 MVP，初始版本采用两层存储：
 
+PowerPoint：
+
 - 图形标识：`Shape.Tags["DRAWIO_PPT_ID"]`
 - 图形元数据包：`Shape.AlternativeText`
+
+Word：
+
+- 图片元数据包：`InlineShape/Shape.AlternativeText`
+- 图形名称：`InlineShape/Shape.Title`
 
 `AlternativeText` 中存的是插件自定义 XML 包，内部包含：
 
@@ -67,7 +87,9 @@
 
 ### 后续增强策略
 
-如果后续验证发现 `AlternativeText` 容量或兼容性不足，则进入二阶段增强：
+当前 PowerPoint 已增强为 `Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText`，Word 已增强为 `Document.CustomXMLParts + InlineShape/Shape.AlternativeText`。
+
+如果后续验证发现 `AlternativeText` 容量或兼容性不足，则继续增强：
 
 - 将完整 XML 迁移到文档级自定义部件或 OOXML 附加部件
 - 图形上仅保留 diagram id 和必要摘要信息
@@ -80,13 +102,13 @@
 2. 启动外部 draw.io 编辑器
 3. 用户保存 `.drawio` 文件
 4. 插件导出 SVG
-5. 插件将 SVG 插入当前幻灯片
-6. 插件写入 `DRAWIO_PPT_ID` 和元数据包
+5. PowerPoint 插件将 SVG 插入当前幻灯片；Word 插件将 SVG 插入当前光标位置
+6. 插件写入元数据包和文档级 `CustomXMLParts`
 7. 如果 `ShowDiagramInfoDialog` 开启，显示图形名称、Diagram ID、编辑模式和 `.drawio` 工作文件路径等信息
 
 ### 5.2 编辑
 
-1. 用户选中一个图形
+1. 用户选中一个图形或图片
 2. 插件监听选择变化
 3. 识别是否为插件管理的 Draw.io 图形
 4. 读取元数据包
@@ -97,7 +119,7 @@
 
 ## 6. 更新策略
 
-第一阶段采用“替换 shape 内容”的方式实现更新，优先保证流程跑通。
+第一阶段采用“替换展示对象”的方式实现更新，优先保证流程跑通。
 
 保留以下信息：
 
@@ -105,6 +127,8 @@
 - 尺寸
 - 旋转角度
 - 图层顺序
+
+Word 中 `InlineShape` 是正文流式对象，没有 PowerPoint 那样的固定画布和图层顺序；当前优先保留图片大小、插入位置和浮动图片的环绕/相对位置。
 
 如果后续发现动画、超链接或复杂格式在替换时容易丢失，则进入增强版本：
 
@@ -132,4 +156,12 @@
 
 - 先保留位置信息与尺寸
 - 再针对动画和复杂样式做专项修复
+
+### 风险 4：Word 流式排版与浮动图片锚点
+
+应对：
+
+- MVP 优先保障 `InlineShape` 图片闭环。
+- 浮动 `Shape` 替换时保留锚点、大小、环绕方式和相对位置。
+- 用真实 Word E2E 验证保存、重开、再编辑链路。
 

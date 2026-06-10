@@ -4,7 +4,7 @@
 
 ## 1. What This Is
 
-DrawioPpt is a native PowerPoint Desktop add-in that brings Draw.io / diagrams.net diagrams into presentations in a way that keeps them editable, writable back to the original shape, and stored with the PowerPoint file as much as possible.
+DrawioPpt is a native PowerPoint Desktop add-in that brings Draw.io / diagrams.net diagrams into presentations in a way that keeps them editable, writable back to the original shape, and stored with the PowerPoint file as much as possible. This branch also adds a native Word Desktop add-in; see [Word add-in design and usage](./word-addin.en.md) for the Word-specific workflow.
 
 It is designed to solve these core problems:
 
@@ -16,6 +16,7 @@ It is designed to solve these core problems:
 Recommended companion docs:
 
 - [Installation and local debugging guide](./installation.en.md)
+- [Word add-in design and usage](./word-addin.en.md)
 - [Full E2E test report](./e2e-test-report-v1.0.0.en.md)
 - [Release notes for v1.0.0](./release-notes-v1.0.0.en.md)
 - [Optimization backlog](./optimization-backlog.en.md)

@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DrawioPpt.Core", "src\Drawi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DrawioPpt.PowerPointAddIn", "src\DrawioPpt.PowerPointAddIn\DrawioPpt.PowerPointAddIn.csproj", "{1E3C082A-D3C7-4F74-A612-7E2A118A3F78}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DrawioPpt.WordAddIn", "src\DrawioPpt.WordAddIn\DrawioPpt.WordAddIn.csproj", "{0B461782-7E68-4E41-A0AA-5E7D6AECC143}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,10 @@ Global
 		{1E3C082A-D3C7-4F74-A612-7E2A118A3F78}.Debug|x64.Build.0 = Debug|x64
 		{1E3C082A-D3C7-4F74-A612-7E2A118A3F78}.Release|x64.ActiveCfg = Release|x64
 		{1E3C082A-D3C7-4F74-A612-7E2A118A3F78}.Release|x64.Build.0 = Release|x64
+		{0B461782-7E68-4E41-A0AA-5E7D6AECC143}.Debug|x64.ActiveCfg = Debug|x64
+		{0B461782-7E68-4E41-A0AA-5E7D6AECC143}.Debug|x64.Build.0 = Debug|x64
+		{0B461782-7E68-4E41-A0AA-5E7D6AECC143}.Release|x64.ActiveCfg = Release|x64
+		{0B461782-7E68-4E41-A0AA-5E7D6AECC143}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
