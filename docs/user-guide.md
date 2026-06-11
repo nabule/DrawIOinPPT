@@ -553,6 +553,8 @@ D:\Project\drawio\demo.图形名称.drawio
 
 插件当前采用的是“多层保存”策略。
 
+简单说：Draw.io 源 XML 当前已经保存进 `.pptx` 文件内部。外部 `.drawio` 文件仍可保留，但它主要用于桌面版编辑器打开、人工备份和自动刷新，不再是唯一的数据来源。
+
 ### 9.1 PPT 内部主存储
 
 主要源数据会写到：
@@ -560,6 +562,18 @@ D:\Project\drawio\demo.图形名称.drawio
 - `Presentation.CustomXMLParts`
 
 这是最重要的一层，目的是让源 XML 尽量跟着 PPT 文件本身走。
+
+插件写入的是一个自定义 envelope，里面包含：
+
+- `diagramId`
+- 图形显示名称
+- 当前编辑模式
+- 编辑目标，可能是桌面程序路径或 URL
+- sidecar `.drawio` 路径
+- 更新时间
+- 压缩后的 Draw.io XML
+
+Draw.io XML 会先做 `gzip + base64`，再放进 envelope 的 `drawioXml` 节点。这样 PPT 文件会稍微变大，但不会依赖你旁边一定存在某个 `.drawio` 文件。
 
 ### 9.2 图形上的引用信息
 
@@ -574,6 +588,8 @@ D:\Project\drawio\demo.图形名称.drawio
 
 它们帮助插件把当前图形和文档级 XML 对应起来。
 
+重新编辑时，插件会先从当前选中的图形读取 `DRAWIO_PPT_ID` / `DRAWIO_PPT_PART_ID`，然后去 `Presentation.CustomXMLParts` 里找完整源 XML。找到后会临时交给 URL 编辑器或桌面 draw.io，保存后再更新 SVG 和文档级 XML。
+
 ### 9.3 兼容回退
 
 插件仍然兼容：
@@ -581,6 +597,8 @@ D:\Project\drawio\demo.图形名称.drawio
 - `Shape.AlternativeText`
 
 如果遇到旧版图形只把源数据放在这里，插件会尽量在再次读取时自动迁移到 `CustomXMLParts`。
+
+这一层也用于恢复一些边界场景，例如只复制单个图形到另一个 PPT 时，Office 不一定会同时复制文档级 `CustomXMLParts`。这时图形自身的 `AlternativeText` 和 SVG 内的 draw.io `content` 仍可能帮助插件恢复源数据。
 
 ### 9.4 sidecar `.drawio` 工作文件
 
@@ -590,9 +608,25 @@ D:\Project\drawio\demo.图形名称.drawio
 - 你手工查看或备份工作文件
 - 在桌面模式下通过文件变化触发自动刷新
 
+需要注意：sidecar 是编辑缓存和人工备份，不是当前实现的主存储。PPT 另存为、移动目录或换机器后，插件会优先使用 PPT 内部的源 XML；如果需要再次进入桌面版 draw.io，再按当前 PPT 路径重建或重定位 sidecar。
+
 ### 9.5 SVG 文件中的额外信息
 
 插件生成的 SVG 还会补写 draw.io `content` 元数据，这样单个 SVG 文件本身也会带一份可恢复信息。
+
+这不是主存储，但它让导出的 SVG 本身也更容易排查和恢复。当前插件的主恢复顺序可以理解为：
+
+1. `Presentation.CustomXMLParts`
+2. `Shape.Tags` 中的引用信息
+3. `Shape.AlternativeText` 兼容回退
+4. SVG `content` 元数据
+5. sidecar `.drawio` 工作文件
+
+### 9.6 当前没有采用的嵌入方式
+
+当前没有把 `.drawio` 文件作为 OLE 对象或 Office 附件塞进 PPT。这样做的好处是减少 Office 安全提示、文件关联问题和跨机器差异；代价是插件自己维护“图形 ID -> 文档级 XML”的关系。
+
+如果你只是发送一个 `.pptx` 文件给别人，只要对方使用支持本插件的 Office Desktop 环境，源 XML 仍应随 PPT 一起存在。若对方用文档检查器清理自定义 XML、另存为旧格式、导出 PDF，或者用第三方兼容软件重新保存，源数据可能被移除或忽略。
 
 ## 10. 日志与排障
 

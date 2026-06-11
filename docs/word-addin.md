@@ -41,6 +41,24 @@ Word 没有 PowerPoint `Shape.Tags` 这种直接可用的隐藏标签集合，�
 
 读取时优先用图片 `AlternativeText` 拿到 `diagramId`，再从 `Document.CustomXMLParts` 找最新完整包；如果只找到 `AlternativeText`，会自动补写到文档级 CustomXMLParts。
 
+### 3.1 Word 文件内嵌入方式
+
+Word 版当前同样已经把 Draw.io 源 XML 嵌入 `.docx` 文件内部。主存储是 `Document.CustomXMLParts`，其中保存插件自定义 envelope，包含：
+
+- `diagramId`
+- 图形显示名称
+- 当前编辑模式
+- 编辑目标，可能是桌面程序路径或 URL
+- sidecar `.drawio` 路径
+- 更新时间
+- 经过 `gzip + base64` 压缩的 Draw.io XML
+
+选中图片重新编辑时，插件先从图片 `AlternativeText` 解析 `diagramId`，再在 `Document.CustomXMLParts` 中查找最新完整 envelope。保存后，插件会同时更新可见 SVG 图片、图片上的回退元数据和文档级 XML。
+
+sidecar `.drawio` 在 Word 版里也是编辑缓存和人工备份，不是主存储。把 `.docx` 移到另一台机器后，只要 `Document.CustomXMLParts` 没被清理，插件仍可以从文档内部恢复 Draw.io XML，并在需要桌面版 draw.io 时重新生成 sidecar。
+
+当前没有把 `.drawio` 文件作为 OLE 对象或 Office 附件嵌入 Word。这样可以避免 Office 安全提示、外部文件关联和跨机器打开差异；代价是 Word 图形复制到另一个文档时，需要依赖 `AlternativeText` 或 SVG `content` 尽量恢复，因为文档级 `CustomXMLParts` 不一定会随单个图片一起复制。
+
 ## 4. 发布包安装方式
 
 从发布包安装时，先解压 `DrawioPpt-<version>.zip`，关闭正在运行的 PowerPoint 和 Word，然后在解压目录执行：

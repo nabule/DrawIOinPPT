@@ -553,6 +553,8 @@ What you need to know:
 
 The add-in currently uses a layered persistence model.
 
+In short: the Draw.io source XML is already stored inside the `.pptx` file. The external `.drawio` file can still be kept, but it is mainly for desktop-editor opening, manual backup, and auto-refresh; it is no longer the only source of data.
+
 ### 9.1 Primary Storage Inside the PPT
 
 The main source data is written to:
@@ -560,6 +562,18 @@ The main source data is written to:
 - `Presentation.CustomXMLParts`
 
 This is the most important layer because it keeps the source XML traveling with the PowerPoint file itself whenever possible.
+
+The add-in writes a custom envelope containing:
+
+- `diagramId`
+- diagram display name
+- current editor mode
+- editor target, either a desktop executable path or URL
+- sidecar `.drawio` path
+- update time
+- compressed Draw.io XML
+
+The Draw.io XML is compressed with `gzip + base64` and then stored in the envelope's `drawioXml` node. This slightly increases the PPT size, but it avoids relying on a neighboring `.drawio` file being present.
 
 ### 9.2 References Stored on the Shape
 
@@ -574,6 +588,8 @@ This is primarily used to store:
 
 These values help the add-in map the current shape back to the document-level XML part.
 
+When re-editing, the add-in first reads `DRAWIO_PPT_ID` / `DRAWIO_PPT_PART_ID` from the selected shape, then resolves the full source XML from `Presentation.CustomXMLParts`. That XML is passed to the URL editor or temporary desktop draw.io workflow; after save, the add-in updates both the SVG and the document-level XML.
+
 ### 9.3 Compatibility Fallback
 
 The add-in still supports:
@@ -581,6 +597,8 @@ The add-in still supports:
 - `Shape.AlternativeText`
 
 If it encounters an older shape that only stores source data there, it tries to migrate that content into `CustomXMLParts` automatically during reads.
+
+This layer is also useful for recovery edge cases. For example, if only one shape is copied into another PPT, Office does not guarantee that the matching document-level `CustomXMLParts` are copied too. In that case, the shape's own `AlternativeText` and the SVG draw.io `content` metadata may still help recover the source data.
 
 ### 9.4 Sidecar `.drawio` Working File
 
@@ -590,9 +608,25 @@ If sidecar retention is enabled, the add-in also keeps a `.drawio` file on disk 
 - Manual inspection or backup
 - File-change-based auto-refresh in desktop mode
 
+Important: the sidecar is an editing cache and manual backup, not the primary store in the current implementation. After save-as, folder moves, or cross-machine transfer, the add-in prefers the source XML inside the PPT. If desktop draw.io needs to be opened again, the sidecar can be rebuilt or relocated based on the current PPT path.
+
 ### 9.5 Extra Metadata in the SVG
 
 The add-in also backfills draw.io `content` metadata into generated SVG so that even a single SVG file carries some recoverable diagram information.
+
+This is not the primary store, but it makes exported SVG files easier to inspect and recover. The current recovery order is:
+
+1. `Presentation.CustomXMLParts`
+2. References in `Shape.Tags`
+3. `Shape.AlternativeText` compatibility fallback
+4. SVG `content` metadata
+5. sidecar `.drawio` working file
+
+### 9.6 Embedding Path Not Used Today
+
+The current implementation does not insert `.drawio` files into PPT as OLE objects or Office attachments. This avoids Office security prompts, file-association issues, and cross-machine differences. The tradeoff is that the add-in owns the mapping from diagram ID to document-level XML.
+
+If you send only a `.pptx` file to someone else, the source XML should still be present as long as they use an Office Desktop environment supported by this add-in. If Document Inspector removes custom XML, the file is saved to an older format, exported to PDF, or rewritten by third-party Office-compatible software, the source data may be removed or ignored.
 
 ## 10. Logging and Troubleshooting
 

@@ -41,6 +41,24 @@ Word does not provide a direct equivalent to PowerPoint `Shape.Tags`, so the Wor
 
 Reads use `AlternativeText` to resolve the `diagramId`, then resolve the newest full envelope from `Document.CustomXMLParts`. If only `AlternativeText` is available, the add-in rehydrates the document-level CustomXMLParts entry.
 
+### 3.1 In-Document Embedding for Word
+
+The Word add-in also already embeds the Draw.io source XML inside the `.docx` file. The primary store is `Document.CustomXMLParts`, which contains the add-in envelope with:
+
+- `diagramId`
+- diagram display name
+- current editor mode
+- editor target, either a desktop executable path or URL
+- sidecar `.drawio` path
+- update time
+- Draw.io XML compressed with `gzip + base64`
+
+When re-editing a selected picture, the add-in first resolves `diagramId` from the picture `AlternativeText`, then finds the newest full envelope in `Document.CustomXMLParts`. After save, it updates the visible SVG picture, the fallback metadata on the picture, and the document-level XML.
+
+The sidecar `.drawio` file is also an editing cache and manual backup in the Word workflow, not the primary store. After moving the `.docx` to another machine, the add-in can still recover Draw.io XML from the document itself as long as `Document.CustomXMLParts` has not been stripped; if desktop draw.io is needed, the sidecar can be regenerated.
+
+The current implementation does not embed `.drawio` files as OLE objects or Office attachments in Word. This avoids Office security prompts, external file-association dependency, and cross-machine opening differences. The tradeoff is that copying a Word picture into another document may need to rely on `AlternativeText` or SVG `content` recovery because document-level `CustomXMLParts` are not guaranteed to travel with a single copied picture.
+
 ## 4. Release Package Installation
 
 To install from a release package, extract `DrawioPpt-<version>.zip`, close any running PowerPoint and Word instances, then run this from the extracted folder:

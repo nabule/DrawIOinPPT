@@ -85,14 +85,28 @@ Word：
 
 其中原始 draw.io XML 会先进行 `gzip + base64` 压缩，减少体积。
 
-### 后续增强策略
+### 当前嵌入模型
 
 当前 PowerPoint 已增强为 `Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText`，Word 已增强为 `Document.CustomXMLParts + InlineShape/Shape.AlternativeText`。
 
-如果后续验证发现 `AlternativeText` 容量或兼容性不足，则继续增强：
+这意味着 Draw.io 源 XML 当前已经嵌入在 `.pptx` / `.docx` 文件内部，而不是只依赖外部 `.drawio` 文件。具体分工如下：
 
-- 将完整 XML 迁移到文档级自定义部件或 OOXML 附加部件
-- 图形上仅保留 diagram id 和必要摘要信息
+- 文档级 `CustomXMLParts` 是主存储，保存完整的插件 envelope。envelope 内包含 `diagramId`、图形名称、编辑模式、编辑目标、sidecar path、更新时间和压缩后的 `DrawioXml`。
+- `DrawioXml` 使用 `gzip + base64` 存储在 envelope 的 `drawioXml` 节点中，减少 Office 文件体积并避免把大段原始 XML 直接塞进图形属性。
+- PowerPoint 图形通过 `Shape.Tags["DRAWIO_PPT_ID"]` 和 `Shape.Tags["DRAWIO_PPT_PART_ID"]` 关联到文档级 XML 部件。
+- Word 没有等价的 `Shape.Tags`，所以通过图片 `AlternativeText` 中的压缩 envelope 解析 `diagramId`，再从 `Document.CustomXMLParts` 找到最新完整数据。
+- `AlternativeText` 仍保留一份兼容回退数据，用于旧文档迁移、复制粘贴后的恢复，以及无法立即读取文档级部件时的降级识别。
+- SVG 展示文件还会补写 draw.io `content` 元数据，作为第三层恢复信息；它不是主存储，但有助于单个 SVG 被导出或单独排查时恢复源图。
+- sidecar `.drawio` 文件现在更接近编辑缓存和人工备份：桌面版 draw.io 需要真实文件路径时使用它，文档内源数据才是跨机器移动时的主依据。
+
+当前没有把 `.drawio` 作为 OLE 对象或 `EmbeddedPackagePart` 附件嵌入 Office 文件。这样做可以减少 Office 安全提示、文件关联依赖和跨宿主差异；代价是插件需要维护“图形引用 -> 文档级 XML 部件”的索引关系。
+
+### 已知边界
+
+- 文档级 `CustomXMLParts` 会跟随整个 `.pptx` / `.docx` 保存和移动，但单独复制一个图形到另一个文档时，Office 不保证对应的文档级 XML 部件也被复制；因此图形上的 `AlternativeText` 和 SVG `content` 仍然保留恢复价值。
+- 如果用户使用文档检查器、企业 DLP、另存旧格式、导出 PDF 或第三方 Office 兼容软件，自定义 XML 部件可能被移除或忽略。
+- `AlternativeText` 是可见的辅助说明属性，不适合长期作为大容量主存储；当前只把它作为识别和兼容回退。
+- 清除绑定会移除图形/图片上的插件元数据，并清理无引用的文档级 XML 部件，但不会删除可见图片本身。
 
 ## 5. 编辑工作流
 

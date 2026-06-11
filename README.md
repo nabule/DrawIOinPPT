@@ -24,6 +24,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 已接入 URL 模式编辑器首版：`WebView2 + diagrams.net embed`，保存后会把 SVG 和 XML 回写到 PPT 图形。
 - 已在 URL 模式自动启用 `simpleLabels` 配置，提升 PowerPoint 中缩放 SVG 标签时的边缘清晰度。
 - 已把 Draw.io 源数据同步写入 `Presentation.CustomXMLParts`，图形保留 `diagramId/customXmlPartId` 引用，并继续兼容旧的 `AlternativeText` 回退。
+- 当前源 XML 已嵌入 `.pptx` / `.docx` 文件内部；sidecar `.drawio` 主要作为桌面编辑缓存、人工备份和自动刷新辅助。
 - 已支持旧版 `AlternativeText` 元数据在读取时自动补写到 `CustomXMLParts`。
 - 已支持低频自动清理没有任何图形引用的孤儿 `CustomXMLPart`，减少文档膨胀。
 - 已为 URL 模式补充本地日志、初始化超时和导出超时诊断。
@@ -62,6 +63,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 当前元数据存储策略：
   - PowerPoint：`Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText 回退兼容`
   - Word：`Document.CustomXMLParts + InlineShape/Shape.AlternativeText 回退兼容`
+  - 主存储是 Office 文档级 `CustomXMLParts`，其中保存压缩后的 Draw.io XML；图形/图片上的元数据只负责定位和兼容回退
 - 外部编辑器模式：
   - 本地桌面版 draw.io/diagrams.net
   - 配置化 URL 模式（`WebView2`）

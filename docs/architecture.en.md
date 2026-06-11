@@ -85,14 +85,28 @@ Word:
 
 The original draw.io XML is compressed using `gzip + base64` first to reduce size.
 
-### Later Enhancement Strategy
+### Current Embedding Model
 
 PowerPoint has now been enhanced to `Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText`; Word uses `Document.CustomXMLParts + InlineShape/Shape.AlternativeText`.
 
-If later validation shows that `AlternativeText` is not sufficient in capacity or compatibility, the next enhancement path is:
+This means the Draw.io source XML is already embedded inside the `.pptx` / `.docx` file, instead of relying only on an external `.drawio` file. The responsibilities are split as follows:
 
-- Move the full XML into document-level custom parts or OOXML-attached parts
-- Keep only the diagram id and required summary information on the shape itself
+- Document-level `CustomXMLParts` are the primary store. They contain the full add-in envelope with `diagramId`, diagram name, editor mode, editor target, sidecar path, update time, and compressed `DrawioXml`.
+- `DrawioXml` is stored in the envelope's `drawioXml` node using `gzip + base64`, reducing Office file size and avoiding large raw XML payloads in shape properties.
+- PowerPoint shapes point back to the document-level XML part through `Shape.Tags["DRAWIO_PPT_ID"]` and `Shape.Tags["DRAWIO_PPT_PART_ID"]`.
+- Word has no direct equivalent to `Shape.Tags`, so the add-in resolves `diagramId` from the picture `AlternativeText`, then looks up the newest full envelope in `Document.CustomXMLParts`.
+- `AlternativeText` still carries fallback data for older documents, copy/paste recovery, and degraded recognition when the document-level part cannot be read immediately.
+- The visible SVG also receives draw.io `content` metadata as a third recovery layer. This is not the primary store, but it helps when a single SVG is exported or inspected separately.
+- The sidecar `.drawio` file is now closer to an editing cache and manual backup. It is still useful when draw.io Desktop needs a real file path, while the in-document XML is the primary source for cross-machine document movement.
+
+The current implementation does not embed `.drawio` as an OLE object or `EmbeddedPackagePart` attachment. Avoiding that path reduces Office security prompts, file-association dependency, and host-specific differences; the tradeoff is that the add-in must maintain the index from visible shape/picture back to the document-level XML part.
+
+### Known Boundaries
+
+- Document-level `CustomXMLParts` travel when the whole `.pptx` / `.docx` file is saved and moved, but Office does not guarantee that copying one shape into another document also copies its matching document-level XML part. This is why `AlternativeText` and SVG `content` still have recovery value.
+- Document Inspector, enterprise DLP, saving to older formats, exporting to PDF, or third-party Office-compatible software may remove or ignore custom XML parts.
+- `AlternativeText` is a visible accessibility/description property and should not be treated as the long-term high-capacity primary store. It is used here for recognition and compatibility fallback.
+- Clearing binding removes add-in metadata from the visible shape/picture and cleans unreferenced document-level XML parts, but it does not delete the visible picture itself.
 
 ## 5. Editing Workflow
 

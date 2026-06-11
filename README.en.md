@@ -24,6 +24,7 @@ The repository has already moved beyond the initial scaffold and is now at a sta
 - Shipping the first URL-mode editor implementation based on `WebView2 + diagrams.net embed`, with SVG and XML written back into the PowerPoint shape after save.
 - Enabling `simpleLabels` automatically in URL mode to improve SVG label clarity during PowerPoint scaling.
 - Storing Draw.io source data in `Presentation.CustomXMLParts`, while keeping `diagramId/customXmlPartId` references on the shape and preserving legacy `AlternativeText` fallback compatibility.
+- The source XML is now embedded inside the `.pptx` / `.docx` file; the sidecar `.drawio` file is mainly a desktop editing cache, manual backup, and auto-refresh helper.
 - Auto-migrating older `AlternativeText` metadata into `CustomXMLParts` during reads.
 - Cleaning up orphaned `CustomXMLPart` entries with no remaining shape references.
 - Adding local logging plus initialization/export timeout diagnostics for URL mode.
@@ -67,6 +68,7 @@ Some historical and secondary docs are still primarily in Chinese at the moment.
 - Metadata strategy:
   - PowerPoint: `Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText fallback compatibility`
   - Word: `Document.CustomXMLParts + InlineShape/Shape.AlternativeText fallback compatibility`
+  - The primary store is Office document-level `CustomXMLParts` containing compressed Draw.io XML; metadata on the visible shape/picture is used for lookup and fallback compatibility
 - External editor modes:
   - Local `draw.io` / `diagrams.net Desktop`
   - Configurable URL mode via `WebView2`
