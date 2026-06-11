@@ -4,7 +4,7 @@
 
 PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编辑和更新 Draw.io 图形；当前分支已新增 Word Desktop 原生 COM Add-in 宿主，实现同类 Draw.io 编辑闭环。
 
-当前发布基线：`v1.0.2`
+当前发布基线：`v1.0.3`
 
 当前仓库已经完成初始骨架，并推进到了可实机联调的阶段，重点完成了以下内容：
 
@@ -19,6 +19,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 已支持双击已绑定图形直接打开外部编辑器。
 - 已支持 `AutoOpenOnSelection` 设置，选中已绑定图形时可自动进入编辑。
 - 已支持自动探测本机已安装的 `draw.io` / `diagrams.net` 桌面版路径。
+- 推荐配合使用 [draw.io Desktop v30.0.4 XML 工具修改版](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1)，该版本支持通过工具栏按钮复制当前画布 XML、从剪贴板粘贴 Draw.io XML。
 - 已验证 `draw.io Desktop` CLI 导出 SVG，并收紧了导出参数。
 - 已支持当前用户级插件注册，无需管理员权限。
 - 已接入 URL 模式编辑器首版：`WebView2 + diagrams.net embed`，保存后会把 SVG 和 XML 回写到 PPT 图形。
@@ -50,9 +51,9 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - [Word 插件设计与使用说明](./docs/word-addin.md)
 - [回归清单](./docs/regression-checklist.md)
 - [详细开发计划](./docs/development-plan.md)
-- [完整 E2E 测试报告](./docs/e2e-test-report-v1.0.2.md)
-- [v1.0.2 发布说明](./docs/release-notes-v1.0.2.md)
-- [v1.0.2 发布证据与日志索引](./docs/release-evidence-v1.0.2.md)
+- [完整 E2E 测试报告](./docs/e2e-test-report-v1.0.3.md)
+- [v1.0.3 发布说明](./docs/release-notes-v1.0.3.md)
+- [v1.0.3 发布证据与日志索引](./docs/release-evidence-v1.0.3.md)
 - [待优化功能点](./docs/optimization-backlog.md)
 
 ## 当前技术选择
@@ -67,6 +68,10 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 外部编辑器模式：
   - 本地桌面版 draw.io/diagrams.net
   - 配置化 URL 模式（`WebView2`）
+- 推荐桌面编辑器：
+  - [draw.io Desktop v30.0.4 XML 工具修改版](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1)
+  - Windows x64 免安装包：`draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip`
+  - 解压后在插件设置里把 `桌面版路径` 指向 `win-unpacked\draw.io.exe`，不要只拷贝单独的 exe
 
 ## 构建前提
 
@@ -122,13 +127,13 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1
 发布打包：
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.2
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.3
 ```
 
 完整真实全流程测试：
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.2
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.3
 ```
 
 日志文件默认写入：
@@ -140,7 +145,7 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 发布测试日志与打包记录会额外保存在：
 
 ```text
-artifacts\logs\v1.0.2\
+artifacts\logs\v1.0.3\
 ```
 
 注册插件：

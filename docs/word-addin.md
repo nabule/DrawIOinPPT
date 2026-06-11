@@ -59,6 +59,21 @@ sidecar `.drawio` 在 Word 版里也是编辑缓存和人工备份，不是主�
 
 当前没有把 `.drawio` 文件作为 OLE 对象或 Office 附件嵌入 Word。这样可以避免 Office 安全提示、外部文件关联和跨机器打开差异；代价是 Word 图形复制到另一个文档时，需要依赖 `AlternativeText` 或 SVG `content` 尽量恢复，因为文档级 `CustomXMLParts` 不一定会随单个图片一起复制。
 
+### 3.2 推荐桌面编辑器
+
+Word 和 PowerPoint 当前共用同一套插件设置。使用桌面模式时，推荐把 `Desktop Path` 配置为 [draw.io Desktop v30.0.4 XML 工具修改版](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1) 解压目录中的 `win-unpacked\draw.io.exe`。
+
+该版本基于官方 `v30.0.4`，第二行工具栏新增两个彩色 XML 图标按钮：
+
+- 从剪贴板粘贴 draw.io XML 源码并显示为图形。
+- 将当前画布复制为 draw.io XML 源码。
+
+这对 Word 插件尤其有用：当你需要核对 `.docx` 内嵌的 Draw.io XML、手工恢复某个图形，或把一段 XML 快速放回桌面编辑器检查时，不需要额外打开源码窗口。下载 `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip` 后完整解压，不要只拷贝单独的 exe。SHA256 为：
+
+```text
+B09116FB0D6140E39CFDA0568957897BD697CB5B7DAE257F7B1438E9B1A6DB9D
+```
+
 ## 4. 发布包安装方式
 
 从发布包安装时，先解压 `DrawioPpt-<version>.zip`，关闭正在运行的 PowerPoint 和 Word，然后在解压目录执行：

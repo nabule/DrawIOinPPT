@@ -4,7 +4,7 @@
 
 DrawioPpt is a native Microsoft PowerPoint Desktop add-in that lets you insert, recognize, edit, and refresh Draw.io / diagrams.net diagrams directly inside a presentation. This branch also adds a native Word Desktop COM Add-in host with the same Draw.io editing loop for Word documents.
 
-Current release baseline: `v1.0.2`
+Current release baseline: `v1.0.3`
 
 The repository has already moved beyond the initial scaffold and is now at a stage where real machine-level integration is available. The current implementation focuses on these outcomes:
 
@@ -19,6 +19,7 @@ The repository has already moved beyond the initial scaffold and is now at a sta
 - Opening the external editor by double-clicking a bound shape.
 - Supporting the `AutoOpenOnSelection` setting so a bound shape can open for editing automatically when selected.
 - Automatically detecting locally installed `draw.io` / `diagrams.net` desktop executables.
+- Recommending [draw.io Desktop v30.0.4 XML tools build](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1), which can copy the current canvas as Draw.io XML and paste Draw.io XML from the clipboard through toolbar buttons.
 - Validating `draw.io Desktop` CLI SVG export with tightened export parameters.
 - Supporting per-user add-in registration with no administrator privileges required.
 - Shipping the first URL-mode editor implementation based on `WebView2 + diagrams.net embed`, with SVG and XML written back into the PowerPoint shape after save.
@@ -53,9 +54,9 @@ English docs currently available:
 - [Word add-in design and usage](./docs/word-addin.en.md)
 - [Regression checklist](./docs/regression-checklist.en.md)
 - [Detailed development plan](./docs/development-plan.en.md)
-- [Full E2E test report for v1.0.2](./docs/e2e-test-report-v1.0.2.en.md)
-- [Release notes for v1.0.2](./docs/release-notes-v1.0.2.en.md)
-- [Release evidence and log index for v1.0.2](./docs/release-evidence-v1.0.2.en.md)
+- [Full E2E test report for v1.0.3](./docs/e2e-test-report-v1.0.3.en.md)
+- [Release notes for v1.0.3](./docs/release-notes-v1.0.3.en.md)
+- [Release evidence and log index for v1.0.3](./docs/release-evidence-v1.0.3.en.md)
 - [Optimization backlog](./docs/optimization-backlog.en.md)
 
 Some historical and secondary docs are still primarily in Chinese at the moment.
@@ -72,6 +73,10 @@ Some historical and secondary docs are still primarily in Chinese at the moment.
 - External editor modes:
   - Local `draw.io` / `diagrams.net Desktop`
   - Configurable URL mode via `WebView2`
+- Recommended desktop editor:
+  - [draw.io Desktop v30.0.4 XML tools build](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1)
+  - Windows x64 unpacked package: `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip`
+  - After extraction, set `Desktop Path` to `win-unpacked\draw.io.exe`; do not copy only the single exe
 
 ## Build Prerequisites
 
@@ -127,13 +132,13 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1
 Package a release:
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.2
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.3
 ```
 
 Run the full real-world E2E flow:
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.2
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.3
 ```
 
 Default runtime log path:
@@ -145,7 +150,7 @@ C:\Users\<your-username>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.log
 Release test logs and packaging records are also written to:
 
 ```text
-artifacts\logs\v1.0.2\
+artifacts\logs\v1.0.3\
 ```
 
 Register the add-in:

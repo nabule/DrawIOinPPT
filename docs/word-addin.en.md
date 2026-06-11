@@ -59,6 +59,21 @@ The sidecar `.drawio` file is also an editing cache and manual backup in the Wor
 
 The current implementation does not embed `.drawio` files as OLE objects or Office attachments in Word. This avoids Office security prompts, external file-association dependency, and cross-machine opening differences. The tradeoff is that copying a Word picture into another document may need to rely on `AlternativeText` or SVG `content` recovery because document-level `CustomXMLParts` are not guaranteed to travel with a single copied picture.
 
+### 3.2 Recommended Desktop Editor
+
+Word and PowerPoint currently share the same add-in settings. In desktop mode, set `Desktop Path` to the `win-unpacked\draw.io.exe` extracted from [draw.io Desktop v30.0.4 XML tools build](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1).
+
+This build is based on official `v30.0.4` and adds two colored XML icon buttons to the second toolbar row:
+
+- Paste draw.io XML source from the clipboard and render it as a diagram.
+- Copy the current canvas as draw.io XML source.
+
+This is especially useful for the Word add-in when you need to inspect the Draw.io XML embedded in a `.docx`, manually recover a diagram, or quickly put an XML snippet back into the desktop editor. Download `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip` and fully extract it; do not copy only the single exe. SHA256:
+
+```text
+B09116FB0D6140E39CFDA0568957897BD697CB5B7DAE257F7B1438E9B1A6DB9D
+```
+
 ## 4. Release Package Installation
 
 To install from a release package, extract `DrawioPpt-<version>.zip`, close any running PowerPoint and Word instances, then run this from the extracted folder:

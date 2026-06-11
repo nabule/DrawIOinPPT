@@ -6,9 +6,10 @@
 
 - Windows
 - Microsoft PowerPoint Desktop x64
+- Microsoft Word Desktop x64（使用 Word 插件时需要）
 - .NET Framework 4.8 Developer Pack
 - WebView2 Runtime
-- 可选：`draw.io` / `diagrams.net Desktop`
+- 可选但推荐：[draw.io Desktop v30.0.4 XML 工具修改版](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1)
 
 建议先运行：
 
@@ -18,13 +19,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. 面向最终用户的安装
 
-如果你拿到的是发布包 `DrawioPpt-v1.0.0.zip`，推荐按下面流程安装：
+如果你拿到的是发布包 `DrawioPpt-v1.0.3.zip`，推荐按下面流程安装：
 
 1. 解压 zip 到一个本地目录
-2. 确认 PowerPoint 当前没有运行
+2. 确认 PowerPoint 和 Word 当前没有运行
 3. 双击 `install.cmd`
 4. 等待脚本提示安装成功
-5. 打开 PowerPoint，确认功能区里出现 DrawioPpt
+5. 打开 PowerPoint 或 Word，确认功能区里出现 `Draw.io`
 
 发布包内的核心安装文件包括：
 
@@ -34,10 +35,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 - `scripts\uninstall-release.ps1`
 - `scripts\register-addin.ps1`
 - `scripts\unregister-addin.ps1`
-- `docs\release-notes-v1.0.0.md`
-- `docs\e2e-test-report-v1.0.0.md`
-- `docs\release-evidence-v1.0.0.md`
-- `logs\`
+- `docs\release-notes-v1.0.3.md`
+- `docs\e2e-test-report-v1.0.3.md`
+- `docs\release-evidence-v1.0.3.md`
 
 默认安装位置：
 
@@ -48,8 +48,9 @@ C:\Users\<你的用户名>\AppData\Local\Greensoft\DrawioPpt
 卸载方式：
 
 1. 关闭 PowerPoint
-2. 双击 `uninstall.cmd`
-3. 确认 PowerPoint 不再自动加载该插件
+2. 关闭 Word
+3. 双击 `uninstall.cmd`
+4. 确认 PowerPoint 和 Word 不再自动加载该插件
 
 ## 3. 面向开发的仓库安装
 
@@ -90,7 +91,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
 ## 6. 首次启动建议
 
 1. 打开 PowerPoint。
-2. 确认 `Greensoft.DrawioPptAddIn` 已加载。
+2. 确认 `Greensoft.DrawioPptAddIn` 已加载；如果使用 Word，也确认 `Greensoft.DrawioWordAddIn` 已加载。
 3. 打开插件设置。
 4. 根据实际需要配置：
    - `Desktop Path`
@@ -98,7 +99,34 @@ powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
    - `Auto update on save`
    - `Keep sidecar file next to PPT`
 
-## 7. 安装后建议的验收顺序
+## 7. 推荐 draw.io Desktop XML 工具版
+
+桌面模式推荐使用 [draw.io Desktop v30.0.4 XML 工具修改版](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1)。它基于官方 `v30.0.4`，在第二行工具栏新增两个彩色 XML 图标按钮：
+
+- 从剪贴板粘贴 draw.io XML 源码并显示为图形。
+- 将当前画布复制为 draw.io XML 源码。
+
+安装和配置步骤：
+
+1. 从 release 页面下载 `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip`。
+2. 校验 SHA256：
+
+   ```text
+   B09116FB0D6140E39CFDA0568957897BD697CB5B7DAE257F7B1438E9B1A6DB9D
+   ```
+
+3. 解压 zip 到固定目录，例如 `D:\Tools\draw.io-30.0.4-xml-tools.1\`。
+4. 运行 `win-unpacked\draw.io.exe`。这是未签名的 Windows x64 免安装目录版，不要只拷贝单独的 exe。
+5. 在 DrawioPpt 插件设置中，把 `Editor Mode` 设为 `Desktop`。
+6. 把 `Desktop Path` 指向解压目录下的 `win-unpacked\draw.io.exe`，例如：
+
+   ```text
+   D:\Tools\draw.io-30.0.4-xml-tools.1\win-unpacked\draw.io.exe
+   ```
+
+如果你需要在插件和 draw.io Desktop 之间手工排查源数据，这个版本的 XML 复制/粘贴按钮会比普通官方桌面版更方便。
+
+## 8. 安装后建议的验收顺序
 
 推荐按下面顺序确认安装成功：
 
@@ -116,9 +144,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 完整测试报告：
 
-- [v1.0.0 E2E 测试报告](./e2e-test-report-v1.0.0.md)
+- [v1.0.3 E2E 测试报告](./e2e-test-report-v1.0.3.md)
 
-## 8. 桌面模式验证
+## 9. 桌面模式验证
 
 1. 在设置中把 `Editor Mode` 设为 `Desktop`。
 2. 检查 `Desktop Path` 是否指向 `draw.io.exe` 或 `diagrams.net.exe`。
@@ -127,14 +155,15 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 补充说明：
 
-- `v1.0.0` 已在 `Url` 模式下自动启用 MS Office 兼容的 `simpleLabels`。
+- `v1.0.3` 已在 `Url` 模式下自动启用 MS Office 兼容的 `simpleLabels`。
 - `Desktop` 模式调用的是外部桌面版 draw.io，插件目前不能替你改写该桌面应用的编辑器配置。
+- 推荐使用 `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip` 解压后的 `win-unpacked\draw.io.exe`，便于手工复制/粘贴 XML。
 - 如果你希望桌面模式导出的 SVG 标签在 PowerPoint 中缩放更清晰，建议在 draw.io Desktop 里手动设置：
   - `Extras > Configuration`
   - 输入 `{ "simpleLabels": true }`
   - 点击 `Apply`
 
-## 9. URL 模式验证
+## 10. URL 模式验证
 
 1. 在设置中把 `Editor Mode` 设为 `Url`。
 2. 填写 `Editor URL`。
@@ -147,7 +176,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
 ```
 
-## 10. 日志位置
+## 11. 日志位置
 
 默认日志文件：
 
@@ -162,7 +191,7 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 - 宿主回写失败
 - 存储迁移与孤儿清理异常
 
-## 11. 常见问题
+## 12. 常见问题
 
 ### URL 窗口打开但没有保存回调
 
@@ -179,11 +208,11 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 ### 移动 PPT 后图形还能不能编辑
 
 - 可以，源 XML 保存在 `Presentation.CustomXMLParts`
-- `v1.0.0` 会在再次编辑时优先按当前 `PPT` 路径重建 sidecar；如果你把 sidecar 一起带走，桌面模式刷新会更顺畅
+- `v1.0.3` 会在再次编辑时优先按当前 `PPT` 路径重建 sidecar；如果你把 sidecar 一起带走，桌面模式刷新会更顺畅
 
 ### 为什么 URL 模式里的 SVG 标签缩放更清晰
 
-- `v1.0.0` 会在 URL 嵌入编辑器里自动下发 `{ "simpleLabels": true }`
+- `v1.0.3` 会在 URL 嵌入编辑器里自动下发 `{ "simpleLabels": true }`
 - 这是 draw.io 官方针对 MS Office SVG 缩放兼容性给出的优化建议
 
 ### 安装脚本提示 PowerPoint 正在运行

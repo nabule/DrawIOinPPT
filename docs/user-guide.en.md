@@ -17,8 +17,8 @@ Recommended companion docs:
 
 - [Installation and local debugging guide](./installation.en.md)
 - [Word add-in design and usage](./word-addin.en.md)
-- [Full E2E test report](./e2e-test-report-v1.0.0.en.md)
-- [Release notes for v1.0.0](./release-notes-v1.0.0.en.md)
+- [Full E2E test report](./e2e-test-report-v1.0.3.en.md)
+- [Release notes for v1.0.3](./release-notes-v1.0.3.en.md)
 - [Optimization backlog](./optimization-backlog.en.md)
 
 ## 2. What the Current Version Can Do
@@ -152,6 +152,19 @@ Recommendation:
 
 - Try `Auto Detect` first
 - If that fails, use `Browse...`
+
+Recommended version:
+
+- Use [draw.io Desktop v30.0.4 XML tools build](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1).
+- Download and fully extract `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip`.
+- Set `Desktop Path` to the extracted `win-unpacked\draw.io.exe`.
+- This is an unsigned Windows x64 unpacked build; do not copy only the single exe.
+- SHA256: `B09116FB0D6140E39CFDA0568957897BD697CB5B7DAE257F7B1438E9B1A6DB9D`
+
+This build adds two colored XML icon buttons to the second toolbar row, which is useful when diagnosing source data with this add-in:
+
+- Paste draw.io XML source from the clipboard and render it as a diagram.
+- Copy the current canvas as draw.io XML source.
 
 ### 5.3 Editor URL
 
@@ -386,7 +399,7 @@ If you are not sure how to configure the add-in, start with one of these presets
 Best for most personal users and enterprise internal-network environments:
 
 - `Editor Mode`: `Desktop`
-- `Desktop Path`: use `Auto Detect`
+- `Desktop Path`: prefer the `win-unpacked\draw.io.exe` extracted from `draw.io-30.0.4-xml-tools.1`; use `Auto Detect` if another installed version is intended
 - `Use Microsoft Office compatible SVG text labels`: enabled
 - `Auto open editor when selecting shape`: disabled at first
 - `Auto refresh shape after save`: enabled
@@ -527,6 +540,7 @@ What you need to know:
 - If sidecar retention is enabled, the `.drawio` file is stored alongside the PPT whenever possible
 - If the PPT is not saved yet, the sidecar goes to the system temp directory first
 - If the PPT is saved as a new file, moved, or opened on another machine, the next edit rebuilds the sidecar against the current PPT path
+- The recommended desktop editor is `draw.io Desktop v30.0.4 XML tools build`; its toolbar can copy/paste Draw.io XML directly, which helps validate the add-in's embedded source XML against the desktop editor canvas
 - If you want better SVG text scaling in desktop mode, set `simpleLabels` manually in draw.io Desktop
 
 ### 8.2 URL Mode

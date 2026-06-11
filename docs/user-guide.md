@@ -17,8 +17,8 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 
 - [安装与联调说明](./installation.md)
 - [Word 插件设计与使用说明](./word-addin.md)
-- [完整 E2E 测试报告](./e2e-test-report-v1.0.0.md)
-- [v1.0.0 发布说明](./release-notes-v1.0.0.md)
+- [完整 E2E 测试报告](./e2e-test-report-v1.0.3.md)
+- [v1.0.3 发布说明](./release-notes-v1.0.3.md)
 - [待优化功能点](./optimization-backlog.md)
 
 ## 2. 当前能做什么
@@ -152,6 +152,19 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 
 - 如果你不确定路径，优先点 `自动检测`
 - 如果自动检测失败，再用 `浏览...` 手工选择
+
+推荐版本：
+
+- 建议使用 [draw.io Desktop v30.0.4 XML 工具修改版](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1)。
+- 下载 `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip` 后完整解压。
+- 在 `桌面版路径` 中选择解压目录下的 `win-unpacked\draw.io.exe`。
+- 这是未签名的 Windows x64 免安装目录版，不要只拷贝单独的 exe。
+- SHA256：`B09116FB0D6140E39CFDA0568957897BD697CB5B7DAE257F7B1438E9B1A6DB9D`
+
+这个版本在第二行工具栏新增两个彩色 XML 图标按钮，适合和本插件配合排查源数据：
+
+- 从剪贴板粘贴 draw.io XML 源码并显示为图形。
+- 将当前画布复制为 draw.io XML 源码。
 
 ### 5.3 编辑器地址
 
@@ -386,7 +399,7 @@ D:\Project\drawio\demo.图形名称.drawio
 适合大多数个人和企业内网用户：
 
 - `编辑器模式`：`桌面版`
-- `桌面版路径`：使用 `自动检测`
+- `桌面版路径`：优先使用 `draw.io-30.0.4-xml-tools.1` 解压目录下的 `win-unpacked\draw.io.exe`；如果已安装其它版本，再使用 `自动检测`
 - `使用兼容 Microsoft Office 的 SVG 文本标签`：保持勾选
 - `选中图形时自动打开编辑器`：先关闭
 - `保存后自动刷新图形`：开启
@@ -527,6 +540,7 @@ D:\Project\drawio\demo.图形名称.drawio
 - 如果开启 sidecar，`.drawio` 文件会尽量跟随 PPT 一起存放
 - 如果 PPT 尚未保存，sidecar 会先落到系统临时目录
 - 如果 PPT 已另存为、移动目录或换到另一台机器，插件会在再次编辑时优先重建到当前 PPT 路径
+- 推荐桌面编辑器版本是 `draw.io Desktop v30.0.4 XML 工具修改版`，它能通过工具栏直接复制/粘贴 Draw.io XML，便于把插件内嵌源 XML 和桌面编辑器画布互相验证
 - 如果希望桌面模式也优化 SVG 文本缩放清晰度，需要在桌面版 draw.io 里手工设置 `simpleLabels`
 
 ### 8.2 URL 模式
