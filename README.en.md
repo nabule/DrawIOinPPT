@@ -2,9 +2,9 @@
 
 [English](./README.en.md) | [中文](./README.md)
 
-DrawioPpt is a native Microsoft PowerPoint Desktop add-in that lets you insert, recognize, edit, and refresh Draw.io / diagrams.net diagrams directly inside a presentation.
+DrawioPpt is a native Microsoft PowerPoint Desktop add-in that lets you insert, recognize, edit, and refresh Draw.io / diagrams.net diagrams directly inside a presentation. This branch also adds a native Word Desktop COM Add-in host with the same Draw.io editing loop for Word documents.
 
-Current release baseline: `v1.0.2`
+Current release baseline: `v1.0.3`
 
 The repository has already moved beyond the initial scaffold and is now at a stage where real machine-level integration is available. The current implementation focuses on these outcomes:
 
@@ -19,11 +19,13 @@ The repository has already moved beyond the initial scaffold and is now at a sta
 - Opening the external editor by double-clicking a bound shape.
 - Supporting the `AutoOpenOnSelection` setting so a bound shape can open for editing automatically when selected.
 - Automatically detecting locally installed `draw.io` / `diagrams.net` desktop executables.
+- Recommending [draw.io Desktop v30.0.4 XML tools build](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1), which can copy the current canvas as Draw.io XML and paste Draw.io XML from the clipboard through toolbar buttons.
 - Validating `draw.io Desktop` CLI SVG export with tightened export parameters.
 - Supporting per-user add-in registration with no administrator privileges required.
 - Shipping the first URL-mode editor implementation based on `WebView2 + diagrams.net embed`, with SVG and XML written back into the PowerPoint shape after save.
 - Enabling `simpleLabels` automatically in URL mode to improve SVG label clarity during PowerPoint scaling.
 - Storing Draw.io source data in `Presentation.CustomXMLParts`, while keeping `diagramId/customXmlPartId` references on the shape and preserving legacy `AlternativeText` fallback compatibility.
+- The source XML is now embedded inside the `.pptx` / `.docx` file; the sidecar `.drawio` file is mainly a desktop editing cache, manual backup, and auto-refresh helper.
 - Auto-migrating older `AlternativeText` metadata into `CustomXMLParts` during reads.
 - Cleaning up orphaned `CustomXMLPart` entries with no remaining shape references.
 - Adding local logging plus initialization/export timeout diagnostics for URL mode.
@@ -32,6 +34,7 @@ The repository has already moved beyond the initial scaffold and is now at a sta
 - Adding a setting that controls whether diagram information is shown when creating or editing Draw.io diagrams.
 - Reworking Ribbon grouping, status display, and button icons for clearer mode and object-state feedback.
 - Re-locating sidecar `.drawio` files automatically after save-as, path changes, or cross-machine document moves, based on the current PowerPoint document path.
+- Adding a Word COM Add-in that can create, detect, edit, refresh, bind, and clear Draw.io pictures in Word, with source data stored through `Document.CustomXMLParts + AlternativeText`.
 
 ## Repository Layout
 
@@ -39,6 +42,7 @@ The repository has already moved beyond the initial scaffold and is now at a sta
 - `scripts/`: environment checks, build scripts, registration scripts, and uninstall helpers.
 - `src/DrawioPpt.Core/`: host-agnostic core models, serialization, and settings storage.
 - `src/DrawioPpt.PowerPointAddIn/`: the PowerPoint COM Add-in host implementation.
+- `src/DrawioPpt.WordAddIn/`: the Word COM Add-in host implementation.
 
 ## Key Documentation
 
@@ -47,24 +51,32 @@ English docs currently available:
 - [Architecture](./docs/architecture.en.md)
 - [Installation and local debugging guide](./docs/installation.en.md)
 - [User guide](./docs/user-guide.en.md)
+- [Word add-in design and usage](./docs/word-addin.en.md)
 - [Regression checklist](./docs/regression-checklist.en.md)
 - [Detailed development plan](./docs/development-plan.en.md)
-- [Full E2E test report for v1.0.2](./docs/e2e-test-report-v1.0.2.en.md)
-- [Release notes for v1.0.2](./docs/release-notes-v1.0.2.en.md)
-- [Release evidence and log index for v1.0.2](./docs/release-evidence-v1.0.2.en.md)
+- [Full E2E test report for v1.0.3](./docs/e2e-test-report-v1.0.3.en.md)
+- [Release notes for v1.0.3](./docs/release-notes-v1.0.3.en.md)
+- [Release evidence and log index for v1.0.3](./docs/release-evidence-v1.0.3.en.md)
 - [Optimization backlog](./docs/optimization-backlog.en.md)
 
 Some historical and secondary docs are still primarily in Chinese at the moment.
 
 ## Current Technical Choices
 
-- Host: `C# + PowerPoint COM Add-in`
-- Office API: `Microsoft.Office.Interop.PowerPoint`
+- Host: `C# + PowerPoint COM Add-in`; `C# + Word COM Add-in`
+- Office API: `Microsoft.Office.Interop.PowerPoint`, `Microsoft.Office.Interop.Word`
 - Ribbon: `Microsoft.Office.Core.IRibbonExtensibility`
-- Metadata strategy: `Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText fallback compatibility`
+- Metadata strategy:
+  - PowerPoint: `Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText fallback compatibility`
+  - Word: `Document.CustomXMLParts + InlineShape/Shape.AlternativeText fallback compatibility`
+  - The primary store is Office document-level `CustomXMLParts` containing compressed Draw.io XML; metadata on the visible shape/picture is used for lookup and fallback compatibility
 - External editor modes:
   - Local `draw.io` / `diagrams.net Desktop`
   - Configurable URL mode via `WebView2`
+- Recommended desktop editor:
+  - [draw.io Desktop v30.0.4 XML tools build](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1)
+  - Windows x64 unpacked package: `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip`
+  - After extraction, set `Desktop Path` to `win-unpacked\draw.io.exe`; do not copy only the single exe
 
 ## Build Prerequisites
 
@@ -74,6 +86,7 @@ Recommended development environment:
 
 - Windows
 - Microsoft PowerPoint Desktop
+- Microsoft Word Desktop
 - Visual Studio 2022 or an equivalent MSBuild environment
 
 Verified local tool paths on the current development machine:
@@ -104,16 +117,28 @@ Run the URL-mode smoke test:
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
 ```
 
+Run the real Word URL-mode E2E test:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-url-e2e.ps1 -SkipBuild
+```
+
+Check Word COM Add-in loading:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1 -Configuration Debug
+```
+
 Package a release:
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.2
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.3
 ```
 
 Run the full real-world E2E flow:
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.2
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.3
 ```
 
 Default runtime log path:
@@ -125,7 +150,7 @@ C:\Users\<your-username>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.log
 Release test logs and packaging records are also written to:
 
 ```text
-artifacts\logs\v1.0.2\
+artifacts\logs\v1.0.3\
 ```
 
 Register the add-in:
@@ -134,10 +159,22 @@ Register the add-in:
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
 ```
 
+Register the Word add-in:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-word-addin.ps1
+```
+
 Unregister the add-in:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
+```
+
+Unregister the Word add-in:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-word-addin.ps1
 ```
 
 ## Current Milestones

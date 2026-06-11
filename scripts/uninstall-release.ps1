@@ -10,9 +10,22 @@ if ($runningPowerPoint) {
     throw "请先关闭正在运行的 PowerPoint，再执行卸载。"
 }
 
+$runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
+if ($runningWord) {
+    throw "请先关闭正在运行的 Word，再执行卸载。"
+}
+
 $unregisterScript = Join-Path $targetRoot "scripts\\unregister-addin.ps1"
 if (Test-Path $unregisterScript) {
     & powershell.exe -ExecutionPolicy Bypass -File $unregisterScript
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
+
+$unregisterWordScript = Join-Path $targetRoot "scripts\\unregister-word-addin.ps1"
+if (Test-Path $unregisterWordScript) {
+    & powershell.exe -ExecutionPolicy Bypass -File $unregisterWordScript
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }

@@ -2,9 +2,9 @@
 
 [中文](./README.md) | [English](./README.en.md)
 
-PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编辑和更新 Draw.io 图形。
+PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编辑和更新 Draw.io 图形；当前分支已新增 Word Desktop 原生 COM Add-in 宿主，实现同类 Draw.io 编辑闭环。
 
-当前发布基线：`v1.0.2`
+当前发布基线：`v1.0.3`
 
 当前仓库已经完成初始骨架，并推进到了可实机联调的阶段，重点完成了以下内容：
 
@@ -19,11 +19,13 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 已支持双击已绑定图形直接打开外部编辑器。
 - 已支持 `AutoOpenOnSelection` 设置，选中已绑定图形时可自动进入编辑。
 - 已支持自动探测本机已安装的 `draw.io` / `diagrams.net` 桌面版路径。
+- 推荐配合使用 [draw.io Desktop v30.0.4 XML 工具修改版](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1)，该版本支持通过工具栏按钮复制当前画布 XML、从剪贴板粘贴 Draw.io XML。
 - 已验证 `draw.io Desktop` CLI 导出 SVG，并收紧了导出参数。
 - 已支持当前用户级插件注册，无需管理员权限。
 - 已接入 URL 模式编辑器首版：`WebView2 + diagrams.net embed`，保存后会把 SVG 和 XML 回写到 PPT 图形。
 - 已在 URL 模式自动启用 `simpleLabels` 配置，提升 PowerPoint 中缩放 SVG 标签时的边缘清晰度。
 - 已把 Draw.io 源数据同步写入 `Presentation.CustomXMLParts`，图形保留 `diagramId/customXmlPartId` 引用，并继续兼容旧的 `AlternativeText` 回退。
+- 当前源 XML 已嵌入 `.pptx` / `.docx` 文件内部；sidecar `.drawio` 主要作为桌面编辑缓存、人工备份和自动刷新辅助。
 - 已支持旧版 `AlternativeText` 元数据在读取时自动补写到 `CustomXMLParts`。
 - 已支持低频自动清理没有任何图形引用的孤儿 `CustomXMLPart`，减少文档膨胀。
 - 已为 URL 模式补充本地日志、初始化超时和导出超时诊断。
@@ -32,6 +34,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - 设置窗口已支持控制新建或编辑 Draw.io 时是否显示图形信息弹窗。
 - 已重构 PowerPoint Ribbon 分组、状态展示和按钮图标，支持更清晰的模式/对象状态反馈。
 - 已支持 sidecar `.drawio` 在 `PPT` 另存为、路径变化和跨机器迁移后按当前文档路径自动重定位。
+- 已新增 Word COM Add-in：支持在 Word 中新建、识别、编辑、刷新、绑定和清除绑定 Draw.io 图片，并通过 `Document.CustomXMLParts + AlternativeText` 保存源数据。
 
 ## 目录结构
 
@@ -39,27 +42,36 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 - `scripts/`：环境检查、构建、注册与卸载脚本。
 - `src/DrawioPpt.Core/`：与宿主无关的核心模型、序列化和设置存储。
 - `src/DrawioPpt.PowerPointAddIn/`：PowerPoint COM Add-in 宿主骨架。
+- `src/DrawioPpt.WordAddIn/`：Word COM Add-in 宿主实现。
 
 关键文档：
 
 - [安装与联调说明](./docs/installation.md)
 - [用户手册](./docs/user-guide.md)
+- [Word 插件设计与使用说明](./docs/word-addin.md)
 - [回归清单](./docs/regression-checklist.md)
 - [详细开发计划](./docs/development-plan.md)
-- [完整 E2E 测试报告](./docs/e2e-test-report-v1.0.2.md)
-- [v1.0.2 发布说明](./docs/release-notes-v1.0.2.md)
-- [v1.0.2 发布证据与日志索引](./docs/release-evidence-v1.0.2.md)
+- [完整 E2E 测试报告](./docs/e2e-test-report-v1.0.3.md)
+- [v1.0.3 发布说明](./docs/release-notes-v1.0.3.md)
+- [v1.0.3 发布证据与日志索引](./docs/release-evidence-v1.0.3.md)
 - [待优化功能点](./docs/optimization-backlog.md)
 
 ## 当前技术选择
 
-- 宿主：C# + PowerPoint COM Add-in
-- Office 接口：`Microsoft.Office.Interop.PowerPoint`
+- 宿主：C# + PowerPoint COM Add-in；C# + Word COM Add-in
+- Office 接口：`Microsoft.Office.Interop.PowerPoint`、`Microsoft.Office.Interop.Word`
 - Ribbon：`Microsoft.Office.Core.IRibbonExtensibility`
-- 当前元数据存储策略：`Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText 回退兼容`
+- 当前元数据存储策略：
+  - PowerPoint：`Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText 回退兼容`
+  - Word：`Document.CustomXMLParts + InlineShape/Shape.AlternativeText 回退兼容`
+  - 主存储是 Office 文档级 `CustomXMLParts`，其中保存压缩后的 Draw.io XML；图形/图片上的元数据只负责定位和兼容回退
 - 外部编辑器模式：
   - 本地桌面版 draw.io/diagrams.net
   - 配置化 URL 模式（`WebView2`）
+- 推荐桌面编辑器：
+  - [draw.io Desktop v30.0.4 XML 工具修改版](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1)
+  - Windows x64 免安装包：`draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip`
+  - 解压后在插件设置里把 `桌面版路径` 指向 `win-unpacked\draw.io.exe`，不要只拷贝单独的 exe
 
 ## 构建前提
 
@@ -69,6 +81,7 @@ PowerPoint Desktop 原生插件项目，用于在 PPT 中插入、识别、编�
 
 - Windows
 - Microsoft PowerPoint Desktop
+- Microsoft Word Desktop
 - Visual Studio 2022 或等效 MSBuild 环境
 
 当前机器可用的本地工具路径：
@@ -99,16 +112,28 @@ URL 模式烟雾测试：
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
 ```
 
+Word URL 模式真实 E2E 测试：
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-url-e2e.ps1 -SkipBuild
+```
+
+Word COM Add-in 加载检查：
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1 -Configuration Debug
+```
+
 发布打包：
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.2
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version v1.0.3
 ```
 
 完整真实全流程测试：
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.2
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.3
 ```
 
 日志文件默认写入：
@@ -120,7 +145,7 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 发布测试日志与打包记录会额外保存在：
 
 ```text
-artifacts\logs\v1.0.2\
+artifacts\logs\v1.0.3\
 ```
 
 注册插件：
@@ -129,10 +154,22 @@ artifacts\logs\v1.0.2\
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
 ```
 
+注册 Word 插件：
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-word-addin.ps1
+```
+
 卸载插件：
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
+```
+
+卸载 Word 插件：
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-word-addin.ps1
 ```
 
 ## 当前里程碑

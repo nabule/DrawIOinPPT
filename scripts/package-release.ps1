@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.2",
+    [string]$Version = "v1.0.3",
     [string]$Configuration = "Release",
     [string]$Platform = "x64",
     [switch]$SkipBuild
@@ -13,10 +13,13 @@ $releaseRoot = Join-Path $repoRoot ("artifacts\\releases\\" + $Version)
 $packageRoot = Join-Path $releaseRoot "package"
 $zipPath = Join-Path $releaseRoot ("DrawioPpt-" + $Version + ".zip")
 $releaseNotesName = "release-notes-" + $Version + ".md"
+$releaseNotesEnName = "release-notes-" + $Version + ".en.md"
 $e2eDocName = "e2e-test-report-" + ($Version -replace "-stable$", "") + ".md"
+$e2eDocEnName = "e2e-test-report-" + ($Version -replace "-stable$", "") + ".en.md"
 $releaseEvidenceName = "release-evidence-" + $Version + ".md"
-$logRoot = Join-Path $repoRoot ("artifacts\\logs\\" + $Version)
+$releaseEvidenceEnName = "release-evidence-" + $Version + ".en.md"
 $addInBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.PowerPointAddIn\\bin\\{0}\\{1}" -f $Platform, $Configuration)
+$wordAddInBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.WordAddIn\\bin\\{0}\\{1}" -f $Platform, $Configuration)
 $coreBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.Core\\bin\\{0}\\{1}" -f $Platform, $Configuration)
 
 if (-not $SkipBuild) {
@@ -28,6 +31,10 @@ if (-not $SkipBuild) {
 
 if (-not (Test-Path $addInBinRoot)) {
     throw "Add-in output folder not found: $addInBinRoot"
+}
+
+if (-not (Test-Path $wordAddInBinRoot)) {
+    throw "Word add-in output folder not found: $wordAddInBinRoot"
 }
 
 if (-not (Test-Path $coreBinRoot)) {
@@ -42,32 +49,39 @@ New-Item -ItemType Directory -Force -Path $packageRoot | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "docs") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "scripts") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "bin") | Out-Null
-New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "logs") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "bin\\runtimes\\win-x64\\native") | Out-Null
 
 Copy-Item (Join-Path $addInBinRoot "DrawioPpt.PowerPointAddIn.dll") (Join-Path $packageRoot "bin") -Force
-Copy-Item (Join-Path $addInBinRoot "DrawioPpt.PowerPointAddIn.pdb") (Join-Path $packageRoot "bin") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $wordAddInBinRoot "DrawioPpt.WordAddIn.dll") (Join-Path $packageRoot "bin") -Force
 Copy-Item (Join-Path $coreBinRoot "DrawioPpt.Core.dll") (Join-Path $packageRoot "bin") -Force
 Copy-Item (Join-Path $addInBinRoot "Microsoft.Web.WebView2.Core.dll") (Join-Path $packageRoot "bin") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $addInBinRoot "Microsoft.Web.WebView2.WinForms.dll") (Join-Path $packageRoot "bin") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $addInBinRoot "runtimes\\win-x64\\native\\WebView2Loader.dll") (Join-Path $packageRoot "bin\\runtimes\\win-x64\\native") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "README.md") $packageRoot -Force
+Copy-Item (Join-Path $repoRoot "README.en.md") $packageRoot -Force
 Copy-Item (Join-Path $repoRoot "docs\\installation.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\installation.en.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "docs\\user-guide.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot "docs\\user-guide.en.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot "docs\\word-addin.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot "docs\\word-addin.en.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "docs\\optimization-backlog.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "docs\\regression-checklist.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseNotesName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseNotesEnName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot ("docs\\" + $e2eDocName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot ("docs\\" + $e2eDocEnName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseEvidenceName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseEvidenceEnName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot "scripts\\register-addin.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\unregister-addin.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\register-word-addin.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\unregister-word-addin.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\word-addin-load-check.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\word-url-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\uninstall-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\url-editor-smoke.ps1") (Join-Path $packageRoot "scripts") -Force
-
-if (Test-Path $logRoot) {
-    Copy-Item (Join-Path $logRoot "*") (Join-Path $packageRoot "logs") -Recurse -Force
-}
 
 @'
 @echo off
@@ -89,6 +103,7 @@ BuiltAt: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 
 Contents:
 - bin\DrawioPpt.PowerPointAddIn.dll
+- bin\DrawioPpt.WordAddIn.dll
 - bin\DrawioPpt.Core.dll
 - bin\Microsoft.Web.WebView2.Core.dll (if available)
 - bin\Microsoft.Web.WebView2.WinForms.dll (if available)
@@ -97,17 +112,27 @@ Contents:
 - uninstall.cmd
 - scripts\register-addin.ps1
 - scripts\unregister-addin.ps1
+- scripts\register-word-addin.ps1
+- scripts\unregister-word-addin.ps1
+- scripts\word-addin-load-check.ps1
+- scripts\word-url-e2e.ps1
 - scripts\install-release.ps1
 - scripts\uninstall-release.ps1
 - scripts\url-editor-smoke.ps1
 - docs\installation.md
+- docs\installation.en.md
 - docs\user-guide.md
+- docs\user-guide.en.md
+- docs\word-addin.md
+- docs\word-addin.en.md
 - docs\optimization-backlog.md
 - docs\regression-checklist.md
 - docs\$releaseNotesName
+- docs\$releaseNotesEnName
 - docs\$e2eDocName
+- docs\$e2eDocEnName
 - docs\$releaseEvidenceName
-- logs\*
+- docs\$releaseEvidenceEnName
 "@ | Set-Content -Path $manifestPath -Encoding UTF8
 
 Compress-Archive -Path (Join-Path $packageRoot "*") -DestinationPath $zipPath -Force

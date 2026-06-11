@@ -4,18 +4,18 @@
 
 ## 1. Goals
 
-The goal of this project is to give Draw.io diagrams inside PowerPoint the following capabilities:
+The goal of this project is to give Draw.io diagrams inside Office documents the following capabilities. PowerPoint Desktop is already covered, and this branch adds a Word Desktop host:
 
 - Display as SVG while preserving vector quality
-- Re-enter Draw.io editing after the shape is selected
+- Re-enter Draw.io editing after a PowerPoint shape or Word picture is selected
 - Configure the editor as either a local desktop program or a web URL
-- Keep the original Draw.io XML moving with the PPT file as much as possible
+- Keep the original Draw.io XML moving with the `pptx` / `docx` file as much as possible
 
 ## 2. Technical Direction
 
-This project chooses a **native PowerPoint COM Add-in** for these reasons:
+This project chooses **native Office COM Add-ins**, currently with PowerPoint and Word hosts, for these reasons:
 
-- It can reliably listen to PowerPoint shape-selection events
+- It can reliably listen to Office Desktop selection events
 - It can launch local processes directly, which fits desktop draw.io integration
 - It handles local paths, temporary files, and later write-back more naturally
 
@@ -44,14 +44,34 @@ Responsibilities:
 - PowerPoint object model interaction
 - External-editor launch and write-back orchestration
 
+### 3.3 `DrawioPpt.WordAddIn`
+
+Responsibilities:
+
+- Word COM add-in entry point and registration
+- Ribbon command exposure
+- Selected-picture monitoring in Word
+- Word `InlineShape` / floating `Shape` object model interaction
+- Word document-level `CustomXMLParts` storage and cleanup
+- External-editor launch and write-back orchestration
+
+The current Word host reuses public editor and SVG services from the PowerPoint assembly. These shared services can later be extracted into a dedicated `OfficeShared` project.
+
 ## 4. Data Storage Strategy
 
 ### Initial Version Strategy
 
 To reach a usable MVP quickly, the initial version uses two storage layers:
 
+PowerPoint:
+
 - Shape identity: `Shape.Tags["DRAWIO_PPT_ID"]`
 - Shape metadata envelope: `Shape.AlternativeText`
+
+Word:
+
+- Picture metadata envelope: `InlineShape/Shape.AlternativeText`
+- Diagram display name: `InlineShape/Shape.Title`
 
 `AlternativeText` stores a custom XML envelope defined by the add-in, containing:
 
@@ -65,12 +85,28 @@ To reach a usable MVP quickly, the initial version uses two storage layers:
 
 The original draw.io XML is compressed using `gzip + base64` first to reduce size.
 
-### Later Enhancement Strategy
+### Current Embedding Model
 
-If later validation shows that `AlternativeText` is not sufficient in capacity or compatibility, the second-stage enhancement path is:
+PowerPoint has now been enhanced to `Presentation.CustomXMLParts + Shape.Tags + Shape.AlternativeText`; Word uses `Document.CustomXMLParts + InlineShape/Shape.AlternativeText`.
 
-- Move the full XML into document-level custom parts or OOXML-attached parts
-- Keep only the diagram id and required summary information on the shape itself
+This means the Draw.io source XML is already embedded inside the `.pptx` / `.docx` file, instead of relying only on an external `.drawio` file. The responsibilities are split as follows:
+
+- Document-level `CustomXMLParts` are the primary store. They contain the full add-in envelope with `diagramId`, diagram name, editor mode, editor target, sidecar path, update time, and compressed `DrawioXml`.
+- `DrawioXml` is stored in the envelope's `drawioXml` node using `gzip + base64`, reducing Office file size and avoiding large raw XML payloads in shape properties.
+- PowerPoint shapes point back to the document-level XML part through `Shape.Tags["DRAWIO_PPT_ID"]` and `Shape.Tags["DRAWIO_PPT_PART_ID"]`.
+- Word has no direct equivalent to `Shape.Tags`, so the add-in resolves `diagramId` from the picture `AlternativeText`, then looks up the newest full envelope in `Document.CustomXMLParts`.
+- `AlternativeText` still carries fallback data for older documents, copy/paste recovery, and degraded recognition when the document-level part cannot be read immediately.
+- The visible SVG also receives draw.io `content` metadata as a third recovery layer. This is not the primary store, but it helps when a single SVG is exported or inspected separately.
+- The sidecar `.drawio` file is now closer to an editing cache and manual backup. It is still useful when draw.io Desktop needs a real file path, while the in-document XML is the primary source for cross-machine document movement.
+
+The current implementation does not embed `.drawio` as an OLE object or `EmbeddedPackagePart` attachment. Avoiding that path reduces Office security prompts, file-association dependency, and host-specific differences; the tradeoff is that the add-in must maintain the index from visible shape/picture back to the document-level XML part.
+
+### Known Boundaries
+
+- Document-level `CustomXMLParts` travel when the whole `.pptx` / `.docx` file is saved and moved, but Office does not guarantee that copying one shape into another document also copies its matching document-level XML part. This is why `AlternativeText` and SVG `content` still have recovery value.
+- Document Inspector, enterprise DLP, saving to older formats, exporting to PDF, or third-party Office-compatible software may remove or ignore custom XML parts.
+- `AlternativeText` is a visible accessibility/description property and should not be treated as the long-term high-capacity primary store. It is used here for recognition and compatibility fallback.
+- Clearing binding removes add-in metadata from the visible shape/picture and cleans unreferenced document-level XML parts, but it does not delete the visible picture itself.
 
 ## 5. Editing Workflow
 
@@ -80,13 +116,13 @@ If later validation shows that `AlternativeText` is not sufficient in capacity o
 2. Launch the external draw.io editor
 3. The user saves the `.drawio` file
 4. The add-in exports SVG
-5. The add-in inserts the SVG into the current slide
-6. The add-in writes `DRAWIO_PPT_ID` and the metadata envelope
+5. The PowerPoint add-in inserts the SVG into the current slide; the Word add-in inserts it at the current cursor position
+6. The add-in writes the metadata envelope and document-level `CustomXMLParts`
 7. If `ShowDiagramInfoDialog` is enabled, it shows the diagram name, Diagram ID, editor mode, and `.drawio` working file path
 
 ### 5.2 Edit
 
-1. The user selects a shape
+1. The user selects a shape or picture
 2. The add-in listens for the selection change
 3. It checks whether the shape is a Draw.io diagram managed by the add-in
 4. It reads the metadata envelope
@@ -97,7 +133,7 @@ If later validation shows that `AlternativeText` is not sufficient in capacity o
 
 ## 6. Update Strategy
 
-The first stage updates diagrams by replacing shape content, prioritizing an end-to-end working flow.
+The first stage updates diagrams by replacing the displayed object, prioritizing an end-to-end working flow.
 
 The following data is preserved:
 
@@ -105,6 +141,8 @@ The following data is preserved:
 - size
 - rotation
 - z-order
+
+In Word, `InlineShape` is part of flowing document text and does not have the same fixed canvas and z-order model as PowerPoint. The current Word path prioritizes preserving picture size, insertion position, and floating-picture wrapping/relative position.
 
 If later validation shows that animations, hyperlinks, or complex formatting are lost too easily during replacement, the enhancement path is:
 
@@ -132,3 +170,11 @@ Response:
 
 - Preserve position and size first
 - Then address animation and complex-style issues with targeted fixes
+
+### Risk 4: Word flowing layout and floating-picture anchors
+
+Response:
+
+- Prioritize the `InlineShape` picture workflow for the MVP
+- Preserve anchor, size, wrapping mode, and relative position when replacing floating `Shape` pictures
+- Validate save, reopen, and edit-again behavior with a real Word E2E test

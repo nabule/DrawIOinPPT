@@ -6,9 +6,10 @@
 
 - Windows
 - Microsoft PowerPoint Desktop x64
+- Microsoft Word Desktop x64 when using the Word add-in
 - .NET Framework 4.8 Developer Pack
 - WebView2 Runtime
-- Optional: `draw.io` / `diagrams.net Desktop`
+- Optional but recommended: [draw.io Desktop v30.0.4 XML tools build](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1)
 
 Recommended first step:
 
@@ -18,13 +19,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. Installation for End Users
 
-If you received a release package such as `DrawioPpt-v1.0.0.zip`, the recommended installation flow is:
+If you received a release package such as `DrawioPpt-v1.0.3.zip`, the recommended installation flow is:
 
 1. Extract the zip file to a local directory.
-2. Make sure PowerPoint is not currently running.
+2. Make sure PowerPoint and Word are not currently running.
 3. Double-click `install.cmd`.
 4. Wait for the script to report success.
-5. Open PowerPoint and confirm that the DrawioPpt tab appears on the Ribbon.
+5. Open PowerPoint or Word and confirm that the `Draw.io` tab appears on the Ribbon.
 
 Core installation files included in the release package:
 
@@ -34,10 +35,9 @@ Core installation files included in the release package:
 - `scripts\uninstall-release.ps1`
 - `scripts\register-addin.ps1`
 - `scripts\unregister-addin.ps1`
-- `docs\release-notes-v1.0.0.md`
-- `docs\e2e-test-report-v1.0.0.md`
-- `docs\release-evidence-v1.0.0.md`
-- `logs\`
+- `docs\release-notes-v1.0.3.md`
+- `docs\e2e-test-report-v1.0.3.md`
+- `docs\release-evidence-v1.0.3.md`
 
 Default installation path:
 
@@ -48,8 +48,9 @@ C:\Users\<your-username>\AppData\Local\Greensoft\DrawioPpt
 How to uninstall:
 
 1. Close PowerPoint.
-2. Double-click `uninstall.cmd`.
-3. Confirm that PowerPoint no longer loads the add-in automatically.
+2. Close Word.
+3. Double-click `uninstall.cmd`.
+4. Confirm that PowerPoint and Word no longer load the add-in automatically.
 
 ## 3. Installation for Repository-Based Development
 
@@ -90,7 +91,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
 ## 6. Recommended First-Run Setup
 
 1. Open PowerPoint.
-2. Confirm that `Greensoft.DrawioPptAddIn` is loaded.
+2. Confirm that `Greensoft.DrawioPptAddIn` is loaded; when using Word, also confirm `Greensoft.DrawioWordAddIn`.
 3. Open the add-in settings window.
 4. Configure the following as needed:
    - `Desktop Path`
@@ -98,7 +99,34 @@ powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
    - `Auto update on save`
    - `Keep sidecar file next to PPT`
 
-## 7. Recommended Post-Install Validation Order
+## 7. Recommended draw.io Desktop XML Tools Build
+
+For desktop mode, use [draw.io Desktop v30.0.4 XML tools build](https://github.com/nabule/drawio-desktop/releases/tag/v30.0.4-xml-tools.1). It is based on official `v30.0.4` and adds two colored XML icon buttons to the second toolbar row:
+
+- Paste draw.io XML source from the clipboard and render it as a diagram.
+- Copy the current canvas as draw.io XML source.
+
+Installation and configuration:
+
+1. Download `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip` from the release page.
+2. Verify SHA256:
+
+   ```text
+   B09116FB0D6140E39CFDA0568957897BD697CB5B7DAE257F7B1438E9B1A6DB9D
+   ```
+
+3. Extract the zip to a stable folder, for example `D:\Tools\draw.io-30.0.4-xml-tools.1\`.
+4. Run `win-unpacked\draw.io.exe`. This is an unsigned Windows x64 unpacked build; do not copy only the single exe.
+5. In DrawioPpt settings, set `Editor Mode` to `Desktop`.
+6. Set `Desktop Path` to the extracted `win-unpacked\draw.io.exe`, for example:
+
+   ```text
+   D:\Tools\draw.io-30.0.4-xml-tools.1\win-unpacked\draw.io.exe
+   ```
+
+When manually diagnosing source data between the add-in and draw.io Desktop, this build's XML copy/paste buttons are more convenient than the stock desktop build.
+
+## 8. Recommended Post-Install Validation Order
 
 Use this order to confirm that installation succeeded:
 
@@ -116,9 +144,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 Full test report:
 
-- [v1.0.0 E2E test report](./e2e-test-report-v1.0.0.en.md)
+- [v1.0.3 E2E test report](./e2e-test-report-v1.0.3.en.md)
 
-## 8. Desktop Mode Validation
+## 9. Desktop Mode Validation
 
 1. Set `Editor Mode` to `Desktop` in settings.
 2. Confirm that `Desktop Path` points to `draw.io.exe` or `diagrams.net.exe`.
@@ -127,14 +155,15 @@ Full test report:
 
 Additional notes:
 
-- In `v1.0.0`, `simpleLabels` is enabled automatically only in `Url` mode for better MS Office SVG compatibility.
+- In `v1.0.3`, `simpleLabels` is enabled automatically only in `Url` mode for better MS Office SVG compatibility.
 - In `Desktop` mode, the add-in launches the external desktop draw.io application and cannot rewrite that application's editor settings for you.
+- Prefer the `win-unpacked\draw.io.exe` extracted from `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip` when you need manual XML copy/paste diagnostics.
 - If you want clearer SVG text scaling in PowerPoint for desktop exports, configure draw.io Desktop manually:
   - `Extras > Configuration`
   - Enter `{ "simpleLabels": true }`
   - Click `Apply`
 
-## 9. URL Mode Validation
+## 10. URL Mode Validation
 
 1. Set `Editor Mode` to `Url` in settings.
 2. Fill in `Editor URL`.
@@ -147,7 +176,7 @@ If you want to run the repository URL smoke test:
 powershell -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
 ```
 
-## 10. Log Location
+## 11. Log Location
 
 Default log file:
 
@@ -162,7 +191,7 @@ Useful for diagnosing:
 - Host write-back failures
 - Storage migration and orphan cleanup issues
 
-## 11. Frequently Asked Questions
+## 12. Frequently Asked Questions
 
 ### The URL window opens, but save is never called back
 
@@ -179,11 +208,11 @@ Useful for diagnosing:
 ### Can I still edit the diagram after moving the PPT file
 
 - Yes. The source XML is stored in `Presentation.CustomXMLParts`.
-- In `v1.0.0`, the add-in rebuilds the sidecar against the current PPT path on the next edit. If you move the sidecar with the deck, desktop-mode refresh is smoother.
+- In `v1.0.3`, the add-in rebuilds the sidecar against the current PPT path on the next edit. If you move the sidecar with the deck, desktop-mode refresh is smoother.
 
 ### Why do SVG labels in URL mode look sharper when scaled
 
-- In `v1.0.0`, the add-in automatically sends `{ "simpleLabels": true }` to the embedded URL editor.
+- In `v1.0.3`, the add-in automatically sends `{ "simpleLabels": true }` to the embedded URL editor.
 - This follows the optimization recommended by draw.io for MS Office SVG scaling compatibility.
 
 ### The install script says PowerPoint is still running
