@@ -19,7 +19,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. 面向最终用户的安装
 
-如果你拿到的是发布包 `DrawioPpt-v1.0.4.zip`，推荐按下面流程安装：
+如果你拿到的是发布包 `DrawioPpt-v1.0.5.zip`，推荐按下面流程安装：
 
 1. 解压 zip 到一个本地目录
 2. 确认 PowerPoint 和 Word 当前没有运行
@@ -35,13 +35,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 - `scripts\uninstall-release.ps1`
 - `scripts\register-office-addins.ps1`
 - `scripts\unregister-office-addins.ps1`
+- `scripts\verify-office-install.ps1`
 - `scripts\register-addin.ps1`
 - `scripts\unregister-addin.ps1`
 - `scripts\register-word-addin.ps1`
 - `scripts\unregister-word-addin.ps1`
-- `docs\release-notes-v1.0.4.md`
-- `docs\e2e-test-report-v1.0.4.md`
-- `docs\release-evidence-v1.0.4.md`
+- `docs\release-notes-v1.0.5.md`
+- `docs\e2e-test-report-v1.0.5.md`
+- `docs\release-evidence-v1.0.5.md`
 
 默认安装位置：
 
@@ -101,6 +102,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\register-word-addin.ps1
 ```
 
+安装后验收：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\scripts\verify-office-install.ps1"
+```
+
+该脚本会检查 PowerPoint/Word 插件 DLL、当前用户级 COM 注册、`CodeBase` 指向、Office 禁用项，以及 Word/PowerPoint 的 `COMAddIns` 实际加载状态。
+
 ## 6. 首次启动建议
 
 1. 打开 PowerPoint。
@@ -157,7 +166,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 完整测试报告：
 
-- [v1.0.4 E2E 测试报告](./e2e-test-report-v1.0.4.md)
+- [v1.0.5 E2E 测试报告](./e2e-test-report-v1.0.5.md)
 
 ## 9. 桌面模式验证
 
@@ -168,7 +177,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 补充说明：
 
-- `v1.0.4` 已在 `Url` 模式下自动启用 MS Office 兼容的 `simpleLabels`。
+- `v1.0.5` 已在 `Url` 模式下自动启用 MS Office 兼容的 `simpleLabels`。
 - `Desktop` 模式调用的是外部桌面版 draw.io，插件目前不能替你改写该桌面应用的编辑器配置。
 - 推荐使用 `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip` 解压后的 `win-unpacked\draw.io.exe`，便于手工复制/粘贴 XML。
 - 如果你希望桌面模式导出的 SVG 标签在 PowerPoint 中缩放更清晰，建议在 draw.io Desktop 里手动设置：
@@ -221,11 +230,11 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 ### 移动 PPT 后图形还能不能编辑
 
 - 可以，源 XML 保存在 `Presentation.CustomXMLParts`
-- `v1.0.4` 会在再次编辑时优先按当前 `PPT` 路径重建 sidecar；如果你把 sidecar 一起带走，桌面模式刷新会更顺畅
+- `v1.0.5` 会在再次编辑时优先按当前 `PPT` 路径重建 sidecar；如果你把 sidecar 一起带走，桌面模式刷新会更顺畅
 
 ### 为什么 URL 模式里的 SVG 标签缩放更清晰
 
-- `v1.0.4` 会在 URL 嵌入编辑器里自动下发 `{ "simpleLabels": true }`
+- `v1.0.5` 会在 URL 嵌入编辑器里自动下发 `{ "simpleLabels": true }`
 - 这是 draw.io 官方针对 MS Office SVG 缩放兼容性给出的优化建议
 
 ### 安装脚本提示 PowerPoint 正在运行

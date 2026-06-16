@@ -63,8 +63,9 @@
 
 - `scripts\register-office-addins.ps1` 是开发目录和发布包内的统一注册入口，会依次注册 PowerPoint 与 Word 两个当前用户级 COM Add-in。
 - `scripts\unregister-office-addins.ps1` 是统一注销入口，会依次清理 PowerPoint 与 Word 注册项。
+- `scripts\verify-office-install.ps1` 是安装验收入口，会检查插件文件、当前用户级 COM 注册、`CodeBase` 指向、Office 禁用项，以及可选的 Word/PowerPoint COM 加载。
 - `scripts\register-addin.ps1`、`scripts\register-word-addin.ps1` 以及对应注销脚本保留为单宿主排障入口。
-- 发布包的 `install.cmd` 调用 `scripts\install-release.ps1`，安装脚本复制文件后调用统一注册入口，避免只安装 PowerPoint 而遗漏 Word。
+- 发布包的 `install.cmd` 调用 `scripts\install-release.ps1`，安装脚本复制文件后调用统一注册入口，并立即执行非交互注册验收，避免只安装 PowerPoint 而遗漏 Word。
 
 ## 4. 数据存储策略
 

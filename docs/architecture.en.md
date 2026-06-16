@@ -63,8 +63,9 @@ Responsibilities:
 
 - `scripts\register-office-addins.ps1` is the unified registration entry for repository checkouts and release packages. It registers both current-user COM Add-ins: PowerPoint and Word.
 - `scripts\unregister-office-addins.ps1` is the unified unregister entry and removes both PowerPoint and Word registration entries.
+- `scripts\verify-office-install.ps1` is the installation acceptance entry. It checks installed files, current-user COM registration, `CodeBase` targets, Office disabled items, and optional Word/PowerPoint COM loading.
 - `scripts\register-addin.ps1`, `scripts\register-word-addin.ps1`, and their unregister counterparts remain available for single-host diagnostics.
-- The release package's `install.cmd` calls `scripts\install-release.ps1`; after copying files, the installer calls the unified registration entry so Word is not missed when PowerPoint is installed.
+- The release package's `install.cmd` calls `scripts\install-release.ps1`; after copying files, the installer calls the unified registration entry and immediately runs non-interactive registration acceptance checks so Word is not missed when PowerPoint is installed.
 
 ## 4. Data Storage Strategy
 

@@ -75,6 +75,16 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+$verifyScript = Join-Path $targetRoot "scripts\\verify-office-install.ps1"
+if (-not (Test-Path $verifyScript)) {
+    throw "Install verification script not found after install: $verifyScript"
+}
+
+& powershell.exe -ExecutionPolicy Bypass -File $verifyScript -InstallRoot $targetRoot -SkipComLoad
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
 Write-Host "DrawioPpt installed successfully."
 Write-Host "  InstallRoot: $targetRoot"
 Write-Host "  PowerPoint:  $targetAssemblyPath"

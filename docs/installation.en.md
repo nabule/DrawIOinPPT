@@ -19,7 +19,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. Installation for End Users
 
-If you received a release package such as `DrawioPpt-v1.0.4.zip`, the recommended installation flow is:
+If you received a release package such as `DrawioPpt-v1.0.5.zip`, the recommended installation flow is:
 
 1. Extract the zip file to a local directory.
 2. Make sure PowerPoint and Word are not currently running.
@@ -35,13 +35,14 @@ Core installation files included in the release package:
 - `scripts\uninstall-release.ps1`
 - `scripts\register-office-addins.ps1`
 - `scripts\unregister-office-addins.ps1`
+- `scripts\verify-office-install.ps1`
 - `scripts\register-addin.ps1`
 - `scripts\unregister-addin.ps1`
 - `scripts\register-word-addin.ps1`
 - `scripts\unregister-word-addin.ps1`
-- `docs\release-notes-v1.0.4.md`
-- `docs\e2e-test-report-v1.0.4.md`
-- `docs\release-evidence-v1.0.4.md`
+- `docs\release-notes-v1.0.5.md`
+- `docs\e2e-test-report-v1.0.5.md`
+- `docs\release-evidence-v1.0.5.md`
 
 Default installation path:
 
@@ -101,6 +102,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\register-word-addin.ps1
 ```
 
+Post-install acceptance check:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\scripts\verify-office-install.ps1"
+```
+
+This script checks the PowerPoint/Word add-in DLLs, current-user COM registration, `CodeBase` targets, Office disabled items, and actual `COMAddIns` loading in Word and PowerPoint.
+
 ## 6. Recommended First-Run Setup
 
 1. Open PowerPoint.
@@ -157,7 +166,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 Full test report:
 
-- [v1.0.4 E2E test report](./e2e-test-report-v1.0.4.en.md)
+- [v1.0.5 E2E test report](./e2e-test-report-v1.0.5.en.md)
 
 ## 9. Desktop Mode Validation
 
@@ -168,7 +177,7 @@ Full test report:
 
 Additional notes:
 
-- In `v1.0.4`, `simpleLabels` is enabled automatically only in `Url` mode for better MS Office SVG compatibility.
+- In `v1.0.5`, `simpleLabels` is enabled automatically only in `Url` mode for better MS Office SVG compatibility.
 - In `Desktop` mode, the add-in launches the external desktop draw.io application and cannot rewrite that application's editor settings for you.
 - Prefer the `win-unpacked\draw.io.exe` extracted from `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip` when you need manual XML copy/paste diagnostics.
 - If you want clearer SVG text scaling in PowerPoint for desktop exports, configure draw.io Desktop manually:
@@ -221,11 +230,11 @@ Useful for diagnosing:
 ### Can I still edit the diagram after moving the PPT file
 
 - Yes. The source XML is stored in `Presentation.CustomXMLParts`.
-- In `v1.0.4`, the add-in rebuilds the sidecar against the current PPT path on the next edit. If you move the sidecar with the deck, desktop-mode refresh is smoother.
+- In `v1.0.5`, the add-in rebuilds the sidecar against the current PPT path on the next edit. If you move the sidecar with the deck, desktop-mode refresh is smoother.
 
 ### Why do SVG labels in URL mode look sharper when scaled
 
-- In `v1.0.4`, the add-in automatically sends `{ "simpleLabels": true }` to the embedded URL editor.
+- In `v1.0.5`, the add-in automatically sends `{ "simpleLabels": true }` to the embedded URL editor.
 - This follows the optimization recommended by draw.io for MS Office SVG scaling compatibility.
 
 ### The install script says PowerPoint is still running

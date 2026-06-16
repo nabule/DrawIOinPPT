@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.4",
+    [string]$Version = "v1.0.5",
     [switch]$SkipBuild,
     [switch]$KeepInstalled
 )
@@ -536,6 +536,10 @@ try {
         exit $LASTEXITCODE
     }
     Add-Result -Name "InstallRelease" -Passed (Test-Path (Join-Path $installRoot "bin\\DrawioPpt.PowerPointAddIn.dll")) -Detail $installRoot
+
+    $verifyInstallScript = Join-Path $installRoot "scripts\\verify-office-install.ps1"
+    & powershell.exe -ExecutionPolicy Bypass -File $verifyInstallScript -InstallRoot $installRoot
+    Add-Result -Name "InstalledOfficeAddInsVerify" -Passed ($LASTEXITCODE -eq 0) -Detail $verifyInstallScript
 
     $pp = New-Object -ComObject PowerPoint.Application
     try {
