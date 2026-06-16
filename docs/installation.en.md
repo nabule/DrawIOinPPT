@@ -19,7 +19,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. Installation for End Users
 
-If you received a release package such as `DrawioPpt-v1.0.3.zip`, the recommended installation flow is:
+If you received a release package such as `DrawioPpt-v1.0.4.zip`, the recommended installation flow is:
 
 1. Extract the zip file to a local directory.
 2. Make sure PowerPoint and Word are not currently running.
@@ -33,11 +33,15 @@ Core installation files included in the release package:
 - `uninstall.cmd`
 - `scripts\install-release.ps1`
 - `scripts\uninstall-release.ps1`
+- `scripts\register-office-addins.ps1`
+- `scripts\unregister-office-addins.ps1`
 - `scripts\register-addin.ps1`
 - `scripts\unregister-addin.ps1`
-- `docs\release-notes-v1.0.3.md`
-- `docs\e2e-test-report-v1.0.3.md`
-- `docs\release-evidence-v1.0.3.md`
+- `scripts\register-word-addin.ps1`
+- `scripts\unregister-word-addin.ps1`
+- `docs\release-notes-v1.0.4.md`
+- `docs\e2e-test-report-v1.0.4.md`
+- `docs\release-evidence-v1.0.4.md`
 
 Default installation path:
 
@@ -66,26 +70,35 @@ Default outputs:
 
 - `src\DrawioPpt.Core\bin\x64\Debug\DrawioPpt.Core.dll`
 - `src\DrawioPpt.PowerPointAddIn\bin\x64\Debug\DrawioPpt.PowerPointAddIn.dll`
+- `src\DrawioPpt.WordAddIn\bin\x64\Debug\DrawioPpt.WordAddIn.dll`
 
 ## 5. Register the Add-In
 
 The current scripts use per-user COM registration, so administrator privileges are not required.
 
-Register:
+Register both PowerPoint and Word:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\register-office-addins.ps1
 ```
 
 Notes:
 
-- In a repository checkout, the script automatically resolves `src\DrawioPpt.PowerPointAddIn\bin\...`
-- In a release package, the script automatically resolves `bin\DrawioPpt.PowerPointAddIn.dll` next to the package root
+- In a repository checkout, the script automatically resolves `src\DrawioPpt.PowerPointAddIn\bin\...` and `src\DrawioPpt.WordAddIn\bin\...`
+- In a release package, the script automatically resolves `bin\DrawioPpt.PowerPointAddIn.dll` and `bin\DrawioPpt.WordAddIn.dll` next to the package root
+- `install.cmd` / `scripts\install-release.ps1` also call this unified registration entry, so end-user installation covers both PowerPoint and Word
 
-Unregister:
+Unregister both PowerPoint and Word:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\unregister-addin.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\unregister-office-addins.ps1
+```
+
+For single-host diagnostics, use the host-specific scripts:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\register-addin.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\register-word-addin.ps1
 ```
 
 ## 6. Recommended First-Run Setup
@@ -144,7 +157,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 Full test report:
 
-- [v1.0.3 E2E test report](./e2e-test-report-v1.0.3.en.md)
+- [v1.0.4 E2E test report](./e2e-test-report-v1.0.4.en.md)
 
 ## 9. Desktop Mode Validation
 
@@ -155,7 +168,7 @@ Full test report:
 
 Additional notes:
 
-- In `v1.0.3`, `simpleLabels` is enabled automatically only in `Url` mode for better MS Office SVG compatibility.
+- In `v1.0.4`, `simpleLabels` is enabled automatically only in `Url` mode for better MS Office SVG compatibility.
 - In `Desktop` mode, the add-in launches the external desktop draw.io application and cannot rewrite that application's editor settings for you.
 - Prefer the `win-unpacked\draw.io.exe` extracted from `draw.io-30.0.4-xml-tools.1-windows-x64-unpacked.zip` when you need manual XML copy/paste diagnostics.
 - If you want clearer SVG text scaling in PowerPoint for desktop exports, configure draw.io Desktop manually:
@@ -208,11 +221,11 @@ Useful for diagnosing:
 ### Can I still edit the diagram after moving the PPT file
 
 - Yes. The source XML is stored in `Presentation.CustomXMLParts`.
-- In `v1.0.3`, the add-in rebuilds the sidecar against the current PPT path on the next edit. If you move the sidecar with the deck, desktop-mode refresh is smoother.
+- In `v1.0.4`, the add-in rebuilds the sidecar against the current PPT path on the next edit. If you move the sidecar with the deck, desktop-mode refresh is smoother.
 
 ### Why do SVG labels in URL mode look sharper when scaled
 
-- In `v1.0.3`, the add-in automatically sends `{ "simpleLabels": true }` to the embedded URL editor.
+- In `v1.0.4`, the add-in automatically sends `{ "simpleLabels": true }` to the embedded URL editor.
 - This follows the optimization recommended by draw.io for MS Office SVG scaling compatibility.
 
 ### The install script says PowerPoint is still running
@@ -224,4 +237,4 @@ Useful for diagnosing:
 
 - Reopen PowerPoint first.
 - Then verify that the current-user registration entries were written.
-- If needed, run `scripts\register-addin.ps1` again.
+- If needed, run `scripts\register-office-addins.ps1` again.

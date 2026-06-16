@@ -57,6 +57,15 @@
 
 当前 Word 宿主复用 PowerPoint 程序集中的公共编辑器和 SVG 服务，后续可以再把这些公共服务抽成独立 `OfficeShared` 项目。
 
+### 3.4 安装与注册脚本
+
+职责：
+
+- `scripts\register-office-addins.ps1` 是开发目录和发布包内的统一注册入口，会依次注册 PowerPoint 与 Word 两个当前用户级 COM Add-in。
+- `scripts\unregister-office-addins.ps1` 是统一注销入口，会依次清理 PowerPoint 与 Word 注册项。
+- `scripts\register-addin.ps1`、`scripts\register-word-addin.ps1` 以及对应注销脚本保留为单宿主排障入口。
+- 发布包的 `install.cmd` 调用 `scripts\install-release.ps1`，安装脚本复制文件后调用统一注册入口，避免只安装 PowerPoint 而遗漏 Word。
+
 ## 4. 数据存储策略
 
 ### 初始版本策略

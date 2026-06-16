@@ -4,9 +4,9 @@
 
 DrawioPpt 是一个面向 Microsoft Office Desktop 的 Draw.io / diagrams.net 原生插件。它让你可以在 PowerPoint 和 Word 里直接插入、识别、重新编辑和刷新 Draw.io 图形，而不是把图形当成一次性截图维护。
 
-当前版本：`v1.0.3`
+当前版本：`v1.0.4`
 
-下载发布包：[DrawioPpt v1.0.3](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.3)
+下载发布包：[DrawioPpt v1.0.4](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.4)
 
 ## 项目价值
 
@@ -83,13 +83,21 @@ win-unpacked\draw.io.exe
 
 ## 快速安装
 
-1. 从 [v1.0.3 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.3) 下载 `DrawioPpt-v1.0.3.zip`。
+1. 从 [v1.0.4 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.4) 下载 `DrawioPpt-v1.0.4.zip`。
 2. 解压到本地目录。
 3. 关闭 PowerPoint 和 Word。
 4. 双击 `install.cmd`。
 5. 打开 PowerPoint 或 Word，确认出现 `Draw.io` 功能区。
 
 卸载时关闭 PowerPoint 和 Word，然后运行 `uninstall.cmd`。
+
+发布包安装脚本会同时安装 PowerPoint 和 Word 插件。仓库开发调试时，先构建再运行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\register-office-addins.ps1
+```
+
+如果只需要排查单个宿主，可以分别运行 `scripts\register-addin.ps1` 或 `scripts\register-word-addin.ps1`。
 
 ## 文档入口
 
@@ -98,9 +106,9 @@ win-unpacked\draw.io.exe
 - [Word 插件设计与使用说明](./docs/word-addin.md)
 - [架构设计](./docs/architecture.md)
 - [回归清单](./docs/regression-checklist.md)
-- [v1.0.3 发布说明](./docs/release-notes-v1.0.3.md)
-- [v1.0.3 E2E 测试报告](./docs/e2e-test-report-v1.0.3.md)
-- [v1.0.3 发布证据与日志索引](./docs/release-evidence-v1.0.3.md)
+- [v1.0.4 发布说明](./docs/release-notes-v1.0.4.md)
+- [v1.0.4 E2E 测试报告](./docs/e2e-test-report-v1.0.4.md)
+- [v1.0.4 发布证据与日志索引](./docs/release-evidence-v1.0.4.md)
 
 开发计划、历史发布记录和优化 backlog 也放在 [docs](./docs/) 目录中，README 只保留项目定位和上手入口。
 

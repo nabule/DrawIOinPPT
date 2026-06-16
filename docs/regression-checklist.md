@@ -6,7 +6,7 @@
 
 - `scripts/dev-check.ps1` 通过
 - `scripts/build.ps1` 通过
-- `scripts/register-addin.ps1` 可完成注册
+- `scripts/register-office-addins.ps1` 可同时完成 PowerPoint 和 Word 注册
 - PowerPoint 中 `Greensoft.DrawioPptAddIn` 可正常加载
 
 ## 2. Ribbon 与选择状态

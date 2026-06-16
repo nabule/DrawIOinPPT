@@ -4,7 +4,7 @@
 
 ## 1. 这是什么
 
-DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io / diagrams.net 图形以“可编辑、可回写、尽量跟着 PPT 一起保存”的方式带进演示文稿。当前分支也新增了 Word Desktop 原生插件，Word 版的专门说明见 [Word 插件设计与使用说明](./word-addin.md)。
+DrawioPpt 是一个面向 PowerPoint 和 Word Desktop 的原生插件，用来把 Draw.io / diagrams.net 图形以“可编辑、可回写、尽量跟着 Office 文件一起保存”的方式带进演示文稿和文档。Word 版的专门说明见 [Word 插件设计与使用说明](./word-addin.md)。
 
 它解决的核心问题是：
 
@@ -17,8 +17,8 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 
 - [安装与联调说明](./installation.md)
 - [Word 插件设计与使用说明](./word-addin.md)
-- [完整 E2E 测试报告](./e2e-test-report-v1.0.3.md)
-- [v1.0.3 发布说明](./release-notes-v1.0.3.md)
+- [完整 E2E 测试报告](./e2e-test-report-v1.0.4.md)
+- [v1.0.4 发布说明](./release-notes-v1.0.4.md)
 - [待优化功能点](./optimization-backlog.md)
 
 ## 2. 当前能做什么
@@ -50,7 +50,7 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 
 第一次使用时，建议按这个顺序：
 
-1. 确认 PowerPoint 已正常加载插件。
+1. 确认 PowerPoint 和 Word 已正常加载插件。
 2. 点击插件里的“设置”。
 3. 先决定你要用 `桌面版` 还是 `网页地址` 模式。
 4. 如果用桌面版，先检查“桌面版路径”。
@@ -58,7 +58,7 @@ DrawioPpt 是一个面向 PowerPoint Desktop 的原生插件，用来把 Draw.io
 6. 再决定是否开启“选中图形时自动打开编辑器”。
 7. 最后再决定是否保留 sidecar 工作文件。
 
-如果你还没有安装插件，先看 [installation.md](./installation.md)。
+如果你还没有安装插件，先看 [installation.md](./installation.md)。发布包中的 `install.cmd` 会同时注册 PowerPoint 和 Word 插件；开发目录调试时使用 `scripts\register-office-addins.ps1`。
 
 ## 4. 功能区说明
 

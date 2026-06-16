@@ -6,7 +6,7 @@
 
 - `scripts/dev-check.ps1` passes
 - `scripts/build.ps1` passes
-- `scripts/register-addin.ps1` completes registration successfully
+- `scripts/register-office-addins.ps1` registers both PowerPoint and Word successfully
 - `Greensoft.DrawioPptAddIn` loads correctly in PowerPoint
 
 ## 2. Ribbon and Selection State
@@ -68,4 +68,4 @@
 ## 8. Registration and Uninstall
 
 - The uninstall script removes registration entries correctly
-- After uninstall, PowerPoint no longer loads the add-in
+- After uninstall, PowerPoint and Word no longer load the add-ins

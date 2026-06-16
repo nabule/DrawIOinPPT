@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.3",
+    [string]$Version = "v1.0.4",
     [switch]$SkipBuild,
     [switch]$KeepInstalled
 )
@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $buildScript = Join-Path $PSScriptRoot "build.ps1"
 $packageScript = Join-Path $PSScriptRoot "package-release.ps1"
-$registerRepoScript = Join-Path $PSScriptRoot "register-addin.ps1"
+$registerRepoScript = Join-Path $PSScriptRoot "register-office-addins.ps1"
 $releaseRoot = Join-Path $repoRoot ("artifacts\\releases\\" + $Version)
 $packageRoot = Join-Path $releaseRoot "package"
 $installRoot = Join-Path $env:TEMP ("DrawioPpt\\installed-" + [Guid]::NewGuid().ToString("N"))
@@ -579,8 +579,8 @@ finally {
         }
     }
 
-    if (Test-Path $registerRepoScript) {
-        & powershell.exe -ExecutionPolicy Bypass -File $registerRepoScript > $null
+if (Test-Path $registerRepoScript) {
+        & powershell.exe -ExecutionPolicy Bypass -File $registerRepoScript -Configuration Release > $null
     }
 
     Restore-Settings

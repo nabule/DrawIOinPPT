@@ -65,22 +65,12 @@ Remove-ExistingInstallRoot -Path $targetRoot
 New-Item -ItemType Directory -Force -Path $targetRoot | Out-Null
 Copy-Item (Join-Path $sourceRoot "*") $targetRoot -Recurse -Force
 
-$registerScript = Join-Path $targetRoot "scripts\\register-addin.ps1"
+$registerScript = Join-Path $targetRoot "scripts\\register-office-addins.ps1"
 if (-not (Test-Path $registerScript)) {
     throw "Register script not found after install: $registerScript"
 }
 
-& powershell.exe -ExecutionPolicy Bypass -File $registerScript -AssemblyPath $targetAssemblyPath
-if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
-}
-
-$registerWordScript = Join-Path $targetRoot "scripts\\register-word-addin.ps1"
-if (-not (Test-Path $registerWordScript)) {
-    throw "Word register script not found after install: $registerWordScript"
-}
-
-& powershell.exe -ExecutionPolicy Bypass -File $registerWordScript -AssemblyPath $targetWordAssemblyPath
+& powershell.exe -ExecutionPolicy Bypass -File $registerScript -PowerPointAssemblyPath $targetAssemblyPath -WordAssemblyPath $targetWordAssemblyPath
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

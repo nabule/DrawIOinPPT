@@ -57,6 +57,15 @@ Responsibilities:
 
 The current Word host reuses public editor and SVG services from the PowerPoint assembly. These shared services can later be extracted into a dedicated `OfficeShared` project.
 
+### 3.4 Installation and Registration Scripts
+
+Responsibilities:
+
+- `scripts\register-office-addins.ps1` is the unified registration entry for repository checkouts and release packages. It registers both current-user COM Add-ins: PowerPoint and Word.
+- `scripts\unregister-office-addins.ps1` is the unified unregister entry and removes both PowerPoint and Word registration entries.
+- `scripts\register-addin.ps1`, `scripts\register-word-addin.ps1`, and their unregister counterparts remain available for single-host diagnostics.
+- The release package's `install.cmd` calls `scripts\install-release.ps1`; after copying files, the installer calls the unified registration entry so Word is not missed when PowerPoint is installed.
+
 ## 4. Data Storage Strategy
 
 ### Initial Version Strategy

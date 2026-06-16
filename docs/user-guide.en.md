@@ -4,7 +4,7 @@
 
 ## 1. What This Is
 
-DrawioPpt is a native PowerPoint Desktop add-in that brings Draw.io / diagrams.net diagrams into presentations in a way that keeps them editable, writable back to the original shape, and stored with the PowerPoint file as much as possible. This branch also adds a native Word Desktop add-in; see [Word add-in design and usage](./word-addin.en.md) for the Word-specific workflow.
+DrawioPpt is a native PowerPoint and Word Desktop add-in that brings Draw.io / diagrams.net diagrams into presentations and documents in a way that keeps them editable, writable back to the original object, and stored with the Office file as much as possible. See [Word add-in design and usage](./word-addin.en.md) for the Word-specific workflow.
 
 It is designed to solve these core problems:
 
@@ -17,8 +17,8 @@ Recommended companion docs:
 
 - [Installation and local debugging guide](./installation.en.md)
 - [Word add-in design and usage](./word-addin.en.md)
-- [Full E2E test report](./e2e-test-report-v1.0.3.en.md)
-- [Release notes for v1.0.3](./release-notes-v1.0.3.en.md)
+- [Full E2E test report](./e2e-test-report-v1.0.4.en.md)
+- [Release notes for v1.0.4](./release-notes-v1.0.4.en.md)
 - [Optimization backlog](./optimization-backlog.en.md)
 
 ## 2. What the Current Version Can Do
@@ -50,7 +50,7 @@ Areas still being improved:
 
 Recommended first-time setup order:
 
-1. Confirm that PowerPoint has loaded the add-in correctly.
+1. Confirm that PowerPoint and Word have loaded their add-ins correctly.
 2. Open `Settings` on the add-in Ribbon.
 3. Decide whether you want to use `Desktop` mode or `URL` mode first.
 4. If you use desktop mode, check the desktop editor path first.
@@ -58,7 +58,7 @@ Recommended first-time setup order:
 6. Decide whether to enable auto-open when selecting a bound shape.
 7. Decide whether to keep sidecar working files next to the PPT.
 
-If the add-in is not installed yet, start with [installation.en.md](./installation.en.md).
+If the add-in is not installed yet, start with [installation.en.md](./installation.en.md). The release package's `install.cmd` registers both PowerPoint and Word; repository-based debugging uses `scripts\register-office-addins.ps1`.
 
 ## 4. Ribbon Overview
 

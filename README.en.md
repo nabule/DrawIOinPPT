@@ -4,9 +4,9 @@
 
 DrawioPpt is a native Draw.io / diagrams.net add-in for Microsoft Office Desktop. It lets you insert, detect, re-edit, and refresh Draw.io diagrams directly in PowerPoint and Word, instead of maintaining diagrams as one-time screenshots.
 
-Current version: `v1.0.3`
+Current version: `v1.0.4`
 
-Release package: [DrawioPpt v1.0.3](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.3)
+Release package: [DrawioPpt v1.0.4](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.4)
 
 ## Value
 
@@ -83,13 +83,21 @@ These tools are useful for inspecting embedded Office XML, manually recovering d
 
 ## Quick Install
 
-1. Download `DrawioPpt-v1.0.3.zip` from the [v1.0.3 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.3).
+1. Download `DrawioPpt-v1.0.4.zip` from the [v1.0.4 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.4).
 2. Extract it to a local folder.
 3. Close PowerPoint and Word.
 4. Double-click `install.cmd`.
 5. Open PowerPoint or Word and confirm that the `Draw.io` Ribbon appears.
 
 To uninstall, close PowerPoint and Word, then run `uninstall.cmd`.
+
+The release installer registers both the PowerPoint and Word add-ins. For repository-based development, build first and then run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\register-office-addins.ps1
+```
+
+If you need to diagnose only one host, use `scripts\register-addin.ps1` or `scripts\register-word-addin.ps1` directly.
 
 ## Documentation
 
@@ -98,9 +106,9 @@ To uninstall, close PowerPoint and Word, then run `uninstall.cmd`.
 - [Word add-in design and usage](./docs/word-addin.en.md)
 - [Architecture](./docs/architecture.en.md)
 - [Regression checklist](./docs/regression-checklist.en.md)
-- [v1.0.3 release notes](./docs/release-notes-v1.0.3.en.md)
-- [v1.0.3 E2E test report](./docs/e2e-test-report-v1.0.3.en.md)
-- [v1.0.3 release evidence and log index](./docs/release-evidence-v1.0.3.en.md)
+- [v1.0.4 release notes](./docs/release-notes-v1.0.4.en.md)
+- [v1.0.4 E2E test report](./docs/e2e-test-report-v1.0.4.en.md)
+- [v1.0.4 release evidence and log index](./docs/release-evidence-v1.0.4.en.md)
 
 Development plans, historical release notes, and optimization backlog live under [docs](./docs/). The README is kept as the project overview and quick-start entry point.
 
