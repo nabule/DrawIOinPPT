@@ -19,20 +19,24 @@ $settingsPath = Join-Path $env:APPDATA "Greensoft\\DrawioPpt\\settings.xml"
 $settingsBackupPath = Join-Path $env:TEMP ("DrawioPpt\\settings-backup-word-" + [Guid]::NewGuid().ToString("N") + ".xml")
 $wordAddInRegistryPath = "HKCU:\\Software\\Microsoft\\Office\\Word\\Addins\\Greensoft.DrawioWordAddIn"
 $savedWordAddInLoadBehavior = $null
+$settingsExistedAtStart = $false
+$settingsBackupCompleted = $false
 
 function Backup-Settings {
-    if (Test-Path $settingsPath) {
+    $script:settingsExistedAtStart = Test-Path $settingsPath
+    if ($script:settingsExistedAtStart) {
         $directory = Split-Path -Parent $settingsBackupPath
         if (-not (Test-Path $directory)) {
             New-Item -ItemType Directory -Force -Path $directory | Out-Null
         }
 
         Copy-Item $settingsPath $settingsBackupPath -Force
+        $script:settingsBackupCompleted = $true
     }
 }
 
 function Restore-Settings {
-    if (Test-Path $settingsBackupPath) {
+    if ($script:settingsBackupCompleted -and (Test-Path $settingsBackupPath)) {
         $settingsDirectory = Split-Path -Parent $settingsPath
         if (-not (Test-Path $settingsDirectory)) {
             New-Item -ItemType Directory -Force -Path $settingsDirectory | Out-Null
@@ -43,7 +47,7 @@ function Restore-Settings {
         return
     }
 
-    if (Test-Path $settingsPath) {
+    if (-not $script:settingsExistedAtStart -and (Test-Path $settingsPath)) {
         Remove-Item $settingsPath -Force
     }
 }
@@ -55,7 +59,23 @@ function Assert-NoRunningWord {
     }
 }
 
+function Wait-ForTestWordExit {
+    $deadlineUtc = [DateTime]::UtcNow.AddSeconds(10)
+    do {
+        $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
+        if (-not $runningWord) {
+            return
+        }
+
+        Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $deadlineUtc)
+
+    throw "Word E2E 结束后仍检测到 WINWORD.EXE；请关闭 Word 后再重试。"
+}
+
 function Disable-RegisteredWordAddIn {
+    Assert-NoRunningWord
+
     if (-not (Test-Path $wordAddInRegistryPath)) {
         Write-Host "RegisteredWordAddIn=NotRegistered"
         return
@@ -482,14 +502,19 @@ try {
         }
 
         $testExitCode = [int]$exitCode
+        Wait-ForTestWordExit
     }
     finally {
         Pop-Location
     }
 }
 finally {
-    Restore-RegisteredWordAddIn
-    Restore-Settings
+    try {
+        Restore-RegisteredWordAddIn
+    }
+    finally {
+        Restore-Settings
+    }
 }
 
 exit $testExitCode

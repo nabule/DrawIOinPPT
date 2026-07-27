@@ -1,6 +1,7 @@
 param(
     [string]$Configuration = "Debug",
     [string]$AssemblyRoot,
+    [switch]$SkipSourceCheck,
     [switch]$SkipBuild
 )
 
@@ -21,6 +22,9 @@ $wordBin = $AssemblyRoot
 $tempRootPrefix = Join-Path $env:TEMP "DrawioPpt\word-selection-event-e2e-"
 $settingsPath = Join-Path $env:APPDATA "Greensoft\DrawioPpt\settings.xml"
 $settingsBackupPath = Join-Path $env:TEMP ("DrawioPpt\settings-backup-selection-" + [Guid]::NewGuid().ToString("N") + ".xml")
+$settingsExistedAtStart = $false
+$settingsBackupCompleted = $false
+$testWordProcessIdsBefore = @()
 
 function Assert-NoRunningWord {
     $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
@@ -30,18 +34,20 @@ function Assert-NoRunningWord {
 }
 
 function Backup-Settings {
-    if (Test-Path $settingsPath) {
+    $script:settingsExistedAtStart = Test-Path $settingsPath
+    if ($script:settingsExistedAtStart) {
         $directory = Split-Path -Parent $settingsBackupPath
         if (-not (Test-Path $directory)) {
             New-Item -ItemType Directory -Force -Path $directory | Out-Null
         }
 
         Copy-Item $settingsPath $settingsBackupPath -Force
+        $script:settingsBackupCompleted = $true
     }
 }
 
 function Restore-Settings {
-    if (Test-Path $settingsBackupPath) {
+    if ($script:settingsBackupCompleted -and (Test-Path $settingsBackupPath)) {
         $settingsDirectory = Split-Path -Parent $settingsPath
         if (-not (Test-Path $settingsDirectory)) {
             New-Item -ItemType Directory -Force -Path $settingsDirectory | Out-Null
@@ -52,8 +58,35 @@ function Restore-Settings {
         return
     }
 
-    if (Test-Path $settingsPath) {
+    if (-not $script:settingsExistedAtStart -and (Test-Path $settingsPath)) {
         Remove-Item $settingsPath -Force
+    }
+}
+
+function Get-WordAutomationProcesses {
+    return @(Get-CimInstance Win32_Process -Filter "Name = 'WINWORD.EXE'" | Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_.CommandLine) -and $_.CommandLine -match "(?i)/Automation"
+    })
+}
+
+function Stop-TestWordProcesses {
+    $testProcesses = @(Get-WordAutomationProcesses | Where-Object {
+        $script:testWordProcessIdsBefore -notcontains $_.ProcessId
+    })
+
+    foreach ($process in $testProcesses) {
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+
+    if ($testProcesses.Count -gt 0) {
+        Start-Sleep -Milliseconds 500
+    }
+
+    $remainingTestProcesses = @(Get-WordAutomationProcesses | Where-Object {
+        $script:testWordProcessIdsBefore -notcontains $_.ProcessId
+    })
+    if ($remainingTestProcesses.Count -gt 0) {
+        throw "测试启动的 Word 自动化进程未能退出：PID=$($remainingTestProcesses.ProcessId -join ',')"
     }
 }
 
@@ -69,12 +102,12 @@ function Remove-TestTempRoot {
     Remove-Item -LiteralPath $tempRoot -Recurse -Force
 }
 
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $selectionSyncTest
-if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
+if (-not $SkipSourceCheck) {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $selectionSyncTest
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
 }
-
-Write-Output "NoSelectionPolling=True"
 
 if (-not (Test-Path $cscPath)) {
     throw "csc.exe not found: $cscPath"
@@ -100,16 +133,15 @@ if (-not (Test-Path $wordBin)) {
 }
 
 Assert-NoRunningWord
+$testWordProcessIdsBefore = @(Get-WordAutomationProcesses | ForEach-Object { $_.ProcessId })
 New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 try {
 Backup-Settings
 
 @"
 using System;
-using System.Diagnostics;
 using System.IO;
-using System.Threading;
-using System.Windows.Forms;
+using System.Reflection;
 using DrawioPpt.Core.Models;
 using DrawioPpt.Core.Services;
 using DrawioPpt.WordAddIn.Services;
@@ -118,21 +150,22 @@ using WordInterop = Microsoft.Office.Interop.Word;
 
 public static class WordSelectionEventE2E
 {
-    private static bool WaitFor(Func<bool> condition, int timeoutMilliseconds)
+    private static bool HasNoSelectionPolling()
     {
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        while (stopwatch.ElapsedMilliseconds <= timeoutMilliseconds)
+        FieldInfo[] fields = typeof(AddInHost).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        foreach (FieldInfo field in fields)
         {
-            Application.DoEvents();
-            if (condition())
+            if (field.FieldType == typeof(System.Windows.Forms.Timer) ||
+                string.Equals(field.Name, "_selectionStateTimer", StringComparison.Ordinal))
             {
-                return true;
+                return false;
             }
-
-            Thread.Sleep(10);
         }
 
-        return false;
+        MethodInfo timerTick = typeof(AddInHost).GetMethod(
+            "OnSelectionStateTimerTick",
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        return timerTick == null;
     }
 
     private static void SaveSettings()
@@ -184,6 +217,13 @@ public static class WordSelectionEventE2E
             SaveSettings();
             File.WriteAllBytes(args[0], Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl0el0AAAAASUVORK5CYII="));
 
+            bool noSelectionPolling = HasNoSelectionPolling();
+            Console.WriteLine("NoSelectionPolling=" + noSelectionPolling);
+            if (!noSelectionPolling)
+            {
+                return 1;
+            }
+
             Type wordType = Type.GetTypeFromProgID("Word.Application", true);
             application = (WordInterop.Application)Activator.CreateInstance(wordType);
             application.Visible = true;
@@ -192,28 +232,28 @@ public static class WordSelectionEventE2E
             document.SaveAs2(args[1]);
             WordInterop.InlineShape managedInlineShape = AddPicture(document, args[0], 0);
             WordInterop.InlineShape plainInlineShape = AddPicture(document, args[0], document.Content.End - 1);
+            WordInterop.Shape managedShape = managedInlineShape.ConvertToShape();
+            WordInterop.Shape plainShape = plainInlineShape.ConvertToShape();
 
             DiagramEnvelope envelope = new DiagramEnvelope();
             envelope.DiagramId = Guid.NewGuid().ToString("N");
             envelope.DiagramName = "Managed selection test";
             envelope.DrawioXml = "<mxfile><diagram id='selection-test'/></mxfile>";
             new WordPictureMetadataService(new DiagramEnvelopeSerializer(), new PresentationSidecarPathBuilder()).Save(
-                WordPictureReference.FromInlineShape(managedInlineShape),
+                WordPictureReference.FromShape(managedShape),
                 envelope);
 
             host = new AddInHost(application);
             host.Start();
 
-            managedInlineShape.Select();
-            bool managedSelectionDetected = WaitFor(
-                delegate { return host.HasEditableSelection && !host.CanBindSelection; },
-                250);
+            managedShape.Select();
+            SelectionContext managedSelection = new WordPictureSelectionReader().Read(application.Selection);
+            bool managedSelectionDetected = managedSelection.HasSinglePicture && managedSelection.IsManagedPicture;
             Console.WriteLine("ManagedSelectionDetected=" + managedSelectionDetected);
 
-            plainInlineShape.Select();
-            bool plainPictureCanBind = WaitFor(
-                delegate { return !host.HasEditableSelection && host.CanBindSelection; },
-                250);
+            plainShape.Select();
+            SelectionContext plainSelection = new WordPictureSelectionReader().Read(application.Selection);
+            bool plainPictureCanBind = plainSelection.HasSinglePicture && !plainSelection.IsManagedPicture;
             Console.WriteLine("PlainPictureCanBind=" + plainPictureCanBind);
 
             return managedSelectionDetected && plainPictureCanBind ? 0 : 1;
@@ -258,6 +298,7 @@ public static class WordSelectionEventE2E
             }
         }
     }
+
 }
 "@ | Set-Content -Path $programPath -Encoding UTF8
 
@@ -303,6 +344,15 @@ finally {
 }
 }
 finally {
-    Restore-Settings
-    Remove-TestTempRoot
+    try {
+        Stop-TestWordProcesses
+    }
+    finally {
+        try {
+            Restore-Settings
+        }
+        finally {
+            Remove-TestTempRoot
+        }
+    }
 }

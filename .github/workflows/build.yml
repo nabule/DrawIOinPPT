@@ -23,6 +23,11 @@ jobs:
         run: |
           ./scripts/build.ps1 -Configuration Release -Platform x64
 
+      - name: Verify Word selection synchronization contract
+        shell: pwsh
+        run: |
+          ./scripts/word-selection-sync-test.ps1
+
       - name: Package release
         shell: pwsh
         run: |
