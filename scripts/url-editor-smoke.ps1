@@ -34,54 +34,6 @@ function Get-SmokeInputPath {
     throw "$Label not found. Checked: $($Candidates -join '; ')"
 }
 
-function Start-MockHttpServer {
-    param(
-        [int]$Port,
-        [string]$HtmlPath
-    )
-
-    $job = Start-Job -ArgumentList $Port, $HtmlPath -ScriptBlock {
-        param(
-            [int]$Port,
-            [string]$HtmlPath
-        )
-
-        $listener = New-Object System.Net.HttpListener
-        $listener.Prefixes.Add("http://127.0.0.1:$Port/")
-        $listener.Prefixes.Add("http://localhost:$Port/")
-        $listener.Start()
-
-        try {
-            while ($true) {
-                $context = $listener.GetContext()
-                try {
-                    $path = $context.Request.Url.AbsolutePath
-                    if ($path -eq "/" -or $path -eq "/mock-editor.html") {
-                        $bytes = [System.IO.File]::ReadAllBytes($HtmlPath)
-                        $context.Response.StatusCode = 200
-                        $context.Response.ContentType = "text/html; charset=utf-8"
-                        $context.Response.ContentLength64 = $bytes.Length
-                        $context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
-                    }
-                    else {
-                        $context.Response.StatusCode = 404
-                    }
-                }
-                finally {
-                    $context.Response.Close()
-                }
-            }
-        }
-        finally {
-            $listener.Stop()
-            $listener.Close()
-        }
-    }
-
-    Start-Sleep -Seconds 2
-    return $job
-}
-
 if (-not $SkipBuild -and (Test-Path $buildScript) -and ((Test-Path $powerPointReleaseBin) -or (Test-Path $powerPointDebugBin))) {
     & powershell.exe -ExecutionPolicy Bypass -File $buildScript
     if ($LASTEXITCODE -ne 0) {
@@ -137,9 +89,102 @@ New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 
 @"
 using System;
+using System.IO;
+using System.Net;
+using System.Threading;
 using System.Windows.Forms;
 using DrawioPpt.PowerPointAddIn.Services;
 using DrawioPpt.PowerPointAddIn.UI;
+
+public sealed class MockEditorServer : IDisposable
+{
+    private readonly HttpListener _listener;
+    private readonly string _htmlPath;
+    private Thread _worker;
+
+    public MockEditorServer(int port, string htmlPath)
+    {
+        _listener = new HttpListener();
+        _listener.Prefixes.Add("http://127.0.0.1:" + port + "/");
+        _listener.Prefixes.Add("http://localhost:" + port + "/");
+        _htmlPath = htmlPath;
+    }
+
+    public void Start()
+    {
+        _listener.Start();
+        _worker = new Thread(Listen);
+        _worker.IsBackground = true;
+        _worker.Start();
+        Console.WriteLine("MockHttpServerState=Running");
+    }
+
+    public void AssertReachable()
+    {
+        string requestUrl = "http://127.0.0.1:$serverPort/mock-editor.html?configure=1";
+        using (WebClient client = new WebClient())
+        {
+            string html = client.DownloadString(requestUrl);
+            if (html.IndexOf("window.parent.postMessage", StringComparison.Ordinal) < 0)
+            {
+                throw new InvalidOperationException("Mock HTTP server returned unexpected editor content.");
+            }
+        }
+
+        Console.WriteLine("MockHttpReachable=True");
+    }
+
+    private void Listen()
+    {
+        while (_listener.IsListening)
+        {
+            HttpListenerContext context;
+            try
+            {
+                context = _listener.GetContext();
+            }
+            catch (HttpListenerException)
+            {
+                return;
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+
+            try
+            {
+                string path = context.Request.Url.AbsolutePath;
+                Console.WriteLine("MOCK_HTTP=" + context.Request.HttpMethod + " " + context.Request.Url.PathAndQuery);
+                if (string.Equals(path, "/", StringComparison.Ordinal) || string.Equals(path, "/mock-editor.html", StringComparison.Ordinal))
+                {
+                    byte[] bytes = File.ReadAllBytes(_htmlPath);
+                    context.Response.StatusCode = 200;
+                    context.Response.ContentType = "text/html; charset=utf-8";
+                    context.Response.ContentLength64 = bytes.Length;
+                    context.Response.OutputStream.Write(bytes, 0, bytes.Length);
+                }
+                else
+                {
+                    context.Response.StatusCode = 404;
+                }
+            }
+            finally
+            {
+                context.Response.Close();
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        _listener.Close();
+        if (_worker != null)
+        {
+            _worker.Join(5000);
+        }
+    }
+}
 
 public static class UrlEditorSmoke
 {
@@ -149,31 +194,46 @@ public static class UrlEditorSmoke
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        PluginTraceLog traceLog = new PluginTraceLog();
-        string editorUrl = "http://127.0.0.1:$serverPort/mock-editor.html";
-        string xml = "<mxfile host=\"Smoke\"><diagram id=\"smoke\" name=\"Smoke\"><mxGraphModel /></diagram></mxfile>";
-        bool saved = false;
-        string savedSvg = string.Empty;
-        string savedXml = string.Empty;
-
-        using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(editorUrl, "URL Smoke", xml, true, traceLog))
+        MockEditorServer mockServer = null;
+        try
         {
-            form.DiagramSaved += delegate(object sender, UrlDiagramSavedEventArgs args)
+            mockServer = new MockEditorServer($serverPort, @"$mockHtmlPath");
+            mockServer.Start();
+            mockServer.AssertReachable();
+
+            PluginTraceLog traceLog = new PluginTraceLog();
+            string editorUrl = "http://127.0.0.1:$serverPort/mock-editor.html";
+            string xml = "<mxfile host=\"Smoke\"><diagram id=\"smoke\" name=\"Smoke\"><mxGraphModel /></diagram></mxfile>";
+            bool saved = false;
+            string savedSvg = string.Empty;
+            string savedXml = string.Empty;
+
+            using (UrlDiagramEditorForm form = new UrlDiagramEditorForm(editorUrl, "URL Smoke", xml, true, traceLog))
             {
-                saved = true;
-                savedSvg = args.SvgMarkup ?? string.Empty;
-                savedXml = args.Xml ?? string.Empty;
-            };
+                form.DiagramSaved += delegate(object sender, UrlDiagramSavedEventArgs args)
+                {
+                    saved = true;
+                    savedSvg = args.SvgMarkup ?? string.Empty;
+                    savedXml = args.Xml ?? string.Empty;
+                };
 
-            DialogResult result = form.ShowDialog();
-            Console.WriteLine("DialogResult=" + result);
+                DialogResult result = form.ShowDialog();
+                Console.WriteLine("DialogResult=" + result);
+            }
+
+            Console.WriteLine("Saved=" + saved);
+            Console.WriteLine("SvgHasSmoke=" + savedSvg.Contains("smoke"));
+            Console.WriteLine("XmlHasSmokeId=" + savedXml.Contains("id=\"smoke\""));
+            Console.WriteLine("LogPath=" + traceLog.LogPath);
+            return saved && savedSvg.Contains("smoke") && savedXml.Contains("id=\"smoke\"") ? 0 : 1;
         }
-
-        Console.WriteLine("Saved=" + saved);
-        Console.WriteLine("SvgHasSmoke=" + savedSvg.Contains("smoke"));
-        Console.WriteLine("XmlHasSmokeId=" + savedXml.Contains("id=\"smoke\""));
-        Console.WriteLine("LogPath=" + traceLog.LogPath);
-        return saved && savedSvg.Contains("smoke") && savedXml.Contains("id=\"smoke\"") ? 0 : 1;
+        finally
+        {
+            if (mockServer != null)
+            {
+                mockServer.Dispose();
+            }
+        }
     }
 }
 "@ | Set-Content -Path $smokeSourcePath -Encoding UTF8
@@ -230,22 +290,18 @@ $compileArguments = @(
 
 & $cscPath @compileArguments
 
-$server = Start-MockHttpServer -Port $serverPort -HtmlPath $mockHtmlPath
-
+$testExitCode = 1
 try {
-    Start-Sleep -Seconds 2
     Push-Location $tempRoot
     try {
         & $smokeExePath
-        exit $LASTEXITCODE
+        $testExitCode = $LASTEXITCODE
     }
     finally {
         Pop-Location
     }
 }
 finally {
-    if ($server) {
-        Stop-Job -Job $server -ErrorAction SilentlyContinue | Out-Null
-        Remove-Job -Job $server -Force -ErrorAction SilentlyContinue | Out-Null
-    }
 }
+
+exit $testExitCode

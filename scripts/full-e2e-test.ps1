@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.5",
+    [string]$Version = "v1.0.6",
     [switch]$SkipBuild,
     [switch]$KeepInstalled
 )
@@ -79,54 +79,6 @@ function Restore-Settings {
     }
 }
 
-function Start-MockHttpServer {
-    param(
-        [int]$Port,
-        [string]$HtmlPath
-    )
-
-    $job = Start-Job -ArgumentList $Port, $HtmlPath -ScriptBlock {
-        param(
-            [int]$Port,
-            [string]$HtmlPath
-        )
-
-        $listener = New-Object System.Net.HttpListener
-        $listener.Prefixes.Add("http://127.0.0.1:$Port/")
-        $listener.Prefixes.Add("http://localhost:$Port/")
-        $listener.Start()
-
-        try {
-            while ($true) {
-                $context = $listener.GetContext()
-                try {
-                    $path = $context.Request.Url.AbsolutePath
-                    if ($path -eq "/" -or $path -eq "/mock-editor.html") {
-                        $bytes = [System.IO.File]::ReadAllBytes($HtmlPath)
-                        $context.Response.StatusCode = 200
-                        $context.Response.ContentType = "text/html; charset=utf-8"
-                        $context.Response.ContentLength64 = $bytes.Length
-                        $context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
-                    }
-                    else {
-                        $context.Response.StatusCode = 404
-                    }
-                }
-                finally {
-                    $context.Response.Close()
-                }
-            }
-        }
-        finally {
-            $listener.Stop()
-            $listener.Close()
-        }
-    }
-
-    Start-Sleep -Seconds 2
-    return $job
-}
-
 function Compile-And-Run-PowerPointUrlE2E {
     param(
         [string]$InstalledRoot
@@ -195,6 +147,7 @@ function Compile-And-Run-PowerPointUrlE2E {
     @"
 using System;
 using System.IO;
+using System.Net;
 using System.Threading;
 using System.Windows.Forms;
 using DrawioPpt.Core.Models;
@@ -202,6 +155,96 @@ using DrawioPpt.Core.Services;
 using DrawioPpt.PowerPointAddIn.Services;
 using Microsoft.Office.Core;
 using PptInterop = Microsoft.Office.Interop.PowerPoint;
+
+public sealed class MockEditorServer : IDisposable
+{
+    private readonly HttpListener _listener;
+    private readonly string _htmlPath;
+    private Thread _worker;
+
+    public MockEditorServer(int port, string htmlPath)
+    {
+        _listener = new HttpListener();
+        _listener.Prefixes.Add("http://127.0.0.1:" + port + "/");
+        _listener.Prefixes.Add("http://localhost:" + port + "/");
+        _htmlPath = htmlPath;
+    }
+
+    public void Start()
+    {
+        _listener.Start();
+        _worker = new Thread(Listen);
+        _worker.IsBackground = true;
+        _worker.Start();
+        Console.WriteLine("MockHttpServerState=Running");
+    }
+
+    public void AssertReachable()
+    {
+        string requestUrl = "http://127.0.0.1:$serverPort/mock-editor.html?configure=1";
+        using (WebClient client = new WebClient())
+        {
+            string html = client.DownloadString(requestUrl);
+            if (html.IndexOf("window.parent.postMessage", StringComparison.Ordinal) < 0)
+            {
+                throw new InvalidOperationException("Mock HTTP server returned unexpected editor content.");
+            }
+        }
+
+        Console.WriteLine("MockHttpReachable=True");
+    }
+
+    private void Listen()
+    {
+        while (_listener.IsListening)
+        {
+            HttpListenerContext context;
+            try
+            {
+                context = _listener.GetContext();
+            }
+            catch (HttpListenerException)
+            {
+                return;
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+
+            try
+            {
+                string path = context.Request.Url.AbsolutePath;
+                Console.WriteLine("MOCK_HTTP=" + context.Request.HttpMethod + " " + context.Request.Url.PathAndQuery);
+                if (string.Equals(path, "/", StringComparison.Ordinal) || string.Equals(path, "/mock-editor.html", StringComparison.Ordinal))
+                {
+                    byte[] bytes = File.ReadAllBytes(_htmlPath);
+                    context.Response.StatusCode = 200;
+                    context.Response.ContentType = "text/html; charset=utf-8";
+                    context.Response.ContentLength64 = bytes.Length;
+                    context.Response.OutputStream.Write(bytes, 0, bytes.Length);
+                }
+                else
+                {
+                    context.Response.StatusCode = 404;
+                }
+            }
+            finally
+            {
+                context.Response.Close();
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        _listener.Close();
+        if (_worker != null)
+        {
+            _worker.Join(5000);
+        }
+    }
+}
 
 public static class PowerPointUrlE2E
 {
@@ -280,15 +323,21 @@ public static class PowerPointUrlE2E
         settings.AutoUpdateOnSave = true;
         settings.KeepSidecarFile = true;
         settings.SidecarFolderName = "drawio-e2e-reopen";
+        settings.ShowDiagramInfoDialog = false;
         new FilePluginSettingsStore().Save(settings);
 
         PptInterop.Application application = null;
         AddInHost host = null;
         PptInterop.Presentation presentation = null;
+        MockEditorServer mockServer = null;
         DiagramEnvelopeSerializer serializer = new DiagramEnvelopeSerializer();
 
         try
         {
+            mockServer = new MockEditorServer($serverPort, @"$mockHtmlPath");
+            mockServer.Start();
+            mockServer.AssertReachable();
+
             Type pptType = Type.GetTypeFromProgID("PowerPoint.Application", true);
             application = (PptInterop.Application)Activator.CreateInstance(pptType);
             application.Visible = MsoTriState.msoTrue;
@@ -372,6 +421,11 @@ public static class PowerPointUrlE2E
         }
         finally
         {
+            if (mockServer != null)
+            {
+                mockServer.Dispose();
+            }
+
             if (presentation != null)
             {
                 try
@@ -434,28 +488,18 @@ public static class PowerPointUrlE2E
         exit $LASTEXITCODE
     }
 
-    $server = Start-MockHttpServer -Port $serverPort -HtmlPath $mockHtmlPath
+    Push-Location $tempRoot
     try {
-        Start-Sleep -Seconds 2
-        Push-Location $tempRoot
-        try {
-            $runOutput = & $exePath 2>&1
-            $exitCode = $LASTEXITCODE
-            if ($runOutput) {
-                $runOutput | ForEach-Object { Write-Host $_ }
-            }
+        $runOutput = & $exePath 2>&1
+        $exitCode = $LASTEXITCODE
+        if ($runOutput) {
+            $runOutput | ForEach-Object { Write-Host $_ }
+        }
 
-            return [int]$exitCode
-        }
-        finally {
-            Pop-Location
-        }
+        return [int]$exitCode
     }
     finally {
-        if ($server) {
-            Stop-Job -Job $server -ErrorAction SilentlyContinue | Out-Null
-            Remove-Job -Job $server -Force -ErrorAction SilentlyContinue | Out-Null
-        }
+        Pop-Location
     }
 }
 
