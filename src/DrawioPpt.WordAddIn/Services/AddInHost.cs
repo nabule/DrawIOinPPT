@@ -30,7 +30,6 @@ namespace DrawioPpt.WordAddIn.Services
         private readonly DesktopDiagramMonitor _desktopDiagramMonitor;
         private readonly PluginTraceLog _traceLog;
         private readonly UserNotifier _userNotifier;
-        private readonly Timer _selectionStateTimer;
         private readonly SelectionMonitor _selectionMonitor;
         private static readonly Encoding Utf8WithoutBom = new UTF8Encoding(false);
         private PluginSettings _settings;
@@ -57,9 +56,6 @@ namespace DrawioPpt.WordAddIn.Services
             _desktopDiagramMonitor = new DesktopDiagramMonitor(RefreshDiagramFromMonitoredFile);
             _traceLog = new PluginTraceLog();
             _userNotifier = new UserNotifier();
-            _selectionStateTimer = new Timer();
-            _selectionStateTimer.Interval = 500;
-            _selectionStateTimer.Tick += OnSelectionStateTimerTick;
             _selectionMonitor = new SelectionMonitor(application, new WordPictureSelectionReader(_envelopeSerializer, _selectedPictureAccessor));
             _selectionMonitor.SelectionChanged += OnSelectionChanged;
             _selectionMonitor.SelectionDoubleClicked += OnSelectionDoubleClicked;
@@ -110,7 +106,6 @@ namespace DrawioPpt.WordAddIn.Services
 
                 _traceLog.Info("WordAddInHost", "Starting Word add-in host. EditorMode=" + _settings.EditorMode + ", EditorUrl=" + (_settings.EditorUrl ?? string.Empty) + ", DesktopPath=" + (_settings.DesktopEditorPath ?? string.Empty));
                 _selectionMonitor.Start();
-                _selectionStateTimer.Start();
                 ApplySelectionContext(ReadLiveSelectionContext(), false);
                 MaybeCleanupActiveDocument(true);
             });
@@ -118,9 +113,6 @@ namespace DrawioPpt.WordAddIn.Services
 
         public void Dispose()
         {
-            _selectionStateTimer.Stop();
-            _selectionStateTimer.Tick -= OnSelectionStateTimerTick;
-            _selectionStateTimer.Dispose();
             _selectionMonitor.Dispose();
             _desktopDiagramMonitor.Dispose();
         }
@@ -420,14 +412,6 @@ namespace DrawioPpt.WordAddIn.Services
         private string BuildNextDiagramName()
         {
             return "Drawio Diagram " + DateTime.Now.ToString("yyyyMMdd-HHmmss");
-        }
-
-        private void OnSelectionStateTimerTick(object sender, EventArgs e)
-        {
-            ExecuteGuarded("OnSelectionStateTimerTick", "同步 Word 选中状态时出现异常。", false, delegate
-            {
-                ApplySelectionContext(ReadLiveSelectionContext(), true);
-            });
         }
 
         private void RefreshDiagramFromMonitoredFile(string diagramId, string filePath)

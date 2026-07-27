@@ -1,0 +1,308 @@
+param(
+    [string]$Configuration = "Debug",
+    [string]$AssemblyRoot,
+    [switch]$SkipBuild
+)
+
+$ErrorActionPreference = "Stop"
+
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$selectionSyncTest = Join-Path $PSScriptRoot "word-selection-sync-test.ps1"
+$buildScript = Join-Path $PSScriptRoot "build.ps1"
+$tempRoot = Join-Path $env:TEMP ("DrawioPpt\word-selection-event-e2e-" + [Guid]::NewGuid().ToString("N"))
+$programPath = Join-Path $tempRoot "word-selection-event-e2e.cs"
+$exePath = Join-Path $tempRoot "word-selection-event-e2e.exe"
+$imagePath = Join-Path $tempRoot "selection-test.png"
+$documentPath = Join-Path $tempRoot "word-selection-event.docx"
+$cscPath = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+$interopWord = "C:\Windows\assembly\GAC_MSIL\Microsoft.Office.Interop.Word\15.0.0.0__71e9bce111e9429c\Microsoft.Office.Interop.Word.dll"
+$officeCore = "C:\Windows\assembly\GAC_MSIL\office\15.0.0.0__71e9bce111e9429c\OFFICE.DLL"
+$wordBin = $AssemblyRoot
+$tempRootPrefix = Join-Path $env:TEMP "DrawioPpt\word-selection-event-e2e-"
+$settingsPath = Join-Path $env:APPDATA "Greensoft\DrawioPpt\settings.xml"
+$settingsBackupPath = Join-Path $env:TEMP ("DrawioPpt\settings-backup-selection-" + [Guid]::NewGuid().ToString("N") + ".xml")
+
+function Assert-NoRunningWord {
+    $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
+    if ($runningWord) {
+        throw "请先关闭正在运行的 Word，再执行 Word 选区事件 E2E 测试。"
+    }
+}
+
+function Backup-Settings {
+    if (Test-Path $settingsPath) {
+        $directory = Split-Path -Parent $settingsBackupPath
+        if (-not (Test-Path $directory)) {
+            New-Item -ItemType Directory -Force -Path $directory | Out-Null
+        }
+
+        Copy-Item $settingsPath $settingsBackupPath -Force
+    }
+}
+
+function Restore-Settings {
+    if (Test-Path $settingsBackupPath) {
+        $settingsDirectory = Split-Path -Parent $settingsPath
+        if (-not (Test-Path $settingsDirectory)) {
+            New-Item -ItemType Directory -Force -Path $settingsDirectory | Out-Null
+        }
+
+        Copy-Item $settingsBackupPath $settingsPath -Force
+        Remove-Item $settingsBackupPath -Force
+        return
+    }
+
+    if (Test-Path $settingsPath) {
+        Remove-Item $settingsPath -Force
+    }
+}
+
+function Remove-TestTempRoot {
+    if (-not (Test-Path $tempRoot)) {
+        return
+    }
+
+    if (-not $tempRoot.StartsWith($tempRootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "拒绝清理不属于 Word 选区事件 E2E 的临时目录：$tempRoot"
+    }
+
+    Remove-Item -LiteralPath $tempRoot -Recurse -Force
+}
+
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $selectionSyncTest
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
+Write-Output "NoSelectionPolling=True"
+
+if (-not (Test-Path $cscPath)) {
+    throw "csc.exe not found: $cscPath"
+}
+
+if (-not $SkipBuild) {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $buildScript -Configuration $Configuration -Platform x64
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($wordBin)) {
+    $wordBin = Join-Path $repoRoot ("src\DrawioPpt.WordAddIn\bin\x64\" + $Configuration)
+}
+
+if (Test-Path $wordBin) {
+    $wordBin = (Resolve-Path $wordBin).Path
+}
+
+if (-not (Test-Path $wordBin)) {
+    throw "Word add-in assembly root not found: $wordBin"
+}
+
+Assert-NoRunningWord
+New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
+try {
+Backup-Settings
+
+@"
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using System.Windows.Forms;
+using DrawioPpt.Core.Models;
+using DrawioPpt.Core.Services;
+using DrawioPpt.WordAddIn.Services;
+using DrawioPpt.WordAddIn.Word;
+using WordInterop = Microsoft.Office.Interop.Word;
+
+public static class WordSelectionEventE2E
+{
+    private static bool WaitFor(Func<bool> condition, int timeoutMilliseconds)
+    {
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        while (stopwatch.ElapsedMilliseconds <= timeoutMilliseconds)
+        {
+            Application.DoEvents();
+            if (condition())
+            {
+                return true;
+            }
+
+            Thread.Sleep(10);
+        }
+
+        return false;
+    }
+
+    private static void SaveSettings()
+    {
+        PluginSettings settings = new PluginSettings();
+        settings.AutoOpenOnSelection = false;
+        settings.AutoUpdateOnSave = false;
+        settings.KeepSidecarFile = false;
+        settings.ShowDiagramInfoDialog = false;
+        new FilePluginSettingsStore().Save(settings);
+    }
+
+    private static WordInterop.InlineShape AddPicture(WordInterop.Document document, string imagePath, int position)
+    {
+        object linkToFile = false;
+        object saveWithDocument = true;
+        object range = document.Range(position, position);
+        return document.InlineShapes.AddPicture(imagePath, ref linkToFile, ref saveWithDocument, ref range);
+    }
+
+    private static void SaveAndCloseDocument(ref WordInterop.Document document)
+    {
+        if (document == null)
+        {
+            return;
+        }
+
+        object saveChanges = WordInterop.WdSaveOptions.wdDoNotSaveChanges;
+        object originalFormat = Type.Missing;
+        object routeDocument = Type.Missing;
+        ((WordInterop._Document)document).Close(ref saveChanges, ref originalFormat, ref routeDocument);
+        document = null;
+    }
+
+    [STAThread]
+    public static int Main(string[] args)
+    {
+        WordInterop.Application application = null;
+        WordInterop.Document document = null;
+        AddInHost host = null;
+
+        try
+        {
+            if (args == null || args.Length != 2 || string.IsNullOrWhiteSpace(args[0]) || string.IsNullOrWhiteSpace(args[1]))
+            {
+                throw new ArgumentException("Expected temporary image and document paths.");
+            }
+
+            SaveSettings();
+            File.WriteAllBytes(args[0], Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl0el0AAAAASUVORK5CYII="));
+
+            Type wordType = Type.GetTypeFromProgID("Word.Application", true);
+            application = (WordInterop.Application)Activator.CreateInstance(wordType);
+            application.Visible = true;
+            document = application.Documents.Add();
+
+            document.SaveAs2(args[1]);
+            WordInterop.InlineShape managedInlineShape = AddPicture(document, args[0], 0);
+            WordInterop.InlineShape plainInlineShape = AddPicture(document, args[0], document.Content.End - 1);
+
+            DiagramEnvelope envelope = new DiagramEnvelope();
+            envelope.DiagramId = Guid.NewGuid().ToString("N");
+            envelope.DiagramName = "Managed selection test";
+            envelope.DrawioXml = "<mxfile><diagram id='selection-test'/></mxfile>";
+            new WordPictureMetadataService(new DiagramEnvelopeSerializer(), new PresentationSidecarPathBuilder()).Save(
+                WordPictureReference.FromInlineShape(managedInlineShape),
+                envelope);
+
+            host = new AddInHost(application);
+            host.Start();
+
+            managedInlineShape.Select();
+            bool managedSelectionDetected = WaitFor(
+                delegate { return host.HasEditableSelection && !host.CanBindSelection; },
+                250);
+            Console.WriteLine("ManagedSelectionDetected=" + managedSelectionDetected);
+
+            plainInlineShape.Select();
+            bool plainPictureCanBind = WaitFor(
+                delegate { return !host.HasEditableSelection && host.CanBindSelection; },
+                250);
+            Console.WriteLine("PlainPictureCanBind=" + plainPictureCanBind);
+
+            return managedSelectionDetected && plainPictureCanBind ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("CaughtType=" + ex.GetType().FullName);
+            Console.WriteLine("CaughtMessage=" + ex.Message);
+            Console.WriteLine("CaughtStack=" + ex.StackTrace);
+            return 99;
+        }
+        finally
+        {
+            if (host != null)
+            {
+                host.Dispose();
+            }
+
+            if (document != null)
+            {
+                try
+                {
+                    SaveAndCloseDocument(ref document);
+                }
+                catch
+                {
+                }
+            }
+
+            if (application != null)
+            {
+                try
+                {
+                    object saveChanges = WordInterop.WdSaveOptions.wdDoNotSaveChanges;
+                    object originalFormat = Type.Missing;
+                    object routeDocument = Type.Missing;
+                    ((WordInterop._Application)application).Quit(ref saveChanges, ref originalFormat, ref routeDocument);
+                }
+                catch
+                {
+                }
+            }
+        }
+    }
+}
+"@ | Set-Content -Path $programPath -Encoding UTF8
+
+Copy-Item (Join-Path $wordBin "DrawioPpt.Core.dll") $tempRoot -Force
+Copy-Item (Join-Path $wordBin "DrawioPpt.PowerPointAddIn.dll") $tempRoot -Force
+Copy-Item (Join-Path $wordBin "DrawioPpt.WordAddIn.dll") $tempRoot -Force
+
+$compileArguments = @(
+    "/nologo",
+    "/t:exe",
+    "/platform:x64",
+    "/out:$exePath",
+    "/r:$([IO.Path]::Combine($tempRoot, 'DrawioPpt.Core.dll'))",
+    "/r:$([IO.Path]::Combine($tempRoot, 'DrawioPpt.PowerPointAddIn.dll'))",
+    "/r:$([IO.Path]::Combine($tempRoot, 'DrawioPpt.WordAddIn.dll'))",
+    "/r:$interopWord",
+    "/r:$officeCore",
+    "/r:System.dll",
+    "/r:System.Core.dll",
+    "/r:System.Windows.Forms.dll",
+    "/r:System.Xml.dll",
+    "/r:System.Xml.Linq.dll",
+    $programPath
+)
+
+& $cscPath @compileArguments
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
+Push-Location $tempRoot
+try {
+    $runOutput = & $exePath $imagePath $documentPath 2>&1
+    $exitCode = $LASTEXITCODE
+    if ($runOutput) {
+        $runOutput | ForEach-Object { Write-Host $_ }
+    }
+
+    exit [int]$exitCode
+}
+finally {
+    Pop-Location
+}
+}
+finally {
+    Restore-Settings
+    Remove-TestTempRoot
+}
