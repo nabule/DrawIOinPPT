@@ -31,6 +31,12 @@ Word 专属代码负责：
 - `Document.CustomXMLParts` 写入、读取和孤儿清理。
 - Word 文档路径下 sidecar `.drawio` 重定位。
 
+### 2.1 选区同步与图片操作性能
+
+Word 宿主使用 `WindowSelectionChange` 同步功能区状态，并在启动时读取一次当前选区；不再以 500ms 定时器反复访问 Word COM、解析图片元数据。因此拖动、调整大小和位置时不会再由该后台轮询周期性打断 UI 线程。
+
+编辑、刷新、绑定和清除绑定是显式操作，点击时会重新读取当前 Word 选区。即使 Word 没有立即发送选区事件，用户仍可先选中图片再点击相应命令；本版本不改变 SVG、Draw.io XML、图片格式、环绕方式或浮动图片布局本身的开销。
+
 ## 3. 数据策略
 
 Word 没有 PowerPoint `Shape.Tags` 这种直接可用的隐藏标签集合，所以 Word 版采用：
@@ -153,4 +159,4 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1
 - `Document.CustomXMLParts` 持久化存在。
 - Word COM Add-in 能通过 `COMAddIns.Item("Greensoft.DrawioWordAddIn")` 加载，`Connect=True`。
 
-`word-url-e2e.ps1` 不会强制关闭用户已有 Word 进程；如果检测到 Word 正在运行，会直接中止，避免影响未保存文档。
+`word-url-e2e.ps1` 不会强制关闭用户已有 Word 进程；如果检测到 Word 正在运行，会直接中止，避免影响未保存文档。为隔离测试自身创建的宿主，它会在测试期间暂时禁用已注册插件的自动加载，并在 finally 中恢复原 `LoadBehavior`；运行期间不要启动 Word 或并行执行其他 Word 自动化。

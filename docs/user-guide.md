@@ -17,8 +17,8 @@ DrawioPpt 是一个面向 PowerPoint 和 Word Desktop 的原生插件，用来�
 
 - [安装与联调说明](./installation.md)
 - [Word 插件设计与使用说明](./word-addin.md)
-- [完整 E2E 测试报告](./e2e-test-report-v1.0.5.md)
-- [v1.0.5 发布说明](./release-notes-v1.0.5.md)
+- [完整 E2E 测试报告](./e2e-test-report-v1.0.6.md)
+- [v1.0.6 发布说明](./release-notes-v1.0.6.md)
 - [待优化功能点](./optimization-backlog.md)
 
 ## 2. 当前能做什么

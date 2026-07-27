@@ -2,7 +2,7 @@
 
 ## 目标
 
-移除 Word 插件每 500ms 的选区状态轮询，改为由 Word 的 `WindowSelectionChange` 事件驱动选区状态、功能区刷新和“自动打开”逻辑，避免在图片拖动与缩放期间周期性占用 Word UI 线程。
+移除 Word 插件每 500ms 的选区状态轮询，改为由 Word 的 `WindowSelectionChange` 事件和启动时单次读取驱动选区状态、功能区刷新和“自动打开”逻辑，避免在图片拖动与缩放期间周期性占用 Word UI 线程。
 
 ## 已确认事实
 
@@ -15,12 +15,13 @@
 1. 删除 `AddInHost` 中 `Timer` 字段、构造、启动、销毁和 Tick 回调。
 2. 保留 `SelectionMonitor` 的 `WindowSelectionChange` 订阅；启动时继续执行一次 `ReadLiveSelectionContext()`，确保加载插件时功能区状态正确。
 3. 保持现有 `OnSelectionChanged -> ApplySelectionContext(..., true)` 路径，以继续支持功能区刷新和已开启的“自动打开”。
-4. “编辑、刷新、绑定、清除绑定”等命令继续在用户点击时读取当前选区，不依赖后台轮询。
+4. “编辑、刷新、绑定、清除绑定”等命令继续在用户点击时读取当前选区，不依赖后台轮询。这是 Word 没有立即发送选区事件时的明确手动操作保障。
 
 ## 验收标准
 
 - Word 宿主源码不再创建或启动 `System.Windows.Forms.Timer`。
 - `WindowSelectionChange` 仍是唯一后台选区同步入口，且启动时保留一次初始同步。
+- 真实 Word COM 可识别受管与普通浮动 `Shape`；手动命令所用的现场选区读取可用。
 - 真实 Word URL E2E 仍能完成：新建、选中、编辑、保存、重开和再次回写。
 - Debug/Release 构建、发布包、安装验收和 Word COM 加载检查均通过。
 

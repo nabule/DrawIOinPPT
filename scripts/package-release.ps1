@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.5",
+    [string]$Version = "v1.0.6",
     [string]$Configuration = "Release",
     [string]$Platform = "x64",
     [switch]$SkipBuild
@@ -81,6 +81,7 @@ Copy-Item (Join-Path $repoRoot "scripts\\register-office-addins.ps1") (Join-Path
 Copy-Item (Join-Path $repoRoot "scripts\\unregister-office-addins.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\verify-office-install.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-addin-load-check.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\word-selection-event-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\uninstall-release.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -121,6 +122,7 @@ Contents:
 - scripts\unregister-office-addins.ps1
 - scripts\verify-office-install.ps1
 - scripts\word-addin-load-check.ps1
+- scripts\word-selection-event-e2e.ps1
 - scripts\word-url-e2e.ps1
 - scripts\install-release.ps1
 - scripts\uninstall-release.ps1

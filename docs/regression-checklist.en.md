@@ -69,3 +69,10 @@
 
 - The uninstall script removes registration entries correctly
 - After uninstall, PowerPoint and Word no longer load the add-ins
+
+## 9. Word Selection and Picture Operations
+
+- `scripts\word-selection-sync-test.ps1` passes; `AddInHost` must not reintroduce a selection `Timer` or Tick handler.
+- `scripts\word-selection-event-e2e.ps1` passes against real Word COM, validating managed floating-`Shape` recognition, the live-selection prerequisite for binding a normal picture, and the no-polling contract of the release DLL.
+- Close Word before running the Word E2E and do not run it alongside another Word automation test. The script restores add-in settings and cleans up only automation Word processes created by this test.
+- After a floating picture is moved or resized, Word events update Ribbon state. If Word does not update the display immediately, select the picture and invoke Re-edit, Refresh, Bind, or Clear Binding; the command reads the live selection.

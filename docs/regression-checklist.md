@@ -69,3 +69,10 @@
 
 - 卸载脚本可正常移除注册项
 - 卸载后 PowerPoint 不再加载该插件
+
+## 9. Word 选区与图片操作
+
+- `scripts\word-selection-sync-test.ps1` 通过，`AddInHost` 不得重新引入选区 `Timer` 或 Tick 回调。
+- `scripts\word-selection-event-e2e.ps1` 在真实 Word COM 中通过，验证浮动 `Shape` 的受管图片即时识别、普通图片的现场绑定前提，以及发布 DLL 的无轮询约束。
+- 执行 Word E2E 前关闭 Word，且不要与其他 Word 自动化测试并行运行；脚本会还原插件设置并仅清理本次测试创建的自动化 Word 进程。
+- 移动、缩放浮动图片后，功能区状态由 Word 事件更新；如 Word 未立即更新显示，直接选中图片后点击“重新编辑”“刷新”“绑定”或“清除绑定”，命令会现场读取当前选区。

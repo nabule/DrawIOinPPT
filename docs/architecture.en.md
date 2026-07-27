@@ -57,6 +57,8 @@ Responsibilities:
 
 The current Word host reuses public editor and SVG services from the PowerPoint assembly. These shared services can later be extracted into a dedicated `OfficeShared` project.
 
+Word selection state is driven by `WindowSelectionChange` and one read at add-in startup; the host no longer reads the Word selection or picture metadata every 500 ms. Explicit Edit, Refresh, Bind, and Clear Binding commands read the live Word selection when invoked, preserving operation when Word does not immediately raise a selection notification.
+
 ### 3.4 Installation and Registration Scripts
 
 Responsibilities:

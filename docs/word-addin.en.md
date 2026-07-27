@@ -31,6 +31,12 @@ Word-specific code handles:
 - `Document.CustomXMLParts` write/read/orphan cleanup.
 - Sidecar `.drawio` relocation based on the Word document path.
 
+### 2.1 Selection Synchronization and Picture Operation Performance
+
+The Word host uses `WindowSelectionChange` to synchronize Ribbon state and reads the current selection once at startup. It no longer uses a 500 ms timer to repeatedly access Word COM and parse picture metadata, so that background work no longer periodically interrupts the UI thread while a picture is moved or resized.
+
+Edit, Refresh, Bind, and Clear Binding are explicit operations and re-read the live Word selection on click. If Word does not immediately raise a selection event, users can still select the picture and invoke the relevant command. This release does not change SVG, Draw.io XML, picture format, wrapping, or the layout cost of a floating picture itself.
+
 ## 3. Data Strategy
 
 Word does not provide a direct equivalent to PowerPoint `Shape.Tags`, so the Word add-in uses:
@@ -153,4 +159,4 @@ Coverage:
 - `Document.CustomXMLParts` persists.
 - Word can load the COM add-in through `COMAddIns.Item("Greensoft.DrawioWordAddIn")`, with `Connect=True`.
 
-`word-url-e2e.ps1` does not force-close user Word processes. If Word is already running, it aborts to avoid affecting unsaved documents.
+`word-url-e2e.ps1` does not force-close user Word processes. If Word is already running, it aborts to avoid affecting unsaved documents. To isolate the host it creates, it temporarily disables automatic loading of the registered add-in and restores the original `LoadBehavior` in `finally`; do not start Word or run another Word automation task while it is running.
