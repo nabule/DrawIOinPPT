@@ -39,6 +39,7 @@
 - SVG and XML can be written back to PowerPoint
 - After creating a new diagram, saving the PPT, closing it, and reopening it, the same diagram can still be edited and written back again
 - The log records the key URL-mode events
+- `scripts\word-url-addin-host-e2e.ps1` passes inside real `WINWORD.EXE`: the add-in connects, selecting a managed picture completes write-back, `%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2` exists, and the new log segment has no `E_ACCESSDENIED`.
 
 ## 5. Storage and Migration
 

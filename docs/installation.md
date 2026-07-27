@@ -198,6 +198,18 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
 ```
 
+从 `v1.0.7` 起，URL 编辑器的 WebView2 profile 固定保存在当前用户目录：
+
+```text
+%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2
+```
+
+因此 Word 和 PowerPoint 不需要、也不应尝试获取 Office 安装目录的写入权限。若曾出现“无法初始化 URL 编辑器，拒绝访问”，安装 `v1.0.7` 后关闭并重新打开 Office，再使用 `Test URL` 验证即可。仓库中可用下列真实 Word 宿主回归验证发布 DLL；执行前必须关闭 Word，脚本会临时替换并最终还原当前用户的 Word 加载项注册和设置：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e.ps1 -Configuration Release
+```
+
 ## 11. 日志位置
 
 默认日志文件：
@@ -220,6 +232,12 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 - 先点设置中的 `Test URL`
 - 检查日志里的 `init/save/export` 事件
 - 确认目标地址支持 draw.io embed 协议
+
+### URL 编辑器提示“无法初始化”或“拒绝访问”
+
+- 确认安装的是 `v1.0.7` 或更高版本，并完全退出后重新打开 Word/PowerPoint。
+- 检查 `%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2` 是否可由当前用户创建和写入；不要修改 `C:\Program Files\Microsoft Office` 的权限。
+- 若目录可写但仍失败，查看日志中的 `UrlEditor` 记录，并确认 WebView2 Runtime 已安装。
 
 ### 桌面模式能打开编辑器但不刷新
 

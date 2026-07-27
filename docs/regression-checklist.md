@@ -39,6 +39,7 @@
 - SVG 与 XML 可回写到 PPT
 - 新建图形后保存 PPT、关闭并重新打开，仍可再次编辑并回写
 - 日志中可看到 URL 模式关键事件
+- `scripts\word-url-addin-host-e2e.ps1` 在真实 `WINWORD.EXE` 中通过：加载项已连接、选择受管图片后完成回写、`%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2` 存在，新增日志没有 `E_ACCESSDENIED`。
 
 ## 5. 存储与迁移
 

@@ -198,6 +198,18 @@ If you want to run the repository URL smoke test:
 powershell -ExecutionPolicy Bypass -File .\scripts\url-editor-smoke.ps1
 ```
 
+From `v1.0.7`, the URL editor keeps its WebView2 profile in the current-user directory:
+
+```text
+%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2
+```
+
+Word and PowerPoint therefore do not need, and must not be granted, write access to the Office installation directory. If you previously saw “Cannot initialize URL editor” with access denied, install `v1.0.7`, fully close and reopen Office, then run `Test URL`. The following real Word-host regression can validate the release DLL from the repository. Close Word first; the script temporarily replaces and finally restores the current user's Word add-in registration and settings:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e.ps1 -Configuration Release
+```
+
 ## 11. Log Location
 
 Default log file:
@@ -220,6 +232,12 @@ Useful for diagnosing:
 - Click `Test URL` in settings first.
 - Check the `init/save/export` events in the log.
 - Confirm that the target URL supports the draw.io embed protocol.
+
+### The URL editor cannot initialize or reports access denied
+
+- Confirm that `v1.0.7` or later is installed, then fully close and reopen Word/PowerPoint.
+- Verify that `%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2` can be created and written by the current user; do not alter permissions under `C:\Program Files\Microsoft Office`.
+- If the folder is writable but initialization still fails, inspect the `UrlEditor` log entries and confirm that the WebView2 Runtime is installed.
 
 ### Desktop mode opens the editor, but the shape does not refresh
 

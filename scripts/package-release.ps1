@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.6",
+    [string]$Version = "v1.0.7",
     [string]$Configuration = "Release",
     [string]$Platform = "x64",
     [switch]$SkipBuild
@@ -60,19 +60,19 @@ Copy-Item (Join-Path $addInBinRoot "runtimes\\win-x64\\native\\WebView2Loader.dl
 Copy-Item (Join-Path $repoRoot "README.md") $packageRoot -Force
 Copy-Item (Join-Path $repoRoot "README.en.md") $packageRoot -Force
 Copy-Item (Join-Path $repoRoot "docs\\installation.md") (Join-Path $packageRoot "docs") -Force
-Copy-Item (Join-Path $repoRoot "docs\\installation.en.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $repoRoot "docs\\user-guide.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $repoRoot "docs\\user-guide.en.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $repoRoot "docs\\word-addin.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $repoRoot "docs\\word-addin.en.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $repoRoot "docs\\optimization-backlog.md") (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot "docs\\installation.en.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\user-guide.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\user-guide.en.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\word-addin.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\word-addin.en.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\optimization-backlog.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot "docs\\regression-checklist.md") (Join-Path $packageRoot "docs") -Force
-Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseNotesName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseNotesEnName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $repoRoot ("docs\\" + $e2eDocName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $repoRoot ("docs\\" + $e2eDocEnName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseEvidenceName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseEvidenceEnName)) (Join-Path $packageRoot "docs") -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseNotesName)) (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseNotesEnName)) (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot ("docs\\" + $e2eDocName)) (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot ("docs\\" + $e2eDocEnName)) (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseEvidenceName)) (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseEvidenceEnName)) (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\register-addin.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\unregister-addin.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\register-word-addin.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -83,6 +83,9 @@ Copy-Item (Join-Path $repoRoot "scripts\\verify-office-install.ps1") (Join-Path 
 Copy-Item (Join-Path $repoRoot "scripts\\word-addin-load-check.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-selection-event-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\webview2-user-data-folder-test.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\uninstall-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\url-editor-smoke.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -124,6 +127,9 @@ Contents:
 - scripts\word-addin-load-check.ps1
 - scripts\word-selection-event-e2e.ps1
 - scripts\word-url-e2e.ps1
+- scripts\word-url-addin-host-e2e.ps1
+- scripts\webview2-user-data-folder-test.ps1
+- scripts\word-url-addin-host-e2e-safety-test.ps1
 - scripts\install-release.ps1
 - scripts\uninstall-release.ps1
 - scripts\url-editor-smoke.ps1

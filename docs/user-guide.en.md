@@ -17,8 +17,8 @@ Recommended companion docs:
 
 - [Installation and local debugging guide](./installation.en.md)
 - [Word add-in design and usage](./word-addin.en.md)
-- [Full E2E test report](./e2e-test-report-v1.0.6.en.md)
-- [Release notes for v1.0.6](./release-notes-v1.0.6.en.md)
+- [Full E2E test report](./e2e-test-report-v1.0.7.en.md)
+- [Release notes for v1.0.7](./release-notes-v1.0.7.en.md)
 - [Optimization backlog](./optimization-backlog.en.md)
 
 ## 2. What the Current Version Can Do
@@ -562,6 +562,7 @@ What you need to know:
 - `Editor URL` must support the embed protocol
 - Network, proxy, certificate, and private-deployment differences can affect the handshake
 - The add-in injects `simpleLabels` automatically in URL mode
+- The WebView2 profile is stored in `%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2`; no Word or PowerPoint installation-directory permission changes are needed
 
 ## 9. How Data Is Stored
 

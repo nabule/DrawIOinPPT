@@ -143,6 +143,16 @@ Word：
 7. 插件重新生成 SVG 并替换展示内容
 8. 如果 `ShowDiagramInfoDialog` 开启，进入编辑流程时显示当前图形的信息弹窗
 
+### 5.3 URL 编辑器的 WebView2 用户数据目录
+
+URL 模式在创建 `WebView2` 前显式建立 `CoreWebView2Environment`，并把浏览器用户数据目录固定为：
+
+```text
+%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2
+```
+
+该目录由当前用户创建，PowerPoint 和 Word 共用。这样 WebView2 不会沿用默认规则，在 `POWERPNT.EXE` 或 `WINWORD.EXE` 可执行文件旁创建 profile；后者通常位于受保护的 Office 安装目录，可能导致 `E_ACCESSDENIED`。目录仅保存 WebView2 的浏览器 profile，不保存 Draw.io 源 XML；图形源数据仍由 Office 文档的 `CustomXMLParts` 与图片元数据管理。
+
 ## 6. 更新策略
 
 第一阶段采用“替换展示对象”的方式实现更新，优先保证流程跑通。

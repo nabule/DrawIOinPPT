@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Security;
 using System.Text;
 using System.Threading.Tasks;
@@ -72,7 +73,8 @@ namespace DrawioPpt.PowerPointAddIn.UI
         {
             try
             {
-                await _webView.EnsureCoreWebView2Async();
+                CoreWebView2Environment environment = await CoreWebView2Environment.CreateAsync(null, GetWebView2UserDataFolder());
+                await _webView.EnsureCoreWebView2Async(environment);
                 _webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
                 _webView.CoreWebView2.NavigationStarting += OnNavigationStarting;
                 _webView.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
@@ -91,6 +93,14 @@ namespace DrawioPpt.PowerPointAddIn.UI
                 this.DialogResult = DialogResult.Cancel;
                 this.Close();
             }
+        }
+
+        private static string GetWebView2UserDataFolder()
+        {
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string userDataFolder = Path.Combine(localAppData, "Greensoft", "DrawioPpt", "WebView2");
+            Directory.CreateDirectory(userDataFolder);
+            return userDataFolder;
         }
 
         private void OnWebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)

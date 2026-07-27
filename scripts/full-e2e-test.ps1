@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.6",
+    [string]$Version = "v1.0.7",
     [switch]$SkipBuild,
     [switch]$KeepInstalled
 )
@@ -30,6 +30,13 @@ function Assert-NoRunningPowerPoint {
     $runningPowerPoint = Get-Process -Name POWERPNT -ErrorAction SilentlyContinue
     if ($runningPowerPoint) {
         throw "请先关闭正在运行的 PowerPoint，再执行完整 E2E 测试。"
+    }
+}
+
+function Assert-NoRunningWord {
+    $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
+    if ($runningWord) {
+        throw "请先关闭正在运行的 Word，再执行完整 E2E 测试。"
     }
 }
 
@@ -560,6 +567,7 @@ try {
     }
 
     Assert-NoRunningPowerPoint
+    Assert-NoRunningWord
 
     if (-not $SkipBuild) {
         & powershell.exe -ExecutionPolicy Bypass -File $buildScript -Configuration Release -Platform x64
@@ -599,6 +607,10 @@ try {
     $installedUrlSmoke = Join-Path $installRoot "scripts\\url-editor-smoke.ps1"
     & powershell.exe -ExecutionPolicy Bypass -File $installedUrlSmoke -SkipBuild
     Add-Result -Name "InstalledUrlSmoke" -Passed ($LASTEXITCODE -eq 0) -Detail $installedUrlSmoke
+
+    $installedWordUrlHostE2E = Join-Path $installRoot "scripts\\word-url-addin-host-e2e.ps1"
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installedWordUrlHostE2E -Configuration Release -SkipBuild -AssemblyRoot (Join-Path $installRoot "bin")
+    Add-Result -Name "InstalledWordUrlHostE2E" -Passed ($LASTEXITCODE -eq 0) -Detail $installedWordUrlHostE2E
 
     $urlE2EExitCode = Compile-And-Run-PowerPointUrlE2E -InstalledRoot $installRoot
     Add-Result -Name "PowerPointUrlE2E" -Passed ($urlE2EExitCode -eq 0) -Detail "ExitCode=$urlE2EExitCode"

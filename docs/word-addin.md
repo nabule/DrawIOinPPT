@@ -147,6 +147,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-word-addin.ps1
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Configuration Debug -Platform x64
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-url-e2e.ps1 -SkipBuild
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e.ps1 -Configuration Release
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1 -Configuration Debug
 ```
 
@@ -158,5 +159,8 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1
 - 保存后重开 Word 文档，再次编辑并回写。
 - `Document.CustomXMLParts` 持久化存在。
 - Word COM Add-in 能通过 `COMAddIns.Item("Greensoft.DrawioWordAddIn")` 加载，`Connect=True`。
+- `word-url-addin-host-e2e.ps1` 在真实 `WINWORD.EXE` 中加载被测 DLL，通过选择受管图片触发 URL 编辑器，并验证 `configure -> init -> load -> save -> export` 回写、用户级 WebView2 目录以及日志中没有 `E_ACCESSDENIED`。
 
 `word-url-e2e.ps1` 不会强制关闭用户已有 Word 进程；如果检测到 Word 正在运行，会直接中止，避免影响未保存文档。为隔离测试自身创建的宿主，它会在测试期间暂时禁用已注册插件的自动加载，并在 finally 中恢复原 `LoadBehavior`；运行期间不要启动 Word 或并行执行其他 Word 自动化。
+
+`word-url-addin-host-e2e.ps1` 同样要求 Word 已关闭，但它临时注册指定 DLL，运行完成后恢复 Word 加载项、COM 类注册和插件设置。它只会结束由自身 helper 报告且启动时间匹配的 Word 进程，不会按“测试期间新出现的全部 Word 进程”清理。URL 模式的 WebView2 profile 固定为 `%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2`，不需要 Office 安装目录写权限。

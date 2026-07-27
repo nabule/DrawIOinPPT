@@ -143,6 +143,16 @@ The current implementation does not embed `.drawio` as an OLE object or `Embedde
 7. The add-in regenerates SVG and replaces the displayed content
 8. If `ShowDiagramInfoDialog` is enabled, it shows the current diagram information when entering the edit flow
 
+### 5.3 WebView2 User Data Folder for the URL Editor
+
+Before creating `WebView2`, URL mode explicitly creates a `CoreWebView2Environment` and fixes the browser user-data directory at:
+
+```text
+%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2
+```
+
+The current user creates this directory and PowerPoint and Word share it. This prevents WebView2 from applying its default profile location next to `POWERPNT.EXE` or `WINWORD.EXE`; the latter is normally under the protected Office installation directory and can fail with `E_ACCESSDENIED`. The directory holds only the WebView2 browser profile, not Draw.io source XML; diagram source remains managed by Office `CustomXMLParts` and picture metadata.
+
 ## 6. Update Strategy
 
 The first stage updates diagrams by replacing the displayed object, prioritizing an end-to-end working flow.

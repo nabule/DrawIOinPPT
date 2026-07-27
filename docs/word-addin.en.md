@@ -147,6 +147,7 @@ The current implementation has passed these real checks:
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Configuration Debug -Platform x64
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-url-e2e.ps1 -SkipBuild
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e.ps1 -Configuration Release
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1 -Configuration Debug
 ```
 
@@ -158,5 +159,8 @@ Coverage:
 - The document is saved, reopened, edited again, and written back again.
 - `Document.CustomXMLParts` persists.
 - Word can load the COM add-in through `COMAddIns.Item("Greensoft.DrawioWordAddIn")`, with `Connect=True`.
+- `word-url-addin-host-e2e.ps1` loads the tested DLL inside real `WINWORD.EXE`, triggers the URL editor by selecting a managed picture, and verifies `configure -> init -> load -> save -> export` write-back, the per-user WebView2 folder, and no `E_ACCESSDENIED` in the log.
 
 `word-url-e2e.ps1` does not force-close user Word processes. If Word is already running, it aborts to avoid affecting unsaved documents. To isolate the host it creates, it temporarily disables automatic loading of the registered add-in and restores the original `LoadBehavior` in `finally`; do not start Word or run another Word automation task while it is running.
+
+`word-url-addin-host-e2e.ps1` also requires Word to be closed, but temporarily registers the requested DLL and restores the Word add-in, COM class registrations, and settings when it finishes. It stops only Word processes reported by its helper with a matching start time, rather than every Word process that appears during the test. URL mode fixes the WebView2 profile at `%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2`, so no Office installation-directory write access is required.
