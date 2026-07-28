@@ -17,7 +17,8 @@ Recommended companion docs:
 
 - [Installation and local debugging guide](./installation.en.md)
 - [Word add-in design and usage](./word-addin.en.md)
-- [Previous v1.0.7 full E2E test report](./e2e-test-report-v1.0.7.en.md)
+- [v1.0.8 full E2E test report](./e2e-test-report-v1.0.8.en.md)
+- [v1.0.8 release evidence and log index](./release-evidence-v1.0.8.en.md)
 - [Release notes for v1.0.8](./release-notes-v1.0.8.en.md)
 - [Optimization backlog](./optimization-backlog.en.md)
 

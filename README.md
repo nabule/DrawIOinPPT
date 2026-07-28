@@ -115,9 +115,9 @@ powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\
 - [Word 插件设计与使用说明](./docs/word-addin.md)
 - [架构设计](./docs/architecture.md)
 - [回归清单](./docs/regression-checklist.md)
-- [v1.0.8 发布说明（待发布预览）](./docs/release-notes-v1.0.8.md)
-- [上一版 v1.0.7 E2E 测试报告](./docs/e2e-test-report-v1.0.7.md)
-- [上一版 v1.0.7 发布证据与日志索引](./docs/release-evidence-v1.0.7.md)
+- [v1.0.8 发布说明（待公开发布）](./docs/release-notes-v1.0.8.md)
+- [v1.0.8 已验证 E2E 测试报告](./docs/e2e-test-report-v1.0.8.md)
+- [v1.0.8 发布证据与日志索引](./docs/release-evidence-v1.0.8.md)
 
 开发计划、历史发布记录和优化 backlog 也放在 [docs](./docs/) 目录中，README 只保留项目定位和上手入口。
 

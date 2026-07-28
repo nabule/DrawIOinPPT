@@ -27,5 +27,7 @@ For cross-document delivery, copy the complete `.docx`, or save/retain the sidec
 - `word-url-e2e.ps1` passes: the ordinary URL create, reopen, and edit flow verifies full data through `Document.CustomXMLParts`.
 - `word-url-addin-host-e2e-safety-test.ps1` passes: actual-host script constraints for registration, settings, process ownership, and cleanup satisfy their assertions.
 - `word-url-addin-host-e2e.ps1` passes in real `WINWORD.EXE`, with `WordAddInConnect=True` and `ActualWordUrlEditorSaved=True`.
+- The full Office E2E against the temporary v1.0.8 installation passes 9/9. It adds `InstalledWordComplexMetadataE2E` and covers packaging, installation, Office registration/load, URL smoke, the real Word URL host, PowerPoint URL write-back, and desktop export.
+- The v1.0.8 package has been generated with `scripts\word-complex-metadata-e2e.ps1` and the Chinese and English reports and evidence indexes. See the [v1.0.8 E2E test report](./e2e-test-report-v1.0.8.en.md) and [v1.0.8 release evidence](./release-evidence-v1.0.8.en.md).
 
-Full release E2E, the v1.0.8 release package, final local installation, and the manual drag comparison remain later release-acceptance steps; these notes do not claim that they have already passed. Archived results for the previous release remain available in the [v1.0.7 E2E test report](./e2e-test-report-v1.0.7.en.md) and [v1.0.7 release evidence](./release-evidence-v1.0.7.en.md).
+v1.0.8 remains pending public release. Final installation into the standard local directory and the manual 10-second drag, resize, reposition, and reopen/edit comparison remain later acceptance steps and are not claimed here.

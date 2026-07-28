@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.7",
+    [string]$Version = "v1.0.8",
     [switch]$SkipBuild,
     [switch]$KeepInstalled
 )
@@ -37,6 +37,17 @@ function Assert-NoRunningWord {
     $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
     if ($runningWord) {
         throw "请先关闭正在运行的 Word，再执行完整 E2E 测试。"
+    }
+}
+
+function Get-AvailableLoopbackPort {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    try {
+        $listener.Start()
+        return ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
+    }
+    finally {
+        $listener.Stop()
     }
 }
 
@@ -92,7 +103,7 @@ function Compile-And-Run-PowerPointUrlE2E {
     )
 
     $tempRoot = Join-Path $env:TEMP ("DrawioPpt\\ppt-url-e2e-" + [Guid]::NewGuid().ToString("N"))
-    $serverPort = Get-Random -Minimum 8700 -Maximum 8999
+    $preferredServerPort = Get-AvailableLoopbackPort
     $mockHtmlPath = Join-Path $tempRoot "mock-editor.html"
     $programPath = Join-Path $tempRoot "powerpoint-url-e2e.cs"
     $exePath = Join-Path $tempRoot "powerpoint-url-e2e.exe"
@@ -165,30 +176,66 @@ using PptInterop = Microsoft.Office.Interop.PowerPoint;
 
 public sealed class MockEditorServer : IDisposable
 {
-    private readonly HttpListener _listener;
     private readonly string _htmlPath;
+    private HttpListener _listener;
     private Thread _worker;
 
-    public MockEditorServer(int port, string htmlPath)
+    public MockEditorServer(string htmlPath)
     {
-        _listener = new HttpListener();
-        _listener.Prefixes.Add("http://127.0.0.1:" + port + "/");
-        _listener.Prefixes.Add("http://localhost:" + port + "/");
         _htmlPath = htmlPath;
     }
 
-    public void Start()
+    public int Port { get; private set; }
+
+    public void StartWithRetry(int preferredPort)
     {
-        _listener.Start();
-        _worker = new Thread(Listen);
-        _worker.IsBackground = true;
-        _worker.Start();
-        Console.WriteLine("MockHttpServerState=Running");
+        int candidatePort = preferredPort;
+        Exception lastError = null;
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            HttpListener listener = new HttpListener();
+            listener.Prefixes.Add("http://127.0.0.1:" + candidatePort + "/");
+            listener.Prefixes.Add("http://localhost:" + candidatePort + "/");
+            try
+            {
+                listener.Start();
+                _listener = listener;
+                Port = candidatePort;
+                _worker = new Thread(Listen);
+                _worker.IsBackground = true;
+                _worker.Start();
+                Console.WriteLine("MockHttpServerState=Running");
+                Console.WriteLine("MockServerPort=" + Port);
+                return;
+            }
+            catch (HttpListenerException ex)
+            {
+                lastError = ex;
+                listener.Close();
+                candidatePort = GetAvailableLoopbackPort();
+            }
+        }
+
+        throw new InvalidOperationException("Unable to bind the mock editor server after retrying available loopback ports.", lastError);
+    }
+
+    private static int GetAvailableLoopbackPort()
+    {
+        System.Net.Sockets.TcpListener listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+        try
+        {
+            listener.Start();
+            return ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        }
+        finally
+        {
+            listener.Stop();
+        }
     }
 
     public void AssertReachable()
     {
-        string requestUrl = "http://127.0.0.1:$serverPort/mock-editor.html?configure=1";
+        string requestUrl = "http://127.0.0.1:" + Port + "/mock-editor.html?configure=1";
         using (WebClient client = new WebClient())
         {
             string html = client.DownloadString(requestUrl);
@@ -245,7 +292,10 @@ public sealed class MockEditorServer : IDisposable
 
     public void Dispose()
     {
-        _listener.Close();
+        if (_listener != null)
+        {
+            _listener.Close();
+        }
         if (_worker != null)
         {
             _worker.Join(5000);
@@ -322,17 +372,6 @@ public static class PowerPointUrlE2E
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        PluginSettings settings = new PluginSettings();
-        settings.EditorMode = EditorMode.Url;
-        settings.EditorUrl = "http://127.0.0.1:$serverPort/mock-editor.html";
-        settings.UseOfficeCompatibleSvgLabels = true;
-        settings.AutoOpenOnSelection = false;
-        settings.AutoUpdateOnSave = true;
-        settings.KeepSidecarFile = true;
-        settings.SidecarFolderName = "drawio-e2e-reopen";
-        settings.ShowDiagramInfoDialog = false;
-        new FilePluginSettingsStore().Save(settings);
-
         PptInterop.Application application = null;
         AddInHost host = null;
         PptInterop.Presentation presentation = null;
@@ -341,9 +380,20 @@ public static class PowerPointUrlE2E
 
         try
         {
-            mockServer = new MockEditorServer($serverPort, @"$mockHtmlPath");
-            mockServer.Start();
+            mockServer = new MockEditorServer(@"$mockHtmlPath");
+            mockServer.StartWithRetry($preferredServerPort);
             mockServer.AssertReachable();
+
+            PluginSettings settings = new PluginSettings();
+            settings.EditorMode = EditorMode.Url;
+            settings.EditorUrl = "http://127.0.0.1:" + mockServer.Port + "/mock-editor.html";
+            settings.UseOfficeCompatibleSvgLabels = true;
+            settings.AutoOpenOnSelection = false;
+            settings.AutoUpdateOnSave = true;
+            settings.KeepSidecarFile = true;
+            settings.SidecarFolderName = "drawio-e2e-reopen";
+            settings.ShowDiagramInfoDialog = false;
+            new FilePluginSettingsStore().Save(settings);
 
             Type pptType = Type.GetTypeFromProgID("PowerPoint.Application", true);
             application = (PptInterop.Application)Activator.CreateInstance(pptType);
@@ -611,6 +661,10 @@ try {
     $installedWordUrlHostE2E = Join-Path $installRoot "scripts\\word-url-addin-host-e2e.ps1"
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installedWordUrlHostE2E -Configuration Release -SkipBuild -AssemblyRoot (Join-Path $installRoot "bin")
     Add-Result -Name "InstalledWordUrlHostE2E" -Passed ($LASTEXITCODE -eq 0) -Detail $installedWordUrlHostE2E
+
+    $installedWordComplexMetadataE2E = Join-Path $installRoot "scripts\\word-complex-metadata-e2e.ps1"
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installedWordComplexMetadataE2E -Configuration Release -AssemblyRoot (Join-Path $installRoot "bin") -SkipBuild
+    Add-Result -Name "InstalledWordComplexMetadataE2E" -Passed ($LASTEXITCODE -eq 0) -Detail $installedWordComplexMetadataE2E
 
     $urlE2EExitCode = Compile-And-Run-PowerPointUrlE2E -InstalledRoot $installRoot
     Add-Result -Name "PowerPointUrlE2E" -Passed ($urlE2EExitCode -eq 0) -Detail "ExitCode=$urlE2EExitCode"

@@ -115,9 +115,9 @@ powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\
 - [Word add-in design and usage](./docs/word-addin.en.md)
 - [Architecture](./docs/architecture.en.md)
 - [Regression checklist](./docs/regression-checklist.en.md)
-- [v1.0.8 release notes (pending-release preview)](./docs/release-notes-v1.0.8.en.md)
-- [Previous v1.0.7 E2E test report](./docs/e2e-test-report-v1.0.7.en.md)
-- [Previous v1.0.7 release evidence and log index](./docs/release-evidence-v1.0.7.en.md)
+- [v1.0.8 release notes (pending public release)](./docs/release-notes-v1.0.8.en.md)
+- [Verified v1.0.8 E2E test report](./docs/e2e-test-report-v1.0.8.en.md)
+- [v1.0.8 release evidence and log index](./docs/release-evidence-v1.0.8.en.md)
 
 Development plans, historical release notes, and optimization backlog live under [docs](./docs/). The README is kept as the project overview and quick-start entry point.
 

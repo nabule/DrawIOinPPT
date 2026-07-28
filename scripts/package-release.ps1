@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.7",
+    [string]$Version = "v1.0.8",
     [string]$Configuration = "Release",
     [string]$Platform = "x64",
     [switch]$SkipBuild
@@ -84,6 +84,7 @@ Copy-Item (Join-Path $repoRoot "scripts\\word-addin-load-check.ps1") (Join-Path 
 Copy-Item (Join-Path $repoRoot "scripts\\word-selection-event-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\word-complex-metadata-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\webview2-user-data-folder-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -128,6 +129,7 @@ Contents:
 - scripts\word-selection-event-e2e.ps1
 - scripts\word-url-e2e.ps1
 - scripts\word-url-addin-host-e2e.ps1
+- scripts\word-complex-metadata-e2e.ps1
 - scripts\webview2-user-data-folder-test.ps1
 - scripts\word-url-addin-host-e2e-safety-test.ps1
 - scripts\install-release.ps1
