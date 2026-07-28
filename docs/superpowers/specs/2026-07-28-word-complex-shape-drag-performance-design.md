@@ -2,7 +2,7 @@
 
 ## 目标
 
-修复 Word 插件插入复杂 Draw.io 图形后，移动、缩放或重新定位图片时出现的明显卡顿。优化必须保留完整 Draw.io 源数据、现有编辑能力和旧文档兼容能力，并交付为本机可安装验证的 `v1.0.7 Release x64` 版本。
+修复 Word 插件插入复杂 Draw.io 图形后，移动、缩放或重新定位图片时出现的明显卡顿。优化必须保留完整 Draw.io 源数据、现有编辑能力和旧文档兼容能力，并交付为本机可安装验证的 `v1.0.8 Release x64` 版本。
 
 ## 已确认事实
 
@@ -127,9 +127,9 @@
 - 更新 `docs/architecture.md`、`docs/architecture.en.md`。
 - 更新 `docs/word-addin.md`、`docs/word-addin.en.md`。
 - 更新 `docs/user-guide.md`、`docs/user-guide.en.md` 和回归清单。
-- 新增 `v1.0.7` 中英文发布说明、E2E 测试报告和发布证据。
+- 新增 `v1.0.8` 中英文发布说明、E2E 测试报告和发布证据。
 - 将复杂元数据测试复制进发布包，并由 `scripts/full-e2e-test.ps1` 串行执行。
-- 生成 `v1.0.7 Release x64` 发布包，保持现有 COM 类标识和程序集身份稳定。
+- 生成 `v1.0.8 Release x64` 发布包，保持现有 COM 类标识和程序集身份稳定。
 - 使用当前用户注册脚本安装本地版本，重启 Word 后核对加载路径、`LoadBehavior` 和真实功能。
 
 ## 非目标
