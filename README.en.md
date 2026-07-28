@@ -4,9 +4,9 @@
 
 DrawioPpt is a native Draw.io / diagrams.net add-in for Microsoft Office Desktop. It lets you insert, detect, re-edit, and refresh Draw.io diagrams directly in PowerPoint and Word, instead of maintaining diagrams as one-time screenshots.
 
-Current version: `v1.0.8`
+Current development version: `v1.0.8` (pending release)
 
-Release package: [DrawioPpt v1.0.8](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8)
+Latest public release: [DrawioPpt v1.0.7](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.7)
 
 ## Value
 
@@ -86,7 +86,7 @@ These tools are useful for inspecting embedded Office XML, manually recovering d
 
 ## Quick Install
 
-1. Download `DrawioPpt-v1.0.8.zip` from the [v1.0.8 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8).
+1. Download `DrawioPpt-v1.0.7.zip` from the [v1.0.7 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.7).
 2. Extract it to a local folder.
 3. Close PowerPoint and Word.
 4. Double-click `install.cmd`.
@@ -115,7 +115,7 @@ powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\
 - [Word add-in design and usage](./docs/word-addin.en.md)
 - [Architecture](./docs/architecture.en.md)
 - [Regression checklist](./docs/regression-checklist.en.md)
-- [v1.0.8 release notes](./docs/release-notes-v1.0.8.en.md)
+- [v1.0.8 release notes (pending-release preview)](./docs/release-notes-v1.0.8.en.md)
 - [Previous v1.0.7 E2E test report](./docs/e2e-test-report-v1.0.7.en.md)
 - [Previous v1.0.7 release evidence and log index](./docs/release-evidence-v1.0.7.en.md)
 
