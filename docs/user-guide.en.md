@@ -44,7 +44,8 @@ Complex diagrams in Word use this storage model:
 
 - `Document.CustomXMLParts` is the normal primary store for the full envelope and Draw.io XML.
 - Picture `AlternativeText` normally keeps only `formatVersion`, `diagramId`, name, editor mode/target, sidecar path, and update time; it does not contain `DrawioXml`.
-- `WindowSelectionChange` therefore parses only the lightweight reference, reducing synchronization work while selecting, dragging, or resizing a complex diagram.
+- Word does not subscribe to `WindowSelectionChange`, and startup does not read selection or picture metadata. Selecting, dragging, resizing, and repositioning perform no add-in work.
+- In Word, select the picture and then click Re-edit, Refresh, Bind, or Clear Binding. Only that explicit command reads the live selection and metadata; Word does not offer selection-triggered auto-open.
 - If the primary-store write fails, the picture retains the full envelope to avoid source-data loss. Legacy full picture metadata is migrated into the primary store on first read and then rewritten as a lightweight reference.
 
 Important: when copying only one Word picture into another document, Office does not guarantee that the source document's `CustomXMLParts` are copied. Because a normal lightweight reference has no Draw.io XML, the destination may not be able to recover the editing source. Copy the complete `.docx`, or save/retain the sidecar `.drawio` or Draw.io XML first. Only legacy pictures and primary-store failure fallbacks may still carry the full payload in `AlternativeText`.
@@ -65,7 +66,7 @@ Recommended first-time setup order:
 3. Decide whether you want to use `Desktop` mode or `URL` mode first.
 4. If you use desktop mode, check the desktop editor path first.
 5. If you use URL mode, enter the editor URL and run `Test URL`.
-6. Decide whether to enable auto-open when selecting a bound shape.
+6. In PowerPoint, decide whether to enable auto-open when selecting a bound shape. Word always uses select-then-click commands.
 7. Decide whether to keep sidecar working files next to the PPT.
 
 If the add-in is not installed yet, start with [installation.en.md](./installation.en.md). The release package's `install.cmd` registers both PowerPoint and Word; repository-based debugging uses `scripts\register-office-addins.ps1`.

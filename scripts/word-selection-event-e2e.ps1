@@ -9,6 +9,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $selectionSyncTest = Join-Path $PSScriptRoot "word-selection-sync-test.ps1"
+$selectionSyncSource = Join-Path $repoRoot "src\DrawioPpt.WordAddIn\Services\AddInHost.cs"
 $buildScript = Join-Path $PSScriptRoot "build.ps1"
 $tempRoot = Join-Path $env:TEMP ("DrawioPpt\word-selection-event-e2e-" + [Guid]::NewGuid().ToString("N"))
 $programPath = Join-Path $tempRoot "word-selection-event-e2e.cs"
@@ -102,11 +103,14 @@ function Remove-TestTempRoot {
     Remove-Item -LiteralPath $tempRoot -Recurse -Force
 }
 
-if (-not $SkipSourceCheck) {
+if (-not $SkipSourceCheck -and (Test-Path $selectionSyncSource)) {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $selectionSyncTest
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
+}
+elseif (-not $SkipSourceCheck) {
+    Write-Host "SelectionSourceContractSkipped=True (installed package has no source tree; runtime reflection remains enabled)"
 }
 
 if (-not (Test-Path $cscPath)) {
@@ -150,7 +154,7 @@ using WordInterop = Microsoft.Office.Interop.Word;
 
 public static class WordSelectionEventE2E
 {
-    private static bool HasNoSelectionPolling()
+    private static bool HasNoPassiveSelectionPath()
     {
         FieldInfo[] fields = typeof(AddInHost).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         foreach (FieldInfo field in fields)
@@ -165,7 +169,13 @@ public static class WordSelectionEventE2E
         MethodInfo timerTick = typeof(AddInHost).GetMethod(
             "OnSelectionStateTimerTick",
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        return timerTick == null;
+        MethodInfo selectionChange = typeof(SelectionMonitor).GetMethod(
+            "OnWindowSelectionChange",
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        EventInfo selectionChanged = typeof(SelectionMonitor).GetEvent(
+            "SelectionChanged",
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        return timerTick == null && selectionChange == null && selectionChanged == null;
     }
 
     private static void SaveSettings()
@@ -217,9 +227,10 @@ public static class WordSelectionEventE2E
             SaveSettings();
             File.WriteAllBytes(args[0], Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl0el0AAAAASUVORK5CYII="));
 
-            bool noSelectionPolling = HasNoSelectionPolling();
-            Console.WriteLine("NoSelectionPolling=" + noSelectionPolling);
-            if (!noSelectionPolling)
+            bool noPassiveSelectionPath = HasNoPassiveSelectionPath();
+            Console.WriteLine("NoSelectionPolling=" + noPassiveSelectionPath);
+            Console.WriteLine("NoPassiveSelectionMetadataPath=" + noPassiveSelectionPath);
+            if (!noPassiveSelectionPath)
             {
                 return 1;
             }
@@ -250,11 +261,13 @@ public static class WordSelectionEventE2E
             SelectionContext managedSelection = new WordPictureSelectionReader().Read(application.Selection);
             bool managedSelectionDetected = managedSelection.HasSinglePicture && managedSelection.IsManagedPicture;
             Console.WriteLine("ManagedSelectionDetected=" + managedSelectionDetected);
+            Console.WriteLine("ExplicitManagedSelectionDetected=" + managedSelectionDetected);
 
             plainShape.Select();
             SelectionContext plainSelection = new WordPictureSelectionReader().Read(application.Selection);
             bool plainPictureCanBind = plainSelection.HasSinglePicture && !plainSelection.IsManagedPicture;
             Console.WriteLine("PlainPictureCanBind=" + plainPictureCanBind);
+            Console.WriteLine("ExplicitPlainPictureCanBind=" + plainPictureCanBind);
 
             return managedSelectionDetected && plainPictureCanBind ? 0 : 1;
         }

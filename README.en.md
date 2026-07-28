@@ -16,7 +16,7 @@ DrawioPpt is built for long-lived diagrams in Office documents:
 - A selected managed diagram can be reopened in Draw.io and written back to the same Office object after save.
 - Draw.io source XML is embedded inside the `.pptx` / `.docx` file, so documents are not dependent only on neighboring `.drawio` files.
 - PowerPoint and Word share the same editor settings.
-- Word selection state uses Office events rather than reading picture metadata every 500 ms; explicit commands always read the live selection.
+- Word does not monitor ordinary selection changes or read picture metadata at startup; selecting, dragging, resizing, and repositioning perform no add-in work.
 - Both local draw.io Desktop and embedded URL editor modes are supported, covering offline, internal-network, and private diagrams.net deployments.
 
 ## Supported Office Hosts
@@ -36,7 +36,7 @@ DrawioPpt is built for long-lived diagrams in Office documents:
 - Support both `InlineShape` and floating `Shape` pictures.
 - Store source data and lightweight references through `Document.CustomXMLParts + AlternativeText`: the full Draw.io XML stays in the document-level primary store instead of being duplicated in the picture property.
 - Share desktop editor, URL editor, and base settings with the PowerPoint add-in.
-- `WindowSelectionChange` only parses the lightweight picture reference, improving responsiveness while selecting, dragging, or resizing complex diagrams.
+- Users select a picture first and then click Re-edit, Refresh, Bind, or Clear Binding; the explicit command reads the live selection once.
 
 ## Core Features
 
@@ -45,7 +45,7 @@ DrawioPpt is built for long-lived diagrams in Office documents:
 - `Refresh`: regenerate SVG from bound source data.
 - `Bind`: bring a normal picture under add-in management.
 - `Clear Binding`: remove add-in metadata while keeping the visible diagram.
-- `Auto Open`: automatically enter edit flow when selecting a managed diagram.
+- `Auto Open` (PowerPoint only): automatically enter edit flow when selecting a managed diagram. Word omits it to keep the drag hot path free of add-in overhead.
 - `Settings`: configure desktop editor path, URL editor, sidecar behavior, and information dialogs.
 
 ## Source Data Storage

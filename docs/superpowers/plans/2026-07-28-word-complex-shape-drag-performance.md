@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将 Word 图片的 `AlternativeText` 从完整 Draw.io envelope 改为轻量引用，完整 XML 可靠保存在 `Document.CustomXMLParts`，并发布、安装和真实验证 `v1.0.8 Release x64`。
+**Goal:** 将 Word 图片的 `AlternativeText` 从完整 Draw.io envelope 改为轻量引用，完整 XML 可靠保存在 `Document.CustomXMLParts`；同时彻底移除 Word 被动选区热路径，采用“先选中、再点击命令”的显式编辑交互，并发布、安装和真实验证 `v1.0.8 Release x64`。
 
-**Architecture:** `WordPictureMetadataService` 负责生成轻量图片引用和完整失败回退；`AddInHost` 负责保证先写文档级主存储、成功后再瘦身图片元数据。选区事件只解析轻量引用，显式编辑通过 `diagramId` 读取文档级完整 envelope；旧版完整图片元数据在主存储写入成功后自动迁移。
+**Architecture:** `WordPictureMetadataService` 负责生成轻量图片引用和完整失败回退；`AddInHost` 负责保证先写文档级主存储、成功后再瘦身图片元数据。Word 不订阅 `WindowSelectionChange`，选中和拖动期间不执行插件处理；显式按钮点击后才读取实时选区并通过 `diagramId` 读取文档级完整 envelope。旧版完整图片元数据在主存储写入成功后自动迁移。
 
 **Tech Stack:** C# 7.3、.NET Framework 4.8、Microsoft Office Word COM Interop、PowerShell 5.1、MSBuild、WebView2、真实 Word Desktop E2E。
 
@@ -636,6 +636,8 @@ git commit -m "测试：补充 v1.0.8 本地 Word 验收证据" -m "- 记录本�
 ## 完成标准
 
 - 所有 Word 新写入图片使用轻量 `AlternativeText`，完整 XML 只保存在 `Document.CustomXMLParts`。
+- Word 发布 DLL 不含 `WindowSelectionChange` 订阅、被动选区回调或启动时选区/元数据读取；Word Ribbon 不提供自动打开入口。
+- 用户先选中图片，再点击“重新编辑 / 刷新 / 绑定 / 清除绑定”；命令读取点击时的实时选区，不能对历史缓存对象执行操作。
 - 文档级写入失败时保留完整图片回退，不丢失源数据。
 - 旧版完整图片元数据可安全迁移。
 - PowerPoint 行为和元数据策略不变。

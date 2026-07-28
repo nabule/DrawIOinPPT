@@ -25,17 +25,17 @@ Word 版插件的目标是把当前 PowerPoint 插件的 Draw.io 工作流带到
 Word 专属代码负责：
 
 - Word COM Add-in 注册和 Ribbon 回调。
-- Word 选区监听与双击处理。
+- Word 显式双击处理；不监听普通选区变化。
 - `InlineShape` / 浮动 `Shape` 图片识别。
 - SVG 图片插入和替换。
 - `Document.CustomXMLParts` 写入、读取和孤儿清理。
 - Word 文档路径下 sidecar `.drawio` 重定位。
 
-### 2.1 选区同步与图片操作性能
+### 2.1 零选区热路径与显式操作
 
-Word 宿主使用 `WindowSelectionChange` 同步功能区状态，并在启动时读取一次当前选区；不再以 500ms 定时器反复访问 Word COM、解析图片元数据。正常图片的 `AlternativeText` 只含轻量引用，选区事件无需反序列化复杂图形的大段 Draw.io XML。因此拖动、调整大小和位置时既不会再由后台轮询周期性打断 UI 线程，也减少了事件同步本身的元数据解析开销。
+Word 宿主不订阅 `WindowSelectionChange`，启动时也不读取当前选区、图片属性、`AlternativeText` 或 `Document.CustomXMLParts`。普通选中、拖动、调整大小和重新定位期间，插件不做元数据识别、功能区状态刷新、孤儿清理或自动打开，Word 只执行自身的图片交互。
 
-编辑、刷新、绑定和清除绑定是显式操作，点击时会重新读取当前 Word 选区。即使 Word 没有立即发送选区事件，用户仍可先选中图片再点击相应命令；本版本不改变 SVG、Draw.io XML、图片格式、环绕方式或浮动图片布局本身的开销。
+“重新编辑”“刷新”“绑定”和“清除绑定”始终保持可点击；用户先选中图片，再点击相应命令，插件才读取实时 Word 选区并校验元数据。功能区信息固定提示“选中后点击操作 / 点击按钮时识别”，不再随选择变化。双击图片属于显式编辑动作，仍可打开受管图形。本版本不改变 SVG、Draw.io XML、图片格式、环绕方式或浮动图片布局本身的 Word 原生开销。
 
 ## 3. 数据策略
 
@@ -61,7 +61,7 @@ Word 版当前同样已经把 Draw.io 源 XML 嵌入 `.docx` 文件内部。主�
 - 更新时间
 - 经过 `gzip + base64` 压缩的 Draw.io XML
 
-选中图片重新编辑时，插件先从图片 `AlternativeText` 解析 `diagramId`，再在 `Document.CustomXMLParts` 中查找最新完整 envelope。保存后，插件会同时更新可见 SVG 图片、图片上的轻量引用和文档级 XML；只有主存储写入失败时才在图片上保留全量回退。
+选中图片后点击“重新编辑”时，插件才从图片 `AlternativeText` 解析 `diagramId`，再在 `Document.CustomXMLParts` 中查找最新完整 envelope。保存后，插件会同时更新可见 SVG 图片、图片上的轻量引用和文档级 XML；只有主存储写入失败时才在图片上保留全量回退。
 
 sidecar `.drawio` 在 Word 版里也是编辑缓存和人工备份，不是主存储。把 `.docx` 移到另一台机器后，只要 `Document.CustomXMLParts` 没被清理，插件仍可以从文档内部恢复 Draw.io XML，并在需要桌面版 draw.io 时重新生成 sidecar。
 
@@ -132,15 +132,16 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-word-addin.ps1
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-word-addin.ps1
 ```
 
-开发环境注册后打开 Word，会出现 `Draw.io` 功能区。入口与 PowerPoint 版保持一致：
+开发环境注册后打开 Word，会出现 `Draw.io` 功能区：
 
 - `新建`：在当前光标位置插入新的 Draw.io 图形。
 - `重新编辑`：编辑当前选中的已绑定图片。
 - `刷新`：从绑定的 `.drawio` 工作文件重新生成图片。
 - `绑定`：把一个普通图片纳入 Draw.io 管理。
 - `清除绑定`：移除绑定元数据，保留图片显示。
-- `自动打开`：选中已绑定图片时自动进入编辑。
 - `设置`：复用现有编辑器设置。
+
+Word 不提供“自动打开”入口；这是为了保证选择和拖动过程中没有插件处理。PowerPoint 的自动打开行为不受影响。
 
 ## 6. 验证
 
@@ -166,7 +167,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1
 - 复杂 Draw.io XML 保存在 `CustomXMLParts`，图片 `AlternativeText` 为不含 `DrawioXml` 的轻量引用；保存、关闭、重开后仍成立。
 - `CustomXMLParts` 写入失败时全量图片回退可持久化；旧版全量元数据迁移后再次读取保持 XML part ID 稳定。
 - Word COM Add-in 能通过 `COMAddIns.Item("Greensoft.DrawioWordAddIn")` 加载，`Connect=True`。
-- `word-url-addin-host-e2e.ps1` 在真实 `WINWORD.EXE` 中加载被测 DLL，通过选择受管图片触发 URL 编辑器，并验证 `configure -> init -> load -> save -> export` 回写、用户级 WebView2 目录以及日志中没有 `E_ACCESSDENIED`。
+- `word-url-addin-host-e2e.ps1` 在真实 `WINWORD.EXE` 中加载被测 DLL，先选中受管图片，再通过插件的显式命令入口执行“重新编辑”；验证 `ExplicitEditAutomationAvailable=True`、`ExplicitEditCommandInvoked=True`、`configure -> init -> load -> save -> export` 回写、用户级 WebView2 目录以及日志中没有 `E_ACCESSDENIED`。
 - Word 自动化脚本结束后没有残留 `WINWORD.EXE`。
 
 `word-url-e2e.ps1` 不会强制关闭用户已有 Word 进程；如果检测到 Word 正在运行，会直接中止，避免影响未保存文档。为隔离测试自身创建的宿主，它会在测试期间暂时禁用已注册插件的自动加载，并在 finally 中恢复原 `LoadBehavior`；运行期间不要启动 Word 或并行执行其他 Word 自动化。

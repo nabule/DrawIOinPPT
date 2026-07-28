@@ -18,6 +18,9 @@ $e2eDocName = "e2e-test-report-" + ($Version -replace "-stable$", "") + ".md"
 $e2eDocEnName = "e2e-test-report-" + ($Version -replace "-stable$", "") + ".en.md"
 $releaseEvidenceName = "release-evidence-" + $Version + ".md"
 $releaseEvidenceEnName = "release-evidence-" + $Version + ".en.md"
+$stressReportName = "word-ui-thread-stress-report-" + $Version + ".md"
+$stressReportEnName = "word-ui-thread-stress-report-" + $Version + ".en.md"
+$stressEvidenceName = "word-ui-thread-stress-" + $Version + ".json"
 $addInBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.PowerPointAddIn\\bin\\{0}\\{1}" -f $Platform, $Configuration)
 $wordAddInBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.WordAddIn\\bin\\{0}\\{1}" -f $Platform, $Configuration)
 $coreBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.Core\\bin\\{0}\\{1}" -f $Platform, $Configuration)
@@ -100,6 +103,7 @@ if (Test-Path $releaseRoot) {
 
 New-Item -ItemType Directory -Force -Path $packageRoot | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "docs") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "docs\\evidence") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "scripts") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "bin") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "bin\\runtimes\\win-x64\\native") | Out-Null
@@ -132,6 +136,9 @@ Copy-Item (Join-Path $repoRoot ("docs\\" + $e2eDocName)) (Join-Path $packageRoot
 Copy-Item (Join-Path $repoRoot ("docs\\" + $e2eDocEnName)) (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseEvidenceName)) (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseEvidenceEnName)) (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot ("docs\\" + $stressReportName)) (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot ("docs\\" + $stressReportEnName)) (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot ("docs\\evidence\\" + $stressEvidenceName)) (Join-Path $packageRoot "docs\\evidence") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\register-addin.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\unregister-addin.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\register-word-addin.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -144,6 +151,7 @@ Copy-Item (Join-Path $repoRoot "scripts\\word-selection-event-e2e.ps1") (Join-Pa
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-complex-metadata-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\word-ui-thread-stress-acceptance.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\webview2-user-data-folder-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -192,6 +200,7 @@ Contents:
 - scripts\word-url-e2e.ps1
 - scripts\word-url-addin-host-e2e.ps1
 - scripts\word-complex-metadata-e2e.ps1
+- scripts\word-ui-thread-stress-acceptance.ps1
 - scripts\webview2-user-data-folder-test.ps1
 - scripts\word-url-addin-host-e2e-safety-test.ps1
 - scripts\install-release.ps1
@@ -217,6 +226,9 @@ Contents:
 - docs\$e2eDocEnName
 - docs\$releaseEvidenceName
 - docs\$releaseEvidenceEnName
+- docs\$stressReportName
+- docs\$stressReportEnName
+- docs\evidence\$stressEvidenceName
 "@ | Set-Content -Path $manifestPath -Encoding UTF8
 
 Assert-PackageMarkdownLinks -PackageRoot $packageRoot

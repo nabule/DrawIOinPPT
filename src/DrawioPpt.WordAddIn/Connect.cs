@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using DrawioPpt.WordAddIn.Ribbon;
 using DrawioPpt.WordAddIn.Services;
 using Extensibility;
@@ -10,6 +11,55 @@ using WordInterop = Microsoft.Office.Interop.Word;
 namespace DrawioPpt.WordAddIn
 {
     [ComVisible(true)]
+    [Guid("3348835A-5E22-44BE-9C00-60328868C5FA")]
+    [InterfaceType(ComInterfaceType.InterfaceIsDual)]
+    public interface IWordAddInAutomation
+    {
+        string GetInteractionMode();
+        void EditSelectedDiagram();
+    }
+
+    [ComVisible(true)]
+    [ClassInterface(ClassInterfaceType.AutoDispatch)]
+    public sealed class WordAddInAutomation : MarshalByRefObject, IWordAddInAutomation
+    {
+        private readonly AddInHost _host;
+        private readonly Control _dispatcher;
+
+        public WordAddInAutomation(AddInHost host, Control dispatcher)
+        {
+            _host = host;
+            _dispatcher = dispatcher;
+        }
+
+        public void EditSelectedDiagram()
+        {
+            if (_host == null || _dispatcher == null || _dispatcher.IsDisposed)
+            {
+                return;
+            }
+
+            if (_dispatcher.InvokeRequired)
+            {
+                _dispatcher.Invoke(new Action(_host.EditSelectedDiagram));
+                return;
+            }
+
+            _host.EditSelectedDiagram();
+        }
+
+        public string GetInteractionMode()
+        {
+            return "ExplicitSelectionCommand";
+        }
+
+        public override object InitializeLifetimeService()
+        {
+            return null;
+        }
+    }
+
+    [ComVisible(true)]
     [Guid("F10C5C83-0D86-4C81-A0B8-7E8FE9D31D8D")]
     [ProgId(AddInProgId)]
     public class Connect : IDTExtensibility2, IRibbonExtensibility
@@ -18,6 +68,9 @@ namespace DrawioPpt.WordAddIn
 
         private const string OfficeAddinsRegistryRoot = "Software\\Microsoft\\Office\\Word\\Addins\\";
         private WordInterop.Application _application;
+        private COMAddIn _comAddIn;
+        private Control _automationDispatcher;
+        private WordAddInAutomation _automation;
         private AddInHost _host;
         private RibbonController _ribbonController;
 
@@ -42,8 +95,16 @@ namespace DrawioPpt.WordAddIn
                 return;
             }
 
+            _comAddIn = addInInst as COMAddIn;
             _host = new AddInHost(_application);
             _ribbonController = new RibbonController(_host);
+            _automationDispatcher = new Control();
+            _automationDispatcher.CreateControl();
+            _automation = new WordAddInAutomation(_host, _automationDispatcher);
+            if (_comAddIn != null)
+            {
+                _comAddIn.Object = _automation;
+            }
         }
 
         public void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom)
@@ -56,6 +117,17 @@ namespace DrawioPpt.WordAddIn
             _ribbonController = null;
             _host = null;
             _application = null;
+            if (_comAddIn != null)
+            {
+                _comAddIn.Object = null;
+                _comAddIn = null;
+            }
+            _automation = null;
+            if (_automationDispatcher != null)
+            {
+                _automationDispatcher.Dispose();
+                _automationDispatcher = null;
+            }
         }
 
         public void OnStartupComplete(ref Array custom)
@@ -88,6 +160,11 @@ namespace DrawioPpt.WordAddIn
             {
                 _ribbonController.OnEditSelectedDiagram(control);
             }
+        }
+
+        public void EditSelectedDiagram()
+        {
+            OnEditSelectedDiagram(null);
         }
 
         public void OnRefreshSelectedDiagram(IRibbonControl control)
@@ -200,24 +277,6 @@ namespace DrawioPpt.WordAddIn
             }
 
             return _ribbonController.GetEditButtonLabel(control);
-        }
-
-        public bool GetAutoOpenPressed(IRibbonControl control)
-        {
-            if (_ribbonController == null)
-            {
-                return false;
-            }
-
-            return _ribbonController.GetAutoOpenPressed(control);
-        }
-
-        public void OnToggleAutoOpen(IRibbonControl control, bool pressed)
-        {
-            if (_ribbonController != null)
-            {
-                _ribbonController.OnToggleAutoOpen(control, pressed);
-            }
         }
 
         public object GetButtonImage(IRibbonControl control)

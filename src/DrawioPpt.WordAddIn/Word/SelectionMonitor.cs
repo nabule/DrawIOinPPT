@@ -6,16 +6,13 @@ namespace DrawioPpt.WordAddIn.Word
     public class SelectionMonitor : IDisposable
     {
         private readonly WordInterop.Application _application;
-        private readonly WordPictureSelectionReader _reader;
         private bool _started;
 
-        public SelectionMonitor(WordInterop.Application application, WordPictureSelectionReader reader)
+        public SelectionMonitor(WordInterop.Application application)
         {
             _application = application;
-            _reader = reader;
         }
 
-        public event EventHandler<SelectionContextChangedEventArgs> SelectionChanged;
         public event EventHandler<SelectionDoubleClickEventArgs> SelectionDoubleClicked;
 
         public void Start()
@@ -25,7 +22,6 @@ namespace DrawioPpt.WordAddIn.Word
                 return;
             }
 
-            _application.WindowSelectionChange += OnWindowSelectionChange;
             _application.WindowBeforeDoubleClick += OnWindowBeforeDoubleClick;
             _started = true;
         }
@@ -34,22 +30,9 @@ namespace DrawioPpt.WordAddIn.Word
         {
             if (_started && _application != null)
             {
-                _application.WindowSelectionChange -= OnWindowSelectionChange;
                 _application.WindowBeforeDoubleClick -= OnWindowBeforeDoubleClick;
                 _started = false;
             }
-        }
-
-        private void OnWindowSelectionChange(WordInterop.Selection selection)
-        {
-            EventHandler<SelectionContextChangedEventArgs> handler = this.SelectionChanged;
-            if (handler == null)
-            {
-                return;
-            }
-
-            SelectionContext context = _reader.Read(selection);
-            handler(this, new SelectionContextChangedEventArgs(context));
         }
 
         private void OnWindowBeforeDoubleClick(WordInterop.Selection selection, ref bool cancel)

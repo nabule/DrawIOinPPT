@@ -34,9 +34,6 @@ namespace DrawioPpt.WordAddIn.Services
         private static readonly Encoding Utf8WithoutBom = new UTF8Encoding(false);
         private PluginSettings _settings;
         private SelectionContext _currentSelection;
-        private string _lastAutoOpenedDiagramId;
-        private DateTime _lastAutoOpenUtc;
-        private DateTime _suppressAutoOpenUntilUtc;
         private DateTime _lastCleanupUtc;
         private string _lastCleanupDocumentPath;
 
@@ -56,43 +53,15 @@ namespace DrawioPpt.WordAddIn.Services
             _desktopDiagramMonitor = new DesktopDiagramMonitor(RefreshDiagramFromMonitoredFile);
             _traceLog = new PluginTraceLog();
             _userNotifier = new UserNotifier();
-            _selectionMonitor = new SelectionMonitor(application, new WordPictureSelectionReader(_envelopeSerializer, _selectedPictureAccessor));
-            _selectionMonitor.SelectionChanged += OnSelectionChanged;
+            _selectionMonitor = new SelectionMonitor(application);
             _selectionMonitor.SelectionDoubleClicked += OnSelectionDoubleClicked;
             _currentSelection = new SelectionContext();
             _settings = new PluginSettings();
-            _lastAutoOpenedDiagramId = string.Empty;
-            _lastAutoOpenUtc = DateTime.MinValue;
-            _suppressAutoOpenUntilUtc = DateTime.MinValue;
             _lastCleanupUtc = DateTime.MinValue;
             _lastCleanupDocumentPath = string.Empty;
         }
 
         public event EventHandler SelectionStateChanged;
-
-        public bool HasEditableSelection
-        {
-            get { return GetSelectionContextForRibbon().IsManagedPicture; }
-        }
-
-        public bool HasSinglePictureSelection
-        {
-            get { return GetSelectionContextForRibbon().HasSinglePicture; }
-        }
-
-        public bool CanBindSelection
-        {
-            get
-            {
-                SelectionContext selection = GetSelectionContextForRibbon();
-                return selection.HasSinglePicture && !selection.IsManagedPicture;
-            }
-        }
-
-        public bool IsAutoOpenOnSelectionEnabled
-        {
-            get { return _settings != null && _settings.AutoOpenOnSelection; }
-        }
 
         public void Start()
         {
@@ -106,8 +75,7 @@ namespace DrawioPpt.WordAddIn.Services
 
                 _traceLog.Info("WordAddInHost", "Starting Word add-in host. EditorMode=" + _settings.EditorMode + ", EditorUrl=" + (_settings.EditorUrl ?? string.Empty) + ", DesktopPath=" + (_settings.DesktopEditorPath ?? string.Empty));
                 _selectionMonitor.Start();
-                ApplySelectionContext(ReadLiveSelectionContext(), false);
-                MaybeCleanupActiveDocument(true);
+                _currentSelection = new SelectionContext();
             });
         }
 
@@ -145,10 +113,9 @@ namespace DrawioPpt.WordAddIn.Services
                 }
 
                 string svgPath = _svgFileProvider.GetSvgPath(envelope, _settings, workingFile);
-                SuppressAutoOpenForSeconds(2);
                 WordPictureReference picture = _svgPictureService.InsertAtSelection(_application, svgPath, envelope.DiagramName);
                 SaveManagedEnvelope(picture, envelope);
-                ApplySelectionContext(_pictureMetadataService.BuildSelectionContext(picture), false);
+                ApplySelectionContext(_pictureMetadataService.BuildSelectionContext(picture));
 
                 bool launched = TryOpenPictureForEditing(picture, envelope, false);
                 ShowDiagramInfoDialog("已创建新的 Draw.io 图形。", envelope, picture, workingFile, launched);
@@ -159,7 +126,19 @@ namespace DrawioPpt.WordAddIn.Services
         {
             ExecuteGuarded("BindSelectedPicture", "绑定当前图片时出现异常。", true, delegate
             {
-                WordPictureReference picture = _selectedPictureAccessor.GetSingleSelectedPicture(_application);
+                WordPictureReference picture;
+                SelectionContext selection = ReadLiveSelectionContext(out picture);
+                ApplySelectionContext(selection);
+                if (selection == null || !selection.HasSinglePicture || selection.IsManagedPicture)
+                {
+                    _userNotifier.ShowInfo(
+                        selection != null && selection.IsManagedPicture
+                            ? "当前图片已经绑定，无需重复绑定。"
+                            : "请先只选中一个普通图片，再执行绑定。",
+                        "DrawioWord");
+                    return;
+                }
+
                 if (picture == null)
                 {
                     _userNotifier.ShowInfo("请先选中一个图片，再执行绑定。", "DrawioWord");
@@ -170,7 +149,7 @@ namespace DrawioPpt.WordAddIn.Services
                 DiagramEnvelope envelope = _pictureMetadataService.CreateOrUpdateEnvelope(picture, _settings, documentPath);
                 SaveManagedEnvelope(picture, envelope);
                 _traceLog.Info("WordAddInHost", "Bound selected picture '" + picture.Name + "' to diagram " + envelope.DiagramId + ".");
-                ApplySelectionContext(_pictureMetadataService.BuildSelectionContext(picture), false);
+                ApplySelectionContext(_pictureMetadataService.BuildSelectionContext(picture));
 
                 string message =
                     "已为当前图片写入 Draw.io 元数据。" +
@@ -186,12 +165,9 @@ namespace DrawioPpt.WordAddIn.Services
         {
             ExecuteGuarded("EditSelectedDiagram", "打开图形编辑器时出现异常。", true, delegate
             {
-                SelectionContext selection = _currentSelection ?? new SelectionContext();
-                if (!selection.IsManagedPicture)
-                {
-                    selection = ReadLiveSelectionContext();
-                    ApplySelectionContext(selection, false);
-                }
+                WordPictureReference picture;
+                SelectionContext selection = ReadLiveSelectionContext(out picture);
+                ApplySelectionContext(selection);
 
                 if (selection == null || !selection.IsManagedPicture)
                 {
@@ -199,7 +175,6 @@ namespace DrawioPpt.WordAddIn.Services
                     return;
                 }
 
-                WordPictureReference picture = ResolveManagedPicture(selection);
                 if (picture == null)
                 {
                     _userNotifier.ShowInfo("请先选中一个已绑定的图形。", "DrawioWord");
@@ -232,7 +207,15 @@ namespace DrawioPpt.WordAddIn.Services
         {
             ExecuteGuarded("ClearSelectedPictureBinding", "清除图形绑定时出现异常。", true, delegate
             {
-                WordPictureReference picture = ResolveCurrentPicture();
+                WordPictureReference picture;
+                SelectionContext selection = ReadLiveSelectionContext(out picture);
+                ApplySelectionContext(selection);
+                if (selection == null || !selection.IsManagedPicture)
+                {
+                    _userNotifier.ShowInfo("请先选中一个已绑定的图形，再执行清除绑定。", "DrawioWord");
+                    return;
+                }
+
                 if (picture == null)
                 {
                     _userNotifier.ShowInfo("请先选中一个图片，再执行清除绑定。", "DrawioWord");
@@ -243,7 +226,7 @@ namespace DrawioPpt.WordAddIn.Services
                 _pictureMetadataService.Clear(picture);
                 MaybeCleanupActiveDocument(true);
                 _traceLog.Info("WordAddInHost", "Cleared binding for picture '" + picture.Name + "'.");
-                ApplySelectionContext(_pictureMetadataService.BuildSelectionContext(picture), false);
+                ApplySelectionContext(_pictureMetadataService.BuildSelectionContext(picture));
 
                 _userNotifier.ShowInfo("已清除当前图形上的 Draw.io 绑定信息。", "DrawioWord");
             });
@@ -253,7 +236,9 @@ namespace DrawioPpt.WordAddIn.Services
         {
             ExecuteGuarded("RefreshSelectedDiagram", "刷新当前图形时出现异常。", true, delegate
             {
-                WordPictureReference picture = ResolveManagedPicture(_currentSelection);
+                WordPictureReference picture;
+                SelectionContext selection = ReadLiveSelectionContext(out picture);
+                ApplySelectionContext(selection);
                 if (picture == null)
                 {
                     _userNotifier.ShowInfo("请先选中一个图形。", "DrawioWord");
@@ -283,7 +268,7 @@ namespace DrawioPpt.WordAddIn.Services
         {
             ExecuteGuarded("OpenSettings", "打开或保存设置时出现异常。", true, delegate
             {
-                using (SettingsForm form = new SettingsForm(_settings, _desktopEditorPathDetector))
+                using (SettingsForm form = new SettingsForm(_settings, _desktopEditorPathDetector, false))
                 {
                     if (form.ShowDialog() != DialogResult.OK)
                     {
@@ -300,39 +285,12 @@ namespace DrawioPpt.WordAddIn.Services
 
         public string GetSelectionSummary()
         {
-            SelectionContext selection = GetSelectionContextForRibbon();
-            if (selection == null || !selection.HasSelection)
-            {
-                return "对象：未选中";
-            }
-
-            if (!selection.HasSinglePicture)
-            {
-                return "对象：多选或非图片";
-            }
-
-            return "对象：" + SummarizePictureName(selection.PictureName);
+            return "对象：选中后点击操作";
         }
 
         public string GetSelectionDetailSummary()
         {
-            SelectionContext selection = GetSelectionContextForRibbon();
-            if (selection == null || !selection.HasSelection)
-            {
-                return "状态：等待选择图片";
-            }
-
-            if (!selection.HasSinglePicture)
-            {
-                return "状态：请只选择一个图片";
-            }
-
-            if (selection.IsManagedPicture)
-            {
-                return "状态：已识别为 Draw.io 图形";
-            }
-
-            return "状态：普通图片，可直接绑定";
+            return "状态：点击按钮时识别";
         }
 
         public string GetEditorModeSummary()
@@ -344,41 +302,7 @@ namespace DrawioPpt.WordAddIn.Services
 
         public string GetEditButtonLabel()
         {
-            SelectionContext selection = GetSelectionContextForRibbon();
-            if (selection != null && selection.IsManagedPicture)
-            {
-                return "重新编辑";
-            }
-
-            return "编辑";
-        }
-
-        public void SetAutoOpenOnSelection(bool enabled)
-        {
-            ExecuteGuarded("SetAutoOpenOnSelection", "切换自动打开设置时出现异常。", true, delegate
-            {
-                if (_settings == null)
-                {
-                    _settings = new PluginSettings();
-                }
-
-                if (_settings.AutoOpenOnSelection == enabled)
-                {
-                    return;
-                }
-
-                _settings.AutoOpenOnSelection = enabled;
-                _settingsStore.Save(_settings);
-                RaiseSelectionStateChanged();
-            });
-        }
-
-        private void OnSelectionChanged(object sender, SelectionContextChangedEventArgs e)
-        {
-            ExecuteGuarded("OnSelectionChanged", "处理图片选中状态时出现异常。", false, delegate
-            {
-                ApplySelectionContext(e == null ? null : e.Context, true);
-            });
+            return "重新编辑";
         }
 
         private void OnSelectionDoubleClicked(object sender, SelectionDoubleClickEventArgs e)
@@ -468,10 +392,9 @@ namespace DrawioPpt.WordAddIn.Services
                 return;
             }
 
-            SuppressAutoOpenForSeconds(2);
             WordPictureReference newPicture = _svgPictureService.Replace(document, picture, svgPath);
             SaveManagedEnvelope(newPicture, envelope);
-            ApplySelectionContext(_pictureMetadataService.BuildSelectionContext(newPicture), false);
+            ApplySelectionContext(_pictureMetadataService.BuildSelectionContext(newPicture));
 
             if (notifyUser)
             {
@@ -501,7 +424,6 @@ namespace DrawioPpt.WordAddIn.Services
                     return false;
                 }
 
-                RememberEditorLaunch(envelope.DiagramId);
                 return true;
             }
 
@@ -529,7 +451,6 @@ namespace DrawioPpt.WordAddIn.Services
                     form.ShowDialog();
                 }
 
-                RememberEditorLaunch(envelope.DiagramId);
                 return true;
             }
 
@@ -617,10 +538,9 @@ namespace DrawioPpt.WordAddIn.Services
                     return;
                 }
 
-                SuppressAutoOpenForSeconds(2);
                 WordPictureReference newPicture = _svgPictureService.Replace(document, picture, svgPath);
                 SaveManagedEnvelope(newPicture, envelope);
-                ApplySelectionContext(new SelectionContext(), false);
+                ApplySelectionContext(new SelectionContext());
             }
             catch (Exception ex)
             {
@@ -645,83 +565,9 @@ namespace DrawioPpt.WordAddIn.Services
             File.WriteAllText(envelope.SidecarPath, envelope.DrawioXml ?? string.Empty, Utf8WithoutBom);
         }
 
-        private void MaybeAutoOpenSelection()
+        private SelectionContext ReadLiveSelectionContext(out WordPictureReference picture)
         {
-            if (!_settings.AutoOpenOnSelection || _currentSelection == null || !_currentSelection.IsManagedPicture)
-            {
-                return;
-            }
-
-            if (DateTime.UtcNow < _suppressAutoOpenUntilUtc)
-            {
-                return;
-            }
-
-            string diagramId = _currentSelection.DiagramId ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(diagramId))
-            {
-                return;
-            }
-
-            if (string.Equals(_lastAutoOpenedDiagramId, diagramId, StringComparison.OrdinalIgnoreCase) &&
-                DateTime.UtcNow.Subtract(_lastAutoOpenUtc).TotalSeconds < 2)
-            {
-                return;
-            }
-
-            WordPictureReference picture = _selectedPictureAccessor.GetSingleSelectedPicture(_application);
-            if (picture == null)
-            {
-                return;
-            }
-
-            DiagramEnvelope envelope;
-            if (!TryReadManagedEnvelope(picture, out envelope))
-            {
-                return;
-            }
-
-            if (TryOpenPictureForEditing(picture, envelope, false))
-            {
-                RememberEditorLaunch(diagramId);
-            }
-        }
-
-        private SelectionContext GetSelectionContextForRibbon()
-        {
-            return _currentSelection ?? new SelectionContext();
-        }
-
-        private WordPictureReference ResolveCurrentPicture()
-        {
-            WordPictureReference livePicture = _selectedPictureAccessor.GetSingleSelectedPicture(_application);
-            if (livePicture != null)
-            {
-                return livePicture;
-            }
-
-            return ResolveManagedPicture(_currentSelection);
-        }
-
-        private WordPictureReference ResolveManagedPicture(SelectionContext selection)
-        {
-            WordPictureReference livePicture = _selectedPictureAccessor.GetSingleSelectedPicture(_application);
-            if (livePicture != null)
-            {
-                return livePicture;
-            }
-
-            if (selection == null || string.IsNullOrWhiteSpace(selection.DiagramId))
-            {
-                return null;
-            }
-
-            WordInterop.Document document = _selectedPictureAccessor.GetActiveDocument(_application);
-            return _selectedPictureAccessor.FindPictureByDiagramId(document, selection.DiagramId);
-        }
-
-        private SelectionContext ReadLiveSelectionContext()
-        {
+            picture = null;
             SelectionContext emptyContext = new SelectionContext();
             if (_application == null)
             {
@@ -730,7 +576,7 @@ namespace DrawioPpt.WordAddIn.Services
 
             try
             {
-                WordPictureReference picture = _selectedPictureAccessor.GetSingleSelectedPicture(_application);
+                picture = _selectedPictureAccessor.GetSingleSelectedPicture(_application);
                 if (picture == null)
                 {
                     WordInterop.Selection selection = _selectedPictureAccessor.GetSelection(_application);
@@ -754,7 +600,7 @@ namespace DrawioPpt.WordAddIn.Services
             }
         }
 
-        private void ApplySelectionContext(SelectionContext context, bool allowAutoOpen)
+        private void ApplySelectionContext(SelectionContext context)
         {
             SelectionContext nextContext = context ?? new SelectionContext();
             bool changed = !AreSelectionContextsEquivalent(_currentSelection, nextContext);
@@ -764,10 +610,6 @@ namespace DrawioPpt.WordAddIn.Services
             {
                 RaiseSelectionStateChanged();
                 MaybeCleanupActiveDocument(false);
-                if (allowAutoOpen)
-                {
-                    MaybeAutoOpenSelection();
-                }
             }
         }
 
@@ -783,17 +625,6 @@ namespace DrawioPpt.WordAddIn.Services
                 string.Equals(normalizedLeft.PictureName ?? string.Empty, normalizedRight.PictureName ?? string.Empty, StringComparison.Ordinal) &&
                 string.Equals(normalizedLeft.DiagramId ?? string.Empty, normalizedRight.DiagramId ?? string.Empty, StringComparison.Ordinal) &&
                 string.Equals(normalizedLeft.AlternativeText ?? string.Empty, normalizedRight.AlternativeText ?? string.Empty, StringComparison.Ordinal);
-        }
-
-        private void RememberEditorLaunch(string diagramId)
-        {
-            if (string.IsNullOrWhiteSpace(diagramId))
-            {
-                return;
-            }
-
-            _lastAutoOpenedDiagramId = diagramId;
-            _lastAutoOpenUtc = DateTime.UtcNow;
         }
 
         private bool TryReadManagedEnvelope(WordPictureReference picture, out DiagramEnvelope envelope)
@@ -954,11 +785,6 @@ namespace DrawioPpt.WordAddIn.Services
             }
 
             _userNotifier.ShowInfo(message, "DrawioWord");
-        }
-
-        private void SuppressAutoOpenForSeconds(int seconds)
-        {
-            _suppressAutoOpenUntilUtc = DateTime.UtcNow.AddSeconds(seconds);
         }
 
         private void ExecuteGuarded(string operationName, string userMessage, bool notifyUser, Action action)

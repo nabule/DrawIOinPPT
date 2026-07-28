@@ -98,30 +98,51 @@ using DrawioPpt.PowerPointAddIn.UI;
 
 public sealed class MockEditorServer : IDisposable
 {
-    private readonly HttpListener _listener;
+    private HttpListener _listener;
     private readonly string _htmlPath;
     private Thread _worker;
 
-    public MockEditorServer(int port, string htmlPath)
+    public MockEditorServer(string htmlPath)
     {
-        _listener = new HttpListener();
-        _listener.Prefixes.Add("http://127.0.0.1:" + port + "/");
-        _listener.Prefixes.Add("http://localhost:" + port + "/");
         _htmlPath = htmlPath;
     }
 
-    public void Start()
+    public int Port { get; private set; }
+
+    public void StartWithRetry(int preferredPort)
     {
-        _listener.Start();
-        _worker = new Thread(Listen);
-        _worker.IsBackground = true;
-        _worker.Start();
-        Console.WriteLine("MockHttpServerState=Running");
+        Exception lastError = null;
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            int candidatePort = preferredPort + attempt;
+            HttpListener listener = new HttpListener();
+            listener.Prefixes.Add("http://127.0.0.1:" + candidatePort + "/");
+            listener.Prefixes.Add("http://localhost:" + candidatePort + "/");
+            try
+            {
+                listener.Start();
+                _listener = listener;
+                Port = candidatePort;
+                _worker = new Thread(Listen);
+                _worker.IsBackground = true;
+                _worker.Start();
+                Console.WriteLine("MockHttpServerState=Running");
+                Console.WriteLine("MockServerPort=" + Port);
+                return;
+            }
+            catch (HttpListenerException ex)
+            {
+                lastError = ex;
+                listener.Close();
+            }
+        }
+
+        throw new InvalidOperationException("Unable to bind a mock-editor HTTP port.", lastError);
     }
 
     public void AssertReachable()
     {
-        string requestUrl = "http://127.0.0.1:$serverPort/mock-editor.html?configure=1";
+        string requestUrl = "http://127.0.0.1:" + Port + "/mock-editor.html?configure=1";
         using (WebClient client = new WebClient())
         {
             string html = client.DownloadString(requestUrl);
@@ -178,7 +199,10 @@ public sealed class MockEditorServer : IDisposable
 
     public void Dispose()
     {
-        _listener.Close();
+        if (_listener != null)
+        {
+            _listener.Close();
+        }
         if (_worker != null)
         {
             _worker.Join(5000);
@@ -197,12 +221,12 @@ public static class UrlEditorSmoke
         MockEditorServer mockServer = null;
         try
         {
-            mockServer = new MockEditorServer($serverPort, @"$mockHtmlPath");
-            mockServer.Start();
+            mockServer = new MockEditorServer(@"$mockHtmlPath");
+            mockServer.StartWithRetry($serverPort);
             mockServer.AssertReachable();
 
             PluginTraceLog traceLog = new PluginTraceLog();
-            string editorUrl = "http://127.0.0.1:$serverPort/mock-editor.html";
+            string editorUrl = "http://127.0.0.1:" + mockServer.Port + "/mock-editor.html";
             string xml = "<mxfile host=\"Smoke\"><diagram id=\"smoke\" name=\"Smoke\"><mxGraphModel /></diagram></mxfile>";
             bool saved = false;
             string savedSvg = string.Empty;
@@ -226,6 +250,13 @@ public static class UrlEditorSmoke
             Console.WriteLine("XmlHasSmokeId=" + savedXml.Contains("id=\"smoke\""));
             Console.WriteLine("LogPath=" + traceLog.LogPath);
             return saved && savedSvg.Contains("smoke") && savedXml.Contains("id=\"smoke\"") ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("CaughtType=" + ex.GetType().FullName);
+            Console.WriteLine("CaughtMessage=" + ex.Message);
+            Console.WriteLine("CaughtStack=" + ex.StackTrace);
+            return 99;
         }
         finally
         {

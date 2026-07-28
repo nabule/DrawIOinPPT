@@ -32,7 +32,7 @@ Responsibilities:
 - Provide metadata serialization and compression
 - Generate sidecar file paths
 
-The current settings model includes editor mode, desktop editor path, URL editor address, Office-compatible SVG labels, auto-open-on-selection, auto-refresh-after-save, sidecar retention, and whether to show diagram information when creating or editing.
+The shared settings model includes editor mode, desktop editor path, URL editor address, Office-compatible SVG labels, auto-open-on-selection, auto-refresh-after-save, sidecar retention, and whether to show diagram information when creating or editing. Auto-open-on-selection is used only by PowerPoint. Word does not subscribe to selection changes or expose auto-open, keeping the drag hot path free of add-in work.
 
 ### 3.2 `DrawioPpt.PowerPointAddIn`
 
@@ -57,7 +57,7 @@ Responsibilities:
 
 The current Word host reuses public editor and SVG services from the PowerPoint assembly. These shared services can later be extracted into a dedicated `OfficeShared` project.
 
-Word selection state is driven by `WindowSelectionChange` and one read at add-in startup; the host no longer reads the Word selection or picture metadata every 500 ms. Picture `AlternativeText` normally carries only a lightweight reference, so selection events no longer deserialize a complex diagram's large Draw.io XML payload. This reduces Word UI-thread work while selecting, dragging, or resizing. Explicit Edit, Refresh, Bind, and Clear Binding commands read the live Word selection when invoked, preserving operation when Word does not immediately raise a selection notification.
+Word does not subscribe to `WindowSelectionChange`, and startup does not read the current selection, picture properties, or `AlternativeText`. Selecting, dragging, resizing, and repositioning therefore use Word's native path without add-in metadata detection, Ribbon-state invalidation, document scanning, or auto-open work. Word Ribbon commands remain enabled: the user selects a picture and then clicks Re-edit, Refresh, Bind, or Clear Binding, at which point the command reads and validates the live selection. Double-click remains an explicit editing action and may read the current picture.
 
 ### 3.4 Installation and Registration Scripts
 
@@ -137,9 +137,9 @@ The current implementation does not embed `.drawio` as an OLE object or `Embedde
 ### 5.2 Edit
 
 1. The user selects a shape or picture
-2. The add-in listens for the selection change
-3. It checks whether the shape is a Draw.io diagram managed by the add-in
-4. It reads the metadata envelope
+2. PowerPoint may update status through its existing selection event; Word selection itself performs no add-in work
+3. The Word user clicks Re-edit (or double-clicks the picture), while PowerPoint uses its existing edit entry point
+4. After that explicit action, the add-in identifies the object and reads the metadata envelope
 5. It opens the local editor or URL editor
 6. The user saves
 7. The add-in regenerates SVG and replaces the displayed content

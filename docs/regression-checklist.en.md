@@ -2,6 +2,15 @@
 
 [English](./regression-checklist.en.md) | [中文](./regression-checklist.md) | [English Home](../README.en.md) | [中文首页](../README.md)
 
+## v1.0.8 Execution Status
+
+| Status | Item |
+| --- | --- |
+| PASS | Full Office E2E against the temporary release-package installation passed 9/9; this result covers only the isolated temporary installation. |
+| PASS | Standard local installation at `%LOCALAPPDATA%\Greensoft\DrawioPpt`, DLL hashes, Office registration, and real COM loading. |
+| PASS | Installed Word UI-thread stress comparison: two crossed-order rounds with a four-second warmup and 12-second measurement per picture per round; managed/normal selection, position, and size P95 ratios were 0.778 / 0.948 / 0.920, with add-in connection, zero missing events across 135 target-Shape operations, absolute-latency, minimum-sample, save/reopen, and full source-XML recovery gates passing. Installed-build runtime reflection also confirmed no passive selection-metadata path. |
+| Pending manual confirmation | A 10-second real-pointer drag, resize, and reposition on each normal and managed picture, followed by a Re-edit button click. The current Codex interactive desktop is denied cursor access and cannot substitute for the user. |
+
 ## 1. Build and Registration
 
 - `scripts/dev-check.ps1` passes
@@ -13,11 +22,9 @@
 
 - The Ribbon displays correctly
 - Ribbon groups are `Create / Current Shape / Workflow / Info`
-- When no shape is selected, status shows `No selection`
-- When a normal shape is selected, status shows that it is a normal shape and can be bound
-- When a bound shape is selected, status shows that it is recognized as a Draw.io shape
-- The main action button changes its label to `Re-edit` for a bound shape
-- The `Auto Open` toggle reads and writes `AutoOpenOnSelection` correctly
+- Word status remains `Select a picture, then click an action / Identified when a button is clicked`; selection changes do not invalidate the Ribbon
+- Word Re-edit, Refresh, Bind, and Clear Binding remain enabled and validate the live selection on click
+- Word does not show Auto Open; PowerPoint `AutoOpenOnSelection` behavior is unchanged
 - Button icons render correctly without blank placeholders
 
 ## 3. Desktop Mode
@@ -39,7 +46,7 @@
 - SVG and XML can be written back to PowerPoint
 - After creating a new diagram, saving the PPT, closing it, and reopening it, the same diagram can still be edited and written back again
 - The log records the key URL-mode events
-- `scripts\word-url-addin-host-e2e.ps1` passes inside real `WINWORD.EXE`: the add-in connects, selecting a managed picture completes write-back, `%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2` exists, and the new log segment has no `E_ACCESSDENIED`.
+- `scripts\word-url-addin-host-e2e.ps1` passes inside real `WINWORD.EXE`: the add-in connects, a managed picture is selected, Re-edit is invoked explicitly, write-back completes, `ExplicitEditCommandInvoked=True`, `%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2` exists, and the new log segment has no `E_ACCESSDENIED`.
 
 ## 5. Storage and Migration
 
@@ -73,10 +80,10 @@
 
 ## 9. Word Selection and Picture Operations
 
-- `scripts\word-selection-sync-test.ps1` passes; `AddInHost` must not reintroduce a selection `Timer` or Tick handler.
-- `scripts\word-selection-event-e2e.ps1` passes against real Word COM, validating managed floating-`Shape` recognition, the live-selection prerequisite for binding a normal picture, and the no-polling contract of the release DLL.
+- `scripts\word-selection-sync-test.ps1` passes: `SelectionMonitor` contains no `WindowSelectionChange` / `SelectionChanged`, and `AddInHost` contains no selection timer, passive-selection handler, or startup selection read.
+- `scripts\word-selection-event-e2e.ps1` passes against real Word COM: the release DLL reports `NoPassiveSelectionMetadataPath=True`, while explicit reads still identify a managed floating `Shape` and a normal picture.
 - Close Word before running the Word E2E and do not run it alongside another Word automation test. The script restores add-in settings and cleans up only automation Word processes created by this test.
-- After a floating picture is moved or resized, Word events update Ribbon state. If Word does not update the display immediately, select the picture and invoke Re-edit, Refresh, Bind, or Clear Binding; the command reads the live selection.
+- Ordinary selection, movement, resizing, and repositioning must not read picture `AlternativeText`, `CustomXMLParts`, or invalidate the Ribbon. Select the picture first, then click Re-edit, Refresh, Bind, or Clear Binding; only the command reads the live selection.
 
 ## 10. Word Complex Metadata and Drag Performance
 
@@ -89,10 +96,11 @@ Automated checks:
 - `scripts\word-url-e2e.ps1` strictly verifies URL-mode create, reopen, edit, and final write-back through `Document.CustomXMLParts`; the lightweight `AlternativeText` must not stand in for the full primary store.
 - `scripts\word-url-addin-host-e2e.ps1` strictly verifies actual-host write-back through the document-level primary store, with `WordAddInConnect=True` and `ActualWordUrlEditorSaved=True`.
 - Each Word automation script checks that no residual `WINWORD.EXE` remains; a residual process fails the check.
+- The installed visible-Word UI-thread stress comparison used a 120-element SVG and 254,606 characters of XML in two crossed-order rounds with a four-second warmup and 12-second measurement per picture per round. Normal/managed P95 values were 7.501/5.833 ms for selection, 388.910/368.568 ms for position, and 112.280/103.247 ms for size, with managed/normal ratios of 0.778, 0.948, and 0.920. The add-in was connected in the measured instance, 135 target-Shape events were classified with zero missing, installed-build runtime reflection reported `NoPassiveSelectionMetadataPath=True`, and every gate passed. This sample does not establish the cause of the absolute latency; see the [v1.0.8 Word UI-thread stress acceptance report](./word-ui-thread-stress-report-v1.0.8.en.md).
 
 Pre-release manual acceptance:
 
 | Status | Check |
 | --- | --- |
-| Pending | Insert a complex Draw.io diagram and a normal picture of the same displayed size in one Word document. Drag, resize, and reposition each continuously, and compare whether there is a noticeable responsiveness difference. |
-| Pending | Save and reopen the document, drag the complex diagram again, then use Re-edit to confirm that the source XML can be recovered. |
+| Partially covered; pointer confirmation pending | The two-round UI-thread stress comparison on same-sized normal and managed pictures observed no additional difference above the threshold and passed the absolute-latency gates. The user should still drag, resize, and reposition each object with a real pointer for 10 continuous seconds each to confirm visual tracking. |
+| Automation passed; button confirmation pending | Save and reopen preserved position, size, and all 254,606 characters of source XML, and the real URL-host E2E completed Re-edit write-back. The user should still click Re-edit once to confirm the local interaction. |

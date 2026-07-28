@@ -25,17 +25,17 @@ The new project is `src/DrawioPpt.WordAddIn/`, an independent Word COM Add-in ho
 Word-specific code handles:
 
 - Word COM Add-in registration and Ribbon callbacks.
-- Word selection monitoring and double-click handling.
+- Explicit Word double-click handling, without monitoring ordinary selection changes.
 - `InlineShape` / floating `Shape` picture detection.
 - SVG picture insertion and replacement.
 - `Document.CustomXMLParts` write/read/orphan cleanup.
 - Sidecar `.drawio` relocation based on the Word document path.
 
-### 2.1 Selection Synchronization and Picture Operation Performance
+### 2.1 Zero Selection Hot Path and Explicit Operations
 
-The Word host uses `WindowSelectionChange` to synchronize Ribbon state and reads the current selection once at startup. It no longer uses a 500 ms timer to repeatedly access Word COM and parse picture metadata. Normal picture `AlternativeText` contains only a lightweight reference, so selection events do not deserialize a complex diagram's large Draw.io XML payload. This removes the periodic background interruption and reduces metadata parsing work during event synchronization while a picture is moved or resized.
+The Word host does not subscribe to `WindowSelectionChange`, and startup does not read the current selection, picture properties, `AlternativeText`, or `Document.CustomXMLParts`. During ordinary selection, dragging, resizing, and repositioning, the add-in performs no metadata recognition, Ribbon-state refresh, orphan cleanup, or auto-open work; Word performs only its native picture interaction.
 
-Edit, Refresh, Bind, and Clear Binding are explicit operations and re-read the live Word selection on click. If Word does not immediately raise a selection event, users can still select the picture and invoke the relevant command. This release does not change SVG, Draw.io XML, picture format, wrapping, or the layout cost of a floating picture itself.
+Re-edit, Refresh, Bind, and Clear Binding remain enabled. The user selects a picture and then clicks the command; only then does the add-in read the live Word selection and validate metadata. Ribbon information displays fixed select-then-click guidance rather than changing with selection. Double-click is still an explicit edit action and may open a managed picture. This release does not change SVG, Draw.io XML, picture format, wrapping, or Word's native layout cost for floating pictures.
 
 ## 3. Data Strategy
 
@@ -61,7 +61,7 @@ The Word add-in also already embeds the Draw.io source XML inside the `.docx` fi
 - update time
 - Draw.io XML compressed with `gzip + base64`
 
-When re-editing a selected picture, the add-in first resolves `diagramId` from the picture `AlternativeText`, then finds the newest full envelope in `Document.CustomXMLParts`. After save, it updates the visible SVG picture, the lightweight picture reference, and the document-level XML. A full picture fallback is retained only if the primary-store write fails.
+After selecting a picture and clicking Re-edit, the add-in resolves `diagramId` from picture `AlternativeText`, then finds the newest full envelope in `Document.CustomXMLParts`. After save, it updates the visible SVG picture, the lightweight picture reference, and the document-level XML. A full picture fallback is retained only if the primary-store write fails.
 
 The sidecar `.drawio` file is also an editing cache and manual backup in the Word workflow, not the primary store. After moving the `.docx` to another machine, the add-in can still recover Draw.io XML from the document itself as long as `Document.CustomXMLParts` has not been stripped; if desktop draw.io is needed, the sidecar can be regenerated.
 
@@ -132,15 +132,16 @@ Unregister the Word add-in:
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-word-addin.ps1
 ```
 
-After developer registration, Word shows the `Draw.io` Ribbon. Its entry points mirror the PowerPoint add-in:
+After developer registration, Word shows the `Draw.io` Ribbon:
 
 - `New`: insert a new Draw.io diagram at the current cursor.
 - `Re-edit`: edit the selected managed picture.
 - `Refresh`: regenerate the picture from the bound `.drawio` working file.
 - `Bind`: bring a normal picture under Draw.io management.
 - `Clear Binding`: remove metadata while keeping the visible picture.
-- `Auto Open`: automatically open the editor when selecting a managed picture.
 - `Settings`: reuse the existing editor settings.
+
+Word does not expose Auto Open, so selection and dragging remain free of add-in work. PowerPoint auto-open behavior is unchanged.
 
 ## 6. Validation
 
@@ -166,7 +167,7 @@ Coverage:
 - Complex Draw.io XML remains in `CustomXMLParts`, while picture `AlternativeText` is a lightweight reference without `DrawioXml`; this remains true after save, close, and reopen.
 - A full picture fallback persists when `CustomXMLParts` cannot be written, and the XML part ID remains stable on a second read after migrating legacy full metadata.
 - Word can load the COM add-in through `COMAddIns.Item("Greensoft.DrawioWordAddIn")`, with `Connect=True`.
-- `word-url-addin-host-e2e.ps1` loads the tested DLL inside real `WINWORD.EXE`, triggers the URL editor by selecting a managed picture, and verifies `configure -> init -> load -> save -> export` write-back, the per-user WebView2 folder, and no `E_ACCESSDENIED` in the log.
+- `word-url-addin-host-e2e.ps1` loads the tested DLL inside real `WINWORD.EXE`, selects a managed picture, and invokes Re-edit through the add-in's explicit-command automation entry. It verifies `ExplicitEditAutomationAvailable=True`, `ExplicitEditCommandInvoked=True`, `configure -> init -> load -> save -> export` write-back, the per-user WebView2 folder, and no `E_ACCESSDENIED` in the log.
 - No residual `WINWORD.EXE` remains after the Word automation scripts finish.
 
 `word-url-e2e.ps1` does not force-close user Word processes. If Word is already running, it aborts to avoid affecting unsaved documents. To isolate the host it creates, it temporarily disables automatic loading of the registered add-in and restores the original `LoadBehavior` in `finally`; do not start Word or run another Word automation task while it is running.

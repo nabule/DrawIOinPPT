@@ -13,14 +13,13 @@ namespace DrawioPpt.WordAddIn.Ribbon
           <button id='Greensoft.DrawioWord.New' label='新建' size='large' getImage='GetButtonImage' onAction='OnNewDiagram' screentip='新建 Draw.io 图形' supertip='在当前光标位置插入一个新的 Draw.io 图形，并立即进入编辑。' />
         </group>
         <group id='Greensoft.DrawioWord.CurrentGroup' label='当前图形'>
-          <button id='Greensoft.DrawioWord.Edit' getLabel='GetEditButtonLabel' size='large' getImage='GetButtonImage' onAction='OnEditSelectedDiagram' getEnabled='GetEditEnabled' screentip='编辑当前图形' supertip='编辑当前选中的 Draw.io 图形。关闭自动打开后，主要通过这个按钮进入编辑。' />
-          <button id='Greensoft.DrawioWord.Refresh' label='刷新' getImage='GetButtonImage' onAction='OnRefreshSelectedDiagram' getEnabled='GetManagedPictureEnabled' screentip='刷新当前图形' supertip='从绑定的 Draw.io 内容重新生成并替换当前图形。' />
-          <button id='Greensoft.DrawioWord.Bind' label='绑定' getImage='GetButtonImage' onAction='OnBindSelectedPicture' getEnabled='GetBindEnabled' screentip='绑定选中图片' supertip='把当前选中的普通图片纳入 Draw.io 管理。' />
-          <button id='Greensoft.DrawioWord.Clear' label='清除绑定' getImage='GetButtonImage' onAction='OnClearSelectedPicture' getEnabled='GetManagedPictureEnabled' screentip='清除当前绑定' supertip='移除当前 Draw.io 图形的绑定信息，但保留它在文档中的显示。' />
+          <button id='Greensoft.DrawioWord.Edit' getLabel='GetEditButtonLabel' size='large' getImage='GetButtonImage' onAction='OnEditSelectedDiagram' getEnabled='GetEditEnabled' screentip='重新编辑当前图形' supertip='选中图片后点击此按钮。只有点击时才读取 Draw.io 元数据，选中和拖动过程不执行插件处理。' />
+          <button id='Greensoft.DrawioWord.Refresh' label='刷新' getImage='GetButtonImage' onAction='OnRefreshSelectedDiagram' getEnabled='GetManagedPictureEnabled' screentip='刷新当前图形' supertip='选中图片后点击此按钮，从绑定的 Draw.io 内容重新生成并替换当前图形。' />
+          <button id='Greensoft.DrawioWord.Bind' label='绑定' getImage='GetButtonImage' onAction='OnBindSelectedPicture' getEnabled='GetBindEnabled' screentip='绑定选中图片' supertip='选中图片后点击此按钮，把普通图片纳入 Draw.io 管理。' />
+          <button id='Greensoft.DrawioWord.Clear' label='清除绑定' getImage='GetButtonImage' onAction='OnClearSelectedPicture' getEnabled='GetManagedPictureEnabled' screentip='清除当前绑定' supertip='选中图片后点击此按钮，移除 Draw.io 绑定信息但保留图片。' />
         </group>
         <group id='Greensoft.DrawioWord.WorkflowGroup' label='工作流'>
-          <toggleButton id='Greensoft.DrawioWord.AutoOpen' label='自动打开' getImage='GetButtonImage' onAction='OnToggleAutoOpen' getPressed='GetAutoOpenPressed' screentip='切换自动打开' supertip='开启后，选中已绑定 Draw.io 图形时会自动进入编辑。' />
-          <button id='Greensoft.DrawioWord.Settings' label='设置' getImage='GetButtonImage' onAction='OnOpenSettings' screentip='插件设置' supertip='配置桌面编辑器、URL 模式和自动打开等选项。' />
+          <button id='Greensoft.DrawioWord.Settings' label='设置' getImage='GetButtonImage' onAction='OnOpenSettings' screentip='插件设置' supertip='配置桌面编辑器和 URL 模式等选项。' />
         </group>
         <group id='Greensoft.DrawioWord.InfoGroup' label='信息'>
           <labelControl id='Greensoft.DrawioWord.Status' getLabel='GetSelectionStatus' />

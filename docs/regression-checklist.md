@@ -2,6 +2,15 @@
 
 [中文](./regression-checklist.md) | [English](./regression-checklist.en.md) | [中文首页](../README.md) | [English Home](../README.en.md)
 
+## v1.0.8 本轮执行状态
+
+| 状态 | 项目 |
+| --- | --- |
+| 通过 | 临时安装发布包完整 Office E2E 9/9；该结果仅代表隔离临时安装。 |
+| 通过 | 标准本地目录 `%LOCALAPPDATA%\Greensoft\DrawioPpt` 安装、DLL 哈希、Office 注册和真实 COM 加载。 |
+| 通过 | 安装态 Word UI 线程压力对照：两轮交叉顺序，每张图片每轮预热 4 秒后测量 12 秒；受管/普通选择、位置、尺寸 P95 比例为 0.778 / 0.948 / 0.920，加载项连接、135 次目标 Shape 事件零缺失、绝对延迟、最小样本、保存重开和完整源 XML 恢复门槛均通过；安装态运行时反射同时确认无被动选区元数据路径。 |
+| 待人工确认 | 普通/受管图形各连续 10 秒的真实指针拖动、缩放、重定位和“重新编辑”按钮点击；当前 Codex 交互桌面被系统拒绝光标访问，不能代替用户执行。 |
+
 ## 1. 构建与注册
 
 - `scripts/dev-check.ps1` 通过
@@ -13,11 +22,9 @@
 
 - Ribbon 可正常显示
 - Ribbon 分组为“创建 / 当前图形 / 工作流 / 信息”
-- 未选中图形时状态为“未选中”
-- 选中普通图形时状态为“普通图形，可直接绑定”
-- 选中已绑定图形时状态为“已识别为 Draw.io 图形”
-- 已绑定图形的主按钮文案会显示为“重新编辑”
-- `自动打开` 开关可正确读写 `AutoOpenOnSelection`
+- Word 状态固定显示“对象：选中后点击操作 / 状态：点击按钮时识别”，选择变化不会触发功能区刷新
+- Word 的“重新编辑 / 刷新 / 绑定 / 清除绑定”保持可点击，并在点击时验证实时选区
+- Word 不显示“自动打开”开关；PowerPoint 的 `AutoOpenOnSelection` 行为不变
 - 按钮图标可正常显示，不出现空白占位
 
 ## 3. 桌面模式
@@ -39,7 +46,7 @@
 - SVG 与 XML 可回写到 PPT
 - 新建图形后保存 PPT、关闭并重新打开，仍可再次编辑并回写
 - 日志中可看到 URL 模式关键事件
-- `scripts\word-url-addin-host-e2e.ps1` 在真实 `WINWORD.EXE` 中通过：加载项已连接、选择受管图片后完成回写、`%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2` 存在，新增日志没有 `E_ACCESSDENIED`。
+- `scripts\word-url-addin-host-e2e.ps1` 在真实 `WINWORD.EXE` 中通过：加载项已连接、选中受管图片后显式调用“重新编辑”并完成回写、`ExplicitEditCommandInvoked=True`、`%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2` 存在，新增日志没有 `E_ACCESSDENIED`。
 
 ## 5. 存储与迁移
 
@@ -69,14 +76,14 @@
 ## 8. 注册与卸载
 
 - 卸载脚本可正常移除注册项
-- 卸载后 PowerPoint 不再加载该插件
+- 卸载后 PowerPoint 和 Word 不再加载对应插件
 
 ## 9. Word 选区与图片操作
 
-- `scripts\word-selection-sync-test.ps1` 通过，`AddInHost` 不得重新引入选区 `Timer` 或 Tick 回调。
-- `scripts\word-selection-event-e2e.ps1` 在真实 Word COM 中通过，验证浮动 `Shape` 的受管图片即时识别、普通图片的现场绑定前提，以及发布 DLL 的无轮询约束。
+- `scripts\word-selection-sync-test.ps1` 通过：`SelectionMonitor` 不含 `WindowSelectionChange` / `SelectionChanged`，`AddInHost` 不含选区 Timer、被动选区处理器或启动时选区读取。
+- `scripts\word-selection-event-e2e.ps1` 在真实 Word COM 中通过：发布 DLL 输出 `NoPassiveSelectionMetadataPath=True`，并验证显式读取能够识别受管浮动 `Shape` 和普通图片。
 - 执行 Word E2E 前关闭 Word，且不要与其他 Word 自动化测试并行运行；脚本会还原插件设置并仅清理本次测试创建的自动化 Word 进程。
-- 移动、缩放浮动图片后，功能区状态由 Word 事件更新；如 Word 未立即更新显示，直接选中图片后点击“重新编辑”“刷新”“绑定”或“清除绑定”，命令会现场读取当前选区。
+- 普通选中、移动、缩放和重新定位期间不得读取图片 `AlternativeText`、`CustomXMLParts` 或刷新功能区；先选中图片，再点击“重新编辑”“刷新”“绑定”或“清除绑定”，命令才读取当前选区。
 
 ## 10. Word 复杂元数据与拖动性能
 
@@ -89,10 +96,11 @@
 - `scripts\word-url-e2e.ps1` 严格从 `Document.CustomXMLParts` 验证 URL 模式的创建、重开、编辑和最终回写，不以轻量 `AlternativeText` 冒充完整主存储。
 - `scripts\word-url-addin-host-e2e.ps1` 严格从文档级主存储验证实际宿主回写，`WordAddInConnect=True` 且 `ActualWordUrlEditorSaved=True`。
 - 每个 Word 自动化脚本结束后检查没有残留 `WINWORD.EXE`；发现残留进程即判定失败。
+- 安装态可见 Word UI 线程压力对照使用 120 元素 SVG 与 254,606 字符 XML，执行两轮交叉顺序测试，每张图片每轮预热 4 秒后测量 12 秒。普通/受管选择 P95 为 7.501 / 5.833 ms，位置 P95 为 388.910 / 368.568 ms，尺寸 P95 为 112.280 / 103.247 ms，受管/普通比例为 0.778 / 0.948 / 0.920。测量实例加载项已连接，按目标 Shape 分类确认 135 次事件且缺失为 0；安装态运行时反射输出 `NoPassiveSelectionMetadataPath=True`，所有门槛通过。本样本不证明绝对延迟来源，完整结果见 [v1.0.8 Word UI 线程压力验收报告](./word-ui-thread-stress-report-v1.0.8.md)。
 
 发布前人工验收：
 
 | 状态 | 检查项 |
 | --- | --- |
-| 待验收 | 在同一 Word 文档中插入复杂 Draw.io 图形和相同显示尺寸的普通图片，分别连续拖动、缩放、重新定位，对比响应是否存在明显卡顿差异。 |
-| 待验收 | 保存并重开文档后，再次拖动复杂图形，并进入“重新编辑”确认源 XML 可以恢复。 |
+| 部分覆盖，待指针确认 | 同尺寸普通/受管图形两轮 UI 线程压力对照未观察到超过门槛的额外差异且绝对延迟门槛通过；仍需用户用真实指针对每个对象各连续 10 秒拖动、缩放和重新定位，确认视觉跟随。 |
+| 自动化通过，待按钮确认 | 保存重开后位置、尺寸及 254,606 字符源 XML 已恢复，真实 URL 宿主 E2E 已完成重新编辑回写；仍需用户点击一次“重新编辑”确认本机交互观感。 |

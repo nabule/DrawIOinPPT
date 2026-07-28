@@ -26,6 +26,14 @@ namespace DrawioPpt.PowerPointAddIn.UI
         private readonly DesktopEditorPathDetector _pathDetector;
 
         public SettingsForm(PluginSettings settings, DesktopEditorPathDetector pathDetector)
+            : this(settings, pathDetector, true)
+        {
+        }
+
+        public SettingsForm(
+            PluginSettings settings,
+            DesktopEditorPathDetector pathDetector,
+            bool showAutoOpenOnSelection)
         {
             _pathDetector = pathDetector;
             this.Settings = Clone(settings);
@@ -78,6 +86,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
 
             _officeCompatibleLabelsCheckBox = CreateCheckBox("使用兼容 Microsoft Office 的 SVG 文本标签", 150, 128);
             _autoOpenCheckBox = CreateCheckBox("选中图形时自动打开编辑器", 150, 156);
+            _autoOpenCheckBox.Visible = showAutoOpenOnSelection;
             _autoUpdateCheckBox = CreateCheckBox("保存后自动刷新图形", 150, 184);
             _diagramInfoDialogCheckBox = CreateCheckBox("新建或编辑时显示图形信息弹窗", 150, 212);
             _keepSidecarCheckBox = CreateCheckBox("在 PPT 附近保留伴随工作文件", 150, 240);

@@ -44,7 +44,8 @@ Word 中的复杂图形采用下面的存储方式：
 
 - `Document.CustomXMLParts` 保存完整 envelope 和 Draw.io XML，是正常路径的主存储。
 - 图片 `AlternativeText` 正常只保存 `formatVersion`、`diagramId`、名称、编辑模式/目标、sidecar 路径和更新时间，不保存 `DrawioXml`。
-- `WindowSelectionChange` 因此只解析轻量引用，减少复杂图形选中、拖动和缩放时的同步开销。
+- Word 不订阅 `WindowSelectionChange`，启动时也不读取选区或图片元数据；选中、拖动、缩放和重新定位期间不执行插件处理。
+- 在 Word 中先选中图片，再点击“重新编辑”“刷新”“绑定”或“清除绑定”，此时才读取实时选区和元数据；Word 不提供选中后自动打开。
 - 如果主存储写入失败，图片会保留全量 envelope，避免源数据丢失；旧版全量图片元数据在首次读取时自动迁入主存储，迁移后改为轻量引用。
 
 需要注意：单独复制一张 Word 图片到另一文档时，Office 不保证复制原文档的 `CustomXMLParts`。正常轻量引用不含 Draw.io XML，目标文档中可能无法恢复编辑源。跨文档交付时建议复制整份 `.docx`，或提前保存/保留 sidecar `.drawio` 或 Draw.io XML。只有旧版图片或主存储失败回退图片，`AlternativeText` 才可能仍包含全量数据。
@@ -65,7 +66,7 @@ Word 中的复杂图形采用下面的存储方式：
 3. 先决定你要用 `桌面版` 还是 `网页地址` 模式。
 4. 如果用桌面版，先检查“桌面版路径”。
 5. 如果用网页地址，先填写“编辑器地址”，再点“测试地址”。
-6. 再决定是否开启“选中图形时自动打开编辑器”。
+6. PowerPoint 可按需要决定是否开启“选中图形时自动打开编辑器”；Word 固定采用“先选中、再点击命令”。
 7. 最后再决定是否保留 sidecar 工作文件。
 
 如果你还没有安装插件，先看 [installation.md](./installation.md)。发布包中的 `install.cmd` 会同时注册 PowerPoint 和 Word 插件；开发目录调试时使用 `scripts\register-office-addins.ps1`。

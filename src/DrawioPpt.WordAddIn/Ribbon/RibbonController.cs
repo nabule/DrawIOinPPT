@@ -79,7 +79,7 @@ namespace DrawioPpt.WordAddIn.Ribbon
 
         public bool GetEditEnabled(IRibbonControl control)
         {
-            return _host != null && _host.HasEditableSelection;
+            return _host != null;
         }
 
         public string GetSelectionStatus(IRibbonControl control)
@@ -89,17 +89,17 @@ namespace DrawioPpt.WordAddIn.Ribbon
 
         public bool GetManagedPictureEnabled(IRibbonControl control)
         {
-            return _host != null && _host.HasEditableSelection;
+            return _host != null;
         }
 
         public bool GetSinglePictureEnabled(IRibbonControl control)
         {
-            return _host != null && _host.HasSinglePictureSelection;
+            return _host != null;
         }
 
         public bool GetBindEnabled(IRibbonControl control)
         {
-            return _host != null && _host.CanBindSelection;
+            return _host != null;
         }
 
         public string GetEditorModeSummary(IRibbonControl control)
@@ -115,19 +115,6 @@ namespace DrawioPpt.WordAddIn.Ribbon
         public string GetEditButtonLabel(IRibbonControl control)
         {
             return _host == null ? "编辑" : _host.GetEditButtonLabel();
-        }
-
-        public bool GetAutoOpenPressed(IRibbonControl control)
-        {
-            return _host != null && _host.IsAutoOpenOnSelectionEnabled;
-        }
-
-        public void OnToggleAutoOpen(IRibbonControl control, bool pressed)
-        {
-            if (_host != null)
-            {
-                _host.SetAutoOpenOnSelection(pressed);
-            }
         }
 
         public object GetButtonImage(IRibbonControl control)

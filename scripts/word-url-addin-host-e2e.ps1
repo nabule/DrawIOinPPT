@@ -247,6 +247,7 @@ using System.Text;
 using System.Threading;
 using DrawioPpt.Core.Models;
 using DrawioPpt.Core.Services;
+using DrawioPpt.WordAddIn;
 using DrawioPpt.WordAddIn.Services;
 using Microsoft.Office.Core;
 using WordInterop = Microsoft.Office.Interop.Word;
@@ -580,8 +581,22 @@ public static class WordUrlAddInHostE2E
                 return 1;
             }
 
+            dynamic automation = addIn.Object;
+            bool explicitEditAutomationAvailable = automation != null &&
+                string.Equals(
+                    (string)automation.GetInteractionMode(),
+                    "ExplicitSelectionCommand",
+                    StringComparison.Ordinal);
+            Console.WriteLine("ExplicitEditAutomationAvailable=" + explicitEditAutomationAvailable);
+            if (!explicitEditAutomationAvailable)
+            {
+                return 1;
+            }
+
             document.InlineShapes[1].Select();
-            Thread.Sleep(1800);
+            automation.EditSelectedDiagram();
+            Console.WriteLine("ExplicitEditCommandInvoked=True");
+            Thread.Sleep(500);
             bool saved = false;
             if (document.InlineShapes.Count >= 1)
             {
@@ -678,6 +693,7 @@ $compileArguments = @(
     "/r:$officeCore",
     "/r:System.dll",
     "/r:System.Core.dll",
+    "/r:Microsoft.CSharp.dll",
     $programPath
 )
 & $cscPath @compileArguments
@@ -717,6 +733,21 @@ try {
     if ($prepareExitCode -ne 0) {
         throw "Unable to prepare the managed Word document for the actual-host test."
     }
+
+    $prepareWordExitDeadline = [DateTime]::UtcNow.AddSeconds(10)
+    do {
+        $prepareWordProcesses = @(Get-Process WINWORD -ErrorAction SilentlyContinue)
+        if ($prepareWordProcesses.Count -eq 0) {
+            break
+        }
+
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $prepareWordExitDeadline)
+    if ($prepareWordProcesses.Count -gt 0) {
+        throw "Document-preparation Word process did not exit before the actual-host phase."
+    }
+
+    Start-Sleep -Milliseconds 1500
 
     Write-Diagnostic "Registering Word add-in from $wordAssemblyPath."
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $registerScript -Configuration $Configuration -AssemblyPath $wordAssemblyPath
