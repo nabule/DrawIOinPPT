@@ -123,6 +123,7 @@ public static class WordComplexMetadataE2E
     {
         WordInterop.Application application = null;
         WordInterop.Document document = null;
+        int exitCode = 99;
 
         try
         {
@@ -139,19 +140,39 @@ public static class WordComplexMetadataE2E
 
             string drawioXml = BuildComplexDrawioXml();
             DiagramEnvelope envelope = new DiagramEnvelope();
+            envelope.FormatVersion = "word-complex-metadata-v1";
             envelope.DiagramId = Guid.NewGuid().ToString("N");
             envelope.DiagramName = "Complex metadata test";
+            envelope.EditorMode = EditorMode.Url;
+            envelope.EditorTarget = "https://app.diagrams.net";
+            envelope.SidecarPath = "sidecars\\complex-metadata.drawio";
+            envelope.UpdatedUtc = new DateTime(2026, 7, 28, 3, 0, 0, DateTimeKind.Utc);
             envelope.DrawioXml = drawioXml;
 
             DiagramEnvelopeSerializer serializer = new DiagramEnvelopeSerializer();
             DocumentDiagramStore store = new DocumentDiagramStore(serializer);
             WordPictureMetadataService metadata = new WordPictureMetadataService(serializer, new PresentationSidecarPathBuilder());
-            WordPictureReference picture = WordPictureReference.FromInlineShape(AddPicture(document, args[0]));
+            WordPictureReference initialPicture = WordPictureReference.FromInlineShape(AddPicture(document, args[0]));
             store.Upsert(document, envelope);
-            metadata.Save(picture, envelope);
+            metadata.Save(initialPicture, envelope);
+            initialPicture = null;
 
-            string alternativeText = picture.AlternativeText ?? string.Empty;
-            DiagramEnvelope pictureEnvelope = serializer.Deserialize(alternativeText);
+            document.Save();
+            CloseDocument(ref document);
+            document = application.Documents.Open(args[1]);
+
+            string alternativeText = string.Empty;
+            DiagramEnvelope pictureEnvelope = null;
+            if (document.InlineShapes.Count > 0)
+            {
+                WordPictureReference reopenedPicture = WordPictureReference.FromInlineShape(document.InlineShapes[1]);
+                alternativeText = reopenedPicture.AlternativeText ?? string.Empty;
+                if (serializer.CanDeserialize(alternativeText))
+                {
+                    pictureEnvelope = serializer.Deserialize(alternativeText);
+                }
+            }
+
             DiagramEnvelope storedEnvelope;
             bool storedPayload = store.TryRead(document, envelope.DiagramId, out storedEnvelope) &&
                 storedEnvelope != null && string.Equals(storedEnvelope.DrawioXml, drawioXml, StringComparison.Ordinal);
@@ -159,29 +180,48 @@ public static class WordComplexMetadataE2E
                 pictureEnvelope != null && string.IsNullOrEmpty(pictureEnvelope.DrawioXml);
             bool sameDiagramId = pictureEnvelope != null &&
                 string.Equals(pictureEnvelope.DiagramId, envelope.DiagramId, StringComparison.Ordinal);
+            bool referenceFieldsPreserved = pictureEnvelope != null &&
+                string.Equals(pictureEnvelope.FormatVersion, envelope.FormatVersion, StringComparison.Ordinal) &&
+                string.Equals(pictureEnvelope.DiagramId, envelope.DiagramId, StringComparison.Ordinal) &&
+                string.Equals(pictureEnvelope.DiagramName, envelope.DiagramName, StringComparison.Ordinal) &&
+                pictureEnvelope.EditorMode == envelope.EditorMode &&
+                string.Equals(pictureEnvelope.EditorTarget, envelope.EditorTarget, StringComparison.Ordinal) &&
+                string.Equals(pictureEnvelope.SidecarPath, envelope.SidecarPath, StringComparison.Ordinal) &&
+                pictureEnvelope.UpdatedUtc == envelope.UpdatedUtc;
+            bool sourceEnvelopeUntouched = string.Equals(envelope.DrawioXml, drawioXml, StringComparison.Ordinal);
 
             Console.WriteLine("DrawioXmlChars=" + drawioXml.Length);
             Console.WriteLine("AlternativeTextChars=" + alternativeText.Length);
             Console.WriteLine("StoredPayload=" + storedPayload);
             Console.WriteLine("LightweightAlternativeText=" + lightweightAlternativeText);
             Console.WriteLine("SameDiagramId=" + sameDiagramId);
-            return storedPayload && lightweightAlternativeText && sameDiagramId ? 0 : 1;
+            Console.WriteLine("ReferenceFieldsPreserved=" + referenceFieldsPreserved);
+            Console.WriteLine("SourceEnvelopeUntouched=" + sourceEnvelopeUntouched);
+            exitCode = storedPayload &&
+                lightweightAlternativeText &&
+                sameDiagramId &&
+                referenceFieldsPreserved &&
+                sourceEnvelopeUntouched ? 0 : 1;
         }
         catch (Exception exception)
         {
             Console.WriteLine("CaughtType=" + exception.GetType().FullName);
             Console.WriteLine("CaughtMessage=" + exception.Message);
             Console.WriteLine("CaughtStack=" + exception.StackTrace);
-            return 99;
+            exitCode = 99;
         }
         finally
         {
+            bool cleanupSucceeded = true;
             try
             {
                 CloseDocument(ref document);
             }
-            catch
+            catch (Exception cleanupException)
             {
+                cleanupSucceeded = false;
+                Console.WriteLine("CleanupDocumentCloseErrorType=" + cleanupException.GetType().FullName);
+                Console.WriteLine("CleanupDocumentCloseErrorMessage=" + cleanupException.Message);
             }
 
             if (application != null)
@@ -192,12 +232,24 @@ public static class WordComplexMetadataE2E
                     object originalFormat = Type.Missing;
                     object routeDocument = Type.Missing;
                     ((WordInterop._Application)application).Quit(ref saveChanges, ref originalFormat, ref routeDocument);
+                    application = null;
                 }
-                catch
+                catch (Exception cleanupException)
                 {
+                    cleanupSucceeded = false;
+                    Console.WriteLine("CleanupApplicationQuitErrorType=" + cleanupException.GetType().FullName);
+                    Console.WriteLine("CleanupApplicationQuitErrorMessage=" + cleanupException.Message);
                 }
             }
+
+            Console.WriteLine("CleanupSucceeded=" + cleanupSucceeded);
+            if (!cleanupSucceeded)
+            {
+                exitCode = 98;
+            }
         }
+
+        return exitCode;
     }
 }
 "@ | Set-Content -Path $programPath -Encoding UTF8
@@ -231,11 +283,36 @@ if ($LASTEXITCODE -ne 0) {
 Push-Location $tempRoot
 try {
     & $exePath $imagePath $documentPath
-    exit [int]$LASTEXITCODE
+    $testExitCode = [int]$LASTEXITCODE
 }
 finally {
     Pop-Location
 }
+
+$cleanupTimeoutSeconds = 10
+$cleanupDeadline = [DateTime]::UtcNow.AddSeconds($cleanupTimeoutSeconds)
+do {
+    $runningWordProcesses = @(Get-Process -Name WINWORD -ErrorAction SilentlyContinue)
+    if ($runningWordProcesses.Count -eq 0) {
+        break
+    }
+
+    if ([DateTime]::UtcNow -ge $cleanupDeadline) {
+        break
+    }
+
+    Start-Sleep -Milliseconds 100
+} while ($true)
+
+if ($runningWordProcesses.Count -gt 0) {
+    Write-Output "CleanupResidualWinWord=True"
+    Write-Output ("CleanupResidualWinWordProcessIds=" + (($runningWordProcesses | ForEach-Object Id) -join ","))
+    Write-Output ("CleanupResidualWinWordError=Word did not exit within " + $cleanupTimeoutSeconds + " seconds.")
+    exit 98
+}
+
+Write-Output "CleanupResidualWinWord=False"
+exit $testExitCode
 }
 finally {
     Remove-TestTempRoot
