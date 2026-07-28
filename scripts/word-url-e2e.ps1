@@ -186,30 +186,68 @@ using WordInterop = Microsoft.Office.Interop.Word;
 
 public sealed class MockEditorServer : IDisposable
 {
-    private readonly HttpListener _listener;
     private readonly string _htmlPath;
+    private HttpListener _listener;
     private Thread _worker;
 
-    public MockEditorServer(int port, string htmlPath)
+    public MockEditorServer(string htmlPath)
     {
-        _listener = new HttpListener();
-        _listener.Prefixes.Add("http://127.0.0.1:" + port + "/");
-        _listener.Prefixes.Add("http://localhost:" + port + "/");
         _htmlPath = htmlPath;
     }
 
-    public void Start()
+    public int Port { get; private set; }
+
+    public void StartWithRetry(int preferredPort)
     {
-        _listener.Start();
-        _worker = new Thread(Listen);
-        _worker.IsBackground = true;
-        _worker.Start();
-        Console.WriteLine("MockHttpServerState=Running");
+        int candidatePort = preferredPort;
+        Exception lastError = null;
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            HttpListener listener = new HttpListener();
+            listener.Prefixes.Add("http://127.0.0.1:" + candidatePort + "/");
+            try
+            {
+                listener.Start();
+                _listener = listener;
+                Port = candidatePort;
+                _worker = new Thread(Listen);
+                _worker.IsBackground = true;
+                _worker.Start();
+                Console.WriteLine("MockHttpServerState=Running");
+                Console.WriteLine("MockServerPort=" + Port);
+                return;
+            }
+            catch (HttpListenerException ex)
+            {
+                lastError = ex;
+                listener.Close();
+                candidatePort = GetAvailableLoopbackPort();
+            }
+        }
+
+        throw new InvalidOperationException(
+            "Unable to bind the mock editor server after retrying available loopback ports.",
+            lastError);
+    }
+
+    private static int GetAvailableLoopbackPort()
+    {
+        System.Net.Sockets.TcpListener listener =
+            new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+        try
+        {
+            listener.Start();
+            return ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        }
+        finally
+        {
+            listener.Stop();
+        }
     }
 
     public void AssertReachable()
     {
-        string requestUrl = "http://127.0.0.1:$serverPort/mock-editor.html?configure=1";
+        string requestUrl = "http://127.0.0.1:" + Port + "/mock-editor.html?configure=1";
         using (WebClient client = new WebClient())
         {
             string html = client.DownloadString(requestUrl);
@@ -266,7 +304,10 @@ public sealed class MockEditorServer : IDisposable
 
     public void Dispose()
     {
-        _listener.Close();
+        if (_listener != null)
+        {
+            _listener.Close();
+        }
         if (_worker != null)
         {
             _worker.Join(5000);
@@ -276,7 +317,7 @@ public sealed class MockEditorServer : IDisposable
 
 public static class WordUrlE2E
 {
-    private static DiagramEnvelope ReadEnvelope(
+    private static DiagramEnvelope ReadStoredEnvelope(
         WordInterop.Document document,
         WordInterop.InlineShape shape,
         DiagramEnvelopeSerializer serializer)
@@ -302,7 +343,7 @@ public static class WordUrlE2E
         DocumentDiagramStore store = new DocumentDiagramStore(serializer);
         return store.TryRead(document, reference.DiagramId, out storedEnvelope)
             ? storedEnvelope
-            : reference;
+            : null;
     }
 
     private static bool HasDiagramState(WordInterop.Document document, DiagramEnvelopeSerializer serializer, string expectedText)
@@ -312,12 +353,11 @@ public static class WordUrlE2E
             return false;
         }
 
-        DiagramEnvelope envelope = ReadEnvelope(document, document.InlineShapes[1], serializer);
+        DiagramEnvelope envelope = ReadStoredEnvelope(document, document.InlineShapes[1], serializer);
         return envelope != null &&
                !string.IsNullOrWhiteSpace(envelope.DiagramId) &&
                !string.IsNullOrWhiteSpace(envelope.DrawioXml) &&
-               envelope.DrawioXml.IndexOf(expectedText, StringComparison.OrdinalIgnoreCase) >= 0 &&
-               document.CustomXMLParts.Count > 0;
+               envelope.DrawioXml.IndexOf(expectedText, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static void SaveAndCloseDocument(ref WordInterop.Document document)
@@ -350,17 +390,6 @@ public static class WordUrlE2E
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        PluginSettings settings = new PluginSettings();
-        settings.EditorMode = EditorMode.Url;
-        settings.EditorUrl = "http://127.0.0.1:$serverPort/mock-editor.html";
-        settings.UseOfficeCompatibleSvgLabels = true;
-        settings.AutoOpenOnSelection = false;
-        settings.AutoUpdateOnSave = true;
-        settings.KeepSidecarFile = true;
-        settings.SidecarFolderName = "drawio-word-e2e";
-        settings.ShowDiagramInfoDialog = false;
-        new FilePluginSettingsStore().Save(settings);
-
         WordInterop.Application application = null;
         AddInHost host = null;
         WordInterop.Document document = null;
@@ -369,9 +398,20 @@ public static class WordUrlE2E
 
         try
         {
-            mockServer = new MockEditorServer($serverPort, @"$mockHtmlPath");
-            mockServer.Start();
+            mockServer = new MockEditorServer(@"$mockHtmlPath");
+            mockServer.StartWithRetry($serverPort);
             mockServer.AssertReachable();
+
+            PluginSettings settings = new PluginSettings();
+            settings.EditorMode = EditorMode.Url;
+            settings.EditorUrl = "http://127.0.0.1:" + mockServer.Port + "/mock-editor.html";
+            settings.UseOfficeCompatibleSvgLabels = true;
+            settings.AutoOpenOnSelection = false;
+            settings.AutoUpdateOnSave = true;
+            settings.KeepSidecarFile = true;
+            settings.SidecarFolderName = "drawio-word-e2e";
+            settings.ShowDiagramInfoDialog = false;
+            new FilePluginSettingsStore().Save(settings);
 
             Type wordType = Type.GetTypeFromProgID("Word.Application", true);
             application = (WordInterop.Application)Activator.CreateInstance(wordType);

@@ -300,7 +300,7 @@ public static class WordUrlAddInHostE2E
         DocumentDiagramStore store = new DocumentDiagramStore(serializer);
         return store.TryRead(document, reference.DiagramId, out storedEnvelope)
             ? storedEnvelope
-            : reference;
+            : null;
     }
 
     private sealed class MockEditorServer : IDisposable
@@ -509,10 +509,13 @@ public static class WordUrlAddInHostE2E
             envelope.DrawioXml = "<mxfile host='DrawioWord'><diagram id='round1' name='Round1'/></mxfile>";
             envelope.UpdatedUtc = DateTime.UtcNow;
             picture.Title = envelope.DiagramName;
-            picture.AlternativeText = new DiagramEnvelopeSerializer().Serialize(envelope);
+            DiagramEnvelopeSerializer serializer = new DiagramEnvelopeSerializer();
+            picture.AlternativeText = serializer.Serialize(envelope);
+            bool mainStoreMissingBeforeMigration = ReadStoredEnvelope(document, picture, serializer) == null;
+            Console.WriteLine("PreparedDocumentMainStoreMissing=" + mainStoreMissingBeforeMigration);
             document.SaveAs2(documentPath);
             Console.WriteLine("PreparedManagedDocument=True");
-            return 0;
+            return mainStoreMissingBeforeMigration ? 0 : 1;
         }
         catch (Exception ex)
         {
