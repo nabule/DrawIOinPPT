@@ -65,6 +65,7 @@ New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 try {
 @"
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -121,6 +122,34 @@ public static class WordComplexMetadataE2E
         }
 
         return null;
+    }
+
+    private static string GetDiagramPartIds(
+        WordInterop.Document document,
+        DiagramEnvelopeSerializer serializer,
+        string diagramId)
+    {
+        List<string> partIds = new List<string>();
+        int index;
+        for (index = 1; index <= document.CustomXMLParts.Count; index++)
+        {
+            Microsoft.Office.Core.CustomXMLPart candidate = document.CustomXMLParts[index];
+            string xml = candidate.XML ?? string.Empty;
+            if (!serializer.CanDeserialize(xml))
+            {
+                continue;
+            }
+
+            DiagramEnvelope candidateEnvelope = serializer.Deserialize(xml);
+            if (candidateEnvelope != null &&
+                string.Equals(candidateEnvelope.DiagramId, diagramId, StringComparison.Ordinal))
+            {
+                partIds.Add(candidate.Id ?? string.Empty);
+            }
+        }
+
+        partIds.Sort(StringComparer.OrdinalIgnoreCase);
+        return string.Join("|", partIds.ToArray());
     }
 
     private static string BuildComplexDrawioXml()
@@ -322,6 +351,8 @@ public static class WordComplexMetadataE2E
             DiagramEnvelope secondMigratedEnvelope = null;
             int customXmlPartCountBeforeSecondMigration = -1;
             int customXmlPartCountAfterSecondMigration = -1;
+            string legacyPartIdsBeforeSecondMigration = string.Empty;
+            string legacyPartIdsAfterSecondMigration = string.Empty;
             AddInHost legacyHost = null;
             try
             {
@@ -339,12 +370,20 @@ public static class WordComplexMetadataE2E
                 migratedEnvelope = migrationArguments[1] as DiagramEnvelope;
 
                 customXmlPartCountBeforeSecondMigration = document.CustomXMLParts.Count;
+                legacyPartIdsBeforeSecondMigration = GetDiagramPartIds(
+                    document,
+                    serializer,
+                    legacyEnvelope.DiagramId);
                 object[] secondMigrationArguments = new object[] { legacyPicture, null };
                 secondLegacyMigrationRead = (bool)tryReadManagedEnvelope.Invoke(
                     legacyHost,
                     secondMigrationArguments);
                 secondMigratedEnvelope = secondMigrationArguments[1] as DiagramEnvelope;
                 customXmlPartCountAfterSecondMigration = document.CustomXMLParts.Count;
+                legacyPartIdsAfterSecondMigration = GetDiagramPartIds(
+                    document,
+                    serializer,
+                    legacyEnvelope.DiagramId);
             }
             finally
             {
@@ -369,10 +408,17 @@ public static class WordComplexMetadataE2E
                 migratedPictureEnvelope != null &&
                 string.Equals(migratedPictureEnvelope.DiagramId, legacyEnvelope.DiagramId, StringComparison.Ordinal) &&
                 string.IsNullOrEmpty(migratedPictureEnvelope.DrawioXml);
+            bool legacyMigrationPartIdsStable =
+                !string.IsNullOrWhiteSpace(legacyPartIdsBeforeSecondMigration) &&
+                string.Equals(
+                    legacyPartIdsBeforeSecondMigration,
+                    legacyPartIdsAfterSecondMigration,
+                    StringComparison.OrdinalIgnoreCase);
             bool legacyMigrationIdempotent = secondLegacyMigrationRead &&
                 secondMigratedEnvelope != null &&
                 string.Equals(secondMigratedEnvelope.DrawioXml, legacyEnvelope.DrawioXml, StringComparison.Ordinal) &&
                 customXmlPartCountBeforeSecondMigration == customXmlPartCountAfterSecondMigration &&
+                legacyMigrationPartIdsStable &&
                 legacyStoredPayload &&
                 legacyPictureLightweight;
             bool legacyMigrationPassed = legacyInitiallyAbsent &&
@@ -436,6 +482,7 @@ public static class WordComplexMetadataE2E
             Console.WriteLine("SourceEnvelopeUntouched=" + sourceEnvelopeUntouched);
             Console.WriteLine("FallbackRetainsPayload=" + fallbackRetainsPayload);
             Console.WriteLine("LegacyMigrationPassed=" + legacyMigrationPassed);
+            Console.WriteLine("LegacyMigrationPartIdsStable=" + legacyMigrationPartIdsStable);
             Console.WriteLine("LegacyMigrationIdempotent=" + legacyMigrationIdempotent);
             Console.WriteLine("FallbackPersistedAfterReopen=" + fallbackPersistedAfterReopen);
             Console.WriteLine("LegacyMigrationPersistedAfterReopen=" + legacyMigrationPersistedAfterReopen);
