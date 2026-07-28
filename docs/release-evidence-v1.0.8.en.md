@@ -33,7 +33,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.
 - The full Office E2E against the temporary release-package installation passed 9/9: `ReleasePackage`, `InstallRelease`, `InstalledOfficeAddInsVerify`, `PowerPointAddInLoad`, `InstalledUrlSmoke`, `InstalledWordUrlHostE2E`, `InstalledWordComplexMetadataE2E`, `PowerPointUrlE2E`, and `DesktopExporter` all reported PASS.
 - The package contains `DrawioPpt.WordAddIn.dll`, `scripts\word-complex-metadata-e2e.ps1`, both architecture documents, both regression checklists, both optimization backlogs, the historical v1.0.5 E2E reports, and the versioned release notes, E2E reports, and evidence indexes. `PACKAGE.txt` also lists both README files and itself.
 - The pre-compression package-link gate reported `PackageMarkdownMissingLinkCount=0`.
-- The full E2E identifies its test-owned Word process by PID and start time. Temporary-package uninstall, repository Release add-in registration restoration, and settings restoration all check their exit status; the run reported `FullE2ECleanupSucceeded=True` and left no `WINWORD` or `POWERPNT` process behind.
+- Full E2E identifies its test-owned Word process by PID and start time. The main script AST has only one trailing `exit 1`; build, package, install, and compilation failures throw into the common catch/finally path. A controlled probe verifies that the main error plus uninstall, repository re-registration, and settings-restoration errors are all preserved in the FatalError row before the unified exit returns 1.
+- In the third full E2E run, temporary-package uninstall, repository Release add-in registration restoration, and settings restoration all succeeded. The run reported `FullE2ECleanupSucceeded=True` and left no `WINWORD` or `POWERPNT` process behind.
 
 ## Release-package DLL SHA256
 

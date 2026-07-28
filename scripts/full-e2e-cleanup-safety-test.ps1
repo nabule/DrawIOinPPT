@@ -35,6 +35,29 @@ function Import-FunctionDefinition {
         -Value ([scriptblock]::Create($bodyText))
 }
 
+function Get-FunctionDefinitionText {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.Language.Ast]$Ast,
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $definition = $Ast.Find(
+        {
+            param($node)
+            $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                [string]::Equals($node.Name, $Name, [System.StringComparison]::OrdinalIgnoreCase)
+        },
+        $true)
+
+    if ($null -eq $definition) {
+        throw "Required function was not found in full-e2e-test.ps1: $Name"
+    }
+
+    return $definition.Extent.Text
+}
+
 try {
     New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 
@@ -48,11 +71,29 @@ try {
         throw ("full-e2e-test.ps1 parse failed: " + ($parseErrors.Message -join "; "))
     }
 
+    $exitStatements = @($ast.FindAll(
+        {
+            param($node)
+            $node -is [System.Management.Automation.Language.ExitStatementAst]
+        },
+        $true))
+    if ($exitStatements.Count -ne 1 -or
+        $exitStatements[0].Extent.Text.Trim() -ne "exit 1") {
+        throw "Full E2E must have exactly one final exit statement, 'exit 1'; found $($exitStatements.Count)."
+    }
+
+    $fullE2ESource = Get-Content -Raw -LiteralPath $fullE2EPath
+    if ($fullE2ESource -match 'exit\s+\$LASTEXITCODE') {
+        throw "Full E2E still contains an early exit based on LASTEXITCODE."
+    }
+
     Import-FunctionDefinition -Ast $ast -Name "Stop-TestOwnedProcess"
     Import-FunctionDefinition -Ast $ast -Name "Invoke-CheckedPowerShellScript"
+    Import-FunctionDefinition -Ast $ast -Name "Get-ErrorDetail"
+    Import-FunctionDefinition -Ast $ast -Name "Get-FullE2EFailureDetails"
+    Import-FunctionDefinition -Ast $ast -Name "Add-FullE2EFailureResult"
 
     $complexSource = Get-Content -Raw -LiteralPath $complexMetadataPath
-    $fullE2ESource = Get-Content -Raw -LiteralPath $fullE2EPath
     if ($complexSource -notmatch '\[string\]\$ProcessIdentityPath' -or
         $complexSource -notmatch 'GetWindowThreadProcessId' -or
         $complexSource -notmatch 'TestWordProcessIdentity=') {
@@ -116,6 +157,68 @@ try {
         -ScriptPath $passingScriptPath `
         -Arguments @() `
         -Description "MutationSuccess"
+
+    $injectedCleanupErrors = New-Object System.Collections.Generic.List[string]
+    $injectedCleanupErrors.Add("UninstallRelease: exit code 23") | Out-Null
+    $injectedCleanupErrors.Add("RegisterRepositoryAddIns: exit code 31") | Out-Null
+    $injectedCleanupErrors.Add("RestoreSettings: simulated restore failure") | Out-Null
+    $injectedDetails = @(
+        Get-FullE2EFailureDetails `
+            -FatalError ([InvalidOperationException]::new("MainFailure")) `
+            -CleanupErrors $injectedCleanupErrors)
+    if ($injectedDetails.Count -ne 4) {
+        throw "Failure aggregation did not preserve the main error and all cleanup errors."
+    }
+
+    $injectedResults = New-Object System.Collections.Generic.List[string]
+    Add-FullE2EFailureResult `
+        -Results $injectedResults `
+        -FailureDetails $injectedDetails
+    $injectedLine = $injectedResults -join "`n"
+    foreach ($expectedDetail in @(
+        "MainFailure",
+        "UninstallRelease: exit code 23",
+        "RegisterRepositoryAddIns: exit code 31",
+        "RestoreSettings: simulated restore failure")) {
+        if ($injectedLine -notlike ("*" + $expectedDetail + "*")) {
+            throw "FatalError report row omitted: $expectedDetail"
+        }
+    }
+
+    $probeScriptPath = Join-Path $tempRoot "final-exit-probe.ps1"
+    $probeReportPath = Join-Path $tempRoot "final-exit-probe-report.md"
+    $probeSource = @(
+        (Get-FunctionDefinitionText -Ast $ast -Name "Get-ErrorDetail"),
+        (Get-FunctionDefinitionText -Ast $ast -Name "Get-FullE2EFailureDetails"),
+        (Get-FunctionDefinitionText -Ast $ast -Name "Add-FullE2EFailureResult"),
+        '$results = New-Object System.Collections.Generic.List[string]',
+        '$cleanupErrors = New-Object System.Collections.Generic.List[string]',
+        '$cleanupErrors.Add("UninstallRelease: exit code 23") | Out-Null',
+        '$cleanupErrors.Add("RegisterRepositoryAddIns: exit code 31") | Out-Null',
+        '$cleanupErrors.Add("RestoreSettings: simulated restore failure") | Out-Null',
+        '$failureDetails = @(Get-FullE2EFailureDetails -FatalError ([InvalidOperationException]::new("MainFailure")) -CleanupErrors $cleanupErrors)',
+        'Add-FullE2EFailureResult -Results $results -FailureDetails $failureDetails',
+        '$results | Set-Content -LiteralPath $args[0] -Encoding UTF8',
+        'if ($failureDetails.Count -gt 0) { exit 1 }',
+        'throw "Probe unexpectedly had no failure details."'
+    ) -join "`r`n"
+    Set-Content -LiteralPath $probeScriptPath -Value $probeSource -Encoding UTF8
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $probeScriptPath $probeReportPath
+    $probeExitCode = [int]$LASTEXITCODE
+    if ($probeExitCode -ne 1) {
+        throw "The controlled final branch returned $probeExitCode instead of 1."
+    }
+
+    $probeReport = Get-Content -Raw -LiteralPath $probeReportPath
+    foreach ($expectedDetail in @(
+        "MainFailure",
+        "UninstallRelease: exit code 23",
+        "RegisterRepositoryAddIns: exit code 31",
+        "RestoreSettings: simulated restore failure")) {
+        if ($probeReport -notlike ("*" + $expectedDetail + "*")) {
+            throw "Controlled final report omitted: $expectedDetail"
+        }
+    }
 
     $checkedInvocationCount = ([regex]::Matches($fullE2ESource, 'Invoke-CheckedPowerShellScript')).Count
     if ($checkedInvocationCount -lt 3 -or

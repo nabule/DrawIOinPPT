@@ -157,6 +157,43 @@ function Get-ErrorDetail {
     return $detail.Replace("|", "/").Replace("`r", " ").Replace("`n", " ").Trim()
 }
 
+function Get-FullE2EFailureDetails {
+    param(
+        [object]$FatalError,
+        [System.Collections.IEnumerable]$CleanupErrors
+    )
+
+    $details = New-Object System.Collections.Generic.List[string]
+    if ($null -ne $FatalError) {
+        $details.Add((Get-ErrorDetail $FatalError)) | Out-Null
+    }
+
+    if ($null -ne $CleanupErrors) {
+        foreach ($cleanupError in $CleanupErrors) {
+            if (-not [string]::IsNullOrWhiteSpace([string]$cleanupError)) {
+                $details.Add([string]$cleanupError) | Out-Null
+            }
+        }
+    }
+
+    return $details.ToArray()
+}
+
+function Add-FullE2EFailureResult {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[string]]$Results,
+        [string[]]$FailureDetails
+    )
+
+    if ($null -eq $FailureDetails -or $FailureDetails.Count -eq 0) {
+        return
+    }
+
+    $Results.Add("| FatalError | FAIL | $($FailureDetails -join '; ') |") | Out-Null
+}
+
 function Add-Result {
     param(
         [string]$Name,
@@ -644,7 +681,8 @@ public static class PowerPointUrlE2E
 
     & $cscPath @compileArguments
     if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+        $compileExitCode = [int]$LASTEXITCODE
+        throw "PowerPoint URL E2E compilation failed with exit code $compileExitCode."
     }
 
     Push-Location $tempRoot
@@ -724,20 +762,23 @@ try {
     if (-not $SkipBuild) {
         & powershell.exe -ExecutionPolicy Bypass -File $buildScript -Configuration Release -Platform x64
         if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
+            $buildExitCode = [int]$LASTEXITCODE
+            throw "ReleaseBuild failed with exit code $buildExitCode."
         }
     }
 
     & powershell.exe -ExecutionPolicy Bypass -File $packageScript -Version $Version -Configuration Release -Platform x64 -SkipBuild
     if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+        $packageExitCode = [int]$LASTEXITCODE
+        throw "ReleasePackage failed with exit code $packageExitCode."
     }
     Add-Result -Name "ReleasePackage" -Passed (Test-Path $packageRoot) -Detail $packageRoot
 
     $installScript = Join-Path $packageRoot "scripts\\install-release.ps1"
     & powershell.exe -ExecutionPolicy Bypass -File $installScript -InstallRoot $installRoot
     if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+        $installExitCode = [int]$LASTEXITCODE
+        throw "InstallRelease failed with exit code $installExitCode."
     }
     Add-Result -Name "InstallRelease" -Passed (Test-Path (Join-Path $installRoot "bin\\DrawioPpt.PowerPointAddIn.dll")) -Detail $installRoot
 
@@ -830,19 +871,15 @@ finally {
     }
 }
 
-$failureDetails = New-Object System.Collections.Generic.List[string]
-if ($fatalError -ne $null) {
-    $failureDetails.Add((Get-ErrorDetail $fatalError)) | Out-Null
-}
+$failureDetails = @(
+    Get-FullE2EFailureDetails `
+        -FatalError $fatalError `
+        -CleanupErrors $cleanupErrors)
+Add-FullE2EFailureResult `
+    -Results $results `
+    -FailureDetails $failureDetails
 
-foreach ($cleanupError in $cleanupErrors) {
-    $failureDetails.Add($cleanupError) | Out-Null
-}
-
-if ($failureDetails.Count -gt 0) {
-    $results.Add("| FatalError | FAIL | $($failureDetails -join '; ') |") | Out-Null
-}
-else {
+if ($failureDetails.Count -eq 0) {
     Write-Host "FullE2ECleanupSucceeded=True"
 }
 

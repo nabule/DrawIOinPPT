@@ -19,7 +19,7 @@ The commands below ran serially. No user Word or PowerPoint process was present 
 | Word selection-sync source contract | PASS | `WORD_SELECTION_SYNC_TEST_PASS` |
 | WebView2 user-data-folder source contract | PASS | `WEBVIEW2_USER_DATA_FOLDER_SOURCE_TEST_PASS` |
 | Word URL-host safety contract | PASS | `WORD_URL_ADDIN_HOST_E2E_SAFETY_TEST_PASS` |
-| Full-E2E cleanup safety contract | PASS | `FULL_E2E_CLEANUP_SAFETY_TEST_PASS`; a mismatched start time protects the process, cleanup requires matching PID and start time, and a non-zero cleanup command propagates to final failure |
+| Full-E2E cleanup and unified-exit safety contract | PASS | `FULL_E2E_CLEANUP_SAFETY_TEST_PASS`; the main script AST contains only the final `exit 1`, a mismatched start time protects the process, and a controlled probe writes the main, uninstall, re-registration, and settings-restoration errors to one FatalError row before returning 1 |
 | Word complex-metadata E2E | PASS | `DrawioXmlChars=271361`, `AlternativeTextChars=436`; primary storage, lightweight reference, failure fallback, legacy migration, stable part ID, and save-close-reopen persistence all satisfied their assertions |
 | Word selection-event E2E | PASS | `NoSelectionPolling=True`, `ManagedSelectionDetected=True`, `PlainPictureCanBind=True` |
 | Word URL E2E | PASS | `CreatedManagedPicture=True`, `ReopenedEditApplied=True`, `PersistedAfterReopen=True` |
@@ -51,9 +51,9 @@ Packaging first reported `PackageMarkdownMissingLinkCount=0`, confirming that ev
 | `PowerPointUrlE2E` | PASS | `CreatedManagedShape=True`, `ReopenedEditApplied=True`, `PersistedAfterReopen=True`, `ExitCode=0` |
 | `DesktopExporter` | PASS | draw.io Desktop exported SVG successfully |
 
-The PowerPoint mock editor obtains a preferred loopback port from the operating system and uses C# `StartWithRetry` to handle a bind race. Reachability checks and `PluginSettings.EditorUrl` both use the final bound port. This run reported `MockServerPort=3721`.
+The PowerPoint mock editor obtains a preferred loopback port from the operating system and uses C# `StartWithRetry` to handle a bind race. Reachability checks and `PluginSettings.EditorUrl` both use the final bound port. This run reported `MockServerPort=6508`.
 
-The installed complex-metadata test wrote `TestWordProcessIdentity=4132:639208146977213246`. The finally block checked the test-owned Word process by PID and start time; it had already exited normally, so the run reported `TestOwnedProcessAlreadyExited=4132`. Temporary-package uninstall, repository add-in registration restoration, and settings restoration completed, followed by `FullE2ECleanupSucceeded=True`.
+The installed complex-metadata test wrote `TestWordProcessIdentity=23584:639208157549482875`. The finally block checked the test-owned Word process by PID and start time; it had already exited normally, so the run reported `TestOwnedProcessAlreadyExited=23584`. Temporary-package uninstall, repository add-in registration restoration, and settings restoration completed, followed by `FullE2ECleanupSucceeded=True`.
 
 ## Reports and Logs
 

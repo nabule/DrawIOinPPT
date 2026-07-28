@@ -29,7 +29,7 @@ Office 不保证单独复制一张 Word 图片到另一文档时，同时复制�
 - `word-url-addin-host-e2e.ps1` 通过：真实 `WINWORD.EXE` 中 `WordAddInConnect=True`、`ActualWordUrlEditorSaved=True`。
 - v1.0.8 临时安装包完整 Office E2E 为 9/9 通过，其中新增 `InstalledWordComplexMetadataE2E`，并覆盖发布打包、安装、Office 注册/加载、URL smoke、真实 Word URL 宿主、PowerPoint URL 回写和桌面导出。
 - v1.0.8 发布包已生成并包含 `scripts\word-complex-metadata-e2e.ps1`、中英文报告和证据索引。完整结果见 [v1.0.8 E2E 测试报告](./e2e-test-report-v1.0.8.md) 和 [v1.0.8 发布证据](./release-evidence-v1.0.8.md)。
-- full E2E 使用 PID 和启动时间精确清理测试拥有的 Word，并把临时包卸载、仓库加载项重注册或设置恢复失败传播为最终失败；清理安全约束测试已通过。
+- full E2E 使用 PID 和启动时间精确清理测试拥有的 Word；构建、打包、安装、编译、临时包卸载、仓库加载项重注册或设置恢复失败都进入统一 catch/finally、FatalError 报告和尾部 `exit 1`，清理与统一出口安全约束测试已通过。
 - 发布包显式补齐架构、回归清单、优化 backlog 和 v1.0.5 历史 E2E 中英文文档，压缩前包内 Markdown 链接检查为 `0` 个缺失。
 
 v1.0.8 仍处于待公开发布状态。标准本地目录的最终安装和人工 10 秒拖动、缩放、重定位及重开编辑对比属于后续验收，本说明不提前宣称这些项目已经通过。

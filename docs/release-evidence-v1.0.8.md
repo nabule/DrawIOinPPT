@@ -33,7 +33,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.
 - 临时安装发布包的完整 Office E2E 为 9/9 通过：`ReleasePackage`、`InstallRelease`、`InstalledOfficeAddInsVerify`、`PowerPointAddInLoad`、`InstalledUrlSmoke`、`InstalledWordUrlHostE2E`、`InstalledWordComplexMetadataE2E`、`PowerPointUrlE2E`、`DesktopExporter` 全部为 PASS。
 - 发布包包含 `DrawioPpt.WordAddIn.dll` 和 `scripts\word-complex-metadata-e2e.ps1`，并显式包含中英文架构、回归清单、优化 backlog、v1.0.5 历史 E2E、本版本发布说明、E2E 报告和证据索引；`PACKAGE.txt` 同时列出 README 与清单本身。
 - 发布前压缩阶段的包内链接门槛输出 `PackageMarkdownMissingLinkCount=0`。
-- full E2E 按 PID 和启动时间精确识别测试拥有的 Word；卸载临时包、还原仓库 Release 加载项注册和设置都检查退出状态，最终输出 `FullE2ECleanupSucceeded=True`，且没有 `WINWORD` / `POWERPNT` 残留。
+- full E2E 按 PID 和启动时间精确识别测试拥有的 Word；主脚本 AST 只有尾部一个 `exit 1`，构建、打包、安装和编译失败全部抛出后进入统一 catch/finally。受控 probe 验证主错误与卸载、仓库重注册、设置恢复三项错误会完整聚合到 FatalError 行，最终统一返回 1。
+- 第三次完整 E2E 的卸载临时包、还原仓库 Release 加载项注册和设置均成功，输出 `FullE2ECleanupSucceeded=True`，且没有 `WINWORD` / `POWERPNT` 残留。
 
 ## 发布包 DLL SHA256
 
