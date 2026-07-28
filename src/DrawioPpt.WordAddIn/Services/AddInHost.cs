@@ -841,7 +841,17 @@ namespace DrawioPpt.WordAddIn.Services
                 return;
             }
 
-            _documentDiagramStore.Upsert(document, envelope);
+            string customXmlPartId = _documentDiagramStore.Upsert(document, envelope);
+            if (string.IsNullOrWhiteSpace(customXmlPartId))
+            {
+                _traceLog.Info(
+                    "WordAddInHost",
+                    "Document metadata storage was unavailable; retained the full picture fallback for diagram " +
+                    (envelope.DiagramId ?? string.Empty) + ".");
+                _pictureMetadataService.SaveFallback(picture, envelope);
+                return;
+            }
+
             _pictureMetadataService.Save(picture, envelope);
         }
 

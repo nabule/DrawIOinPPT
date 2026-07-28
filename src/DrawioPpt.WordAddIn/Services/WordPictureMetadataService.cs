@@ -138,6 +138,12 @@ namespace DrawioPpt.WordAddIn.Services
             SaveEnvelope(picture, CreatePictureReferenceEnvelope(envelope));
         }
 
+        public void SaveFallback(WordPictureReference picture, DiagramEnvelope envelope)
+        {
+            ValidateSaveArguments(picture, envelope);
+            SaveEnvelope(picture, envelope);
+        }
+
         private static void ValidateSaveArguments(WordPictureReference picture, DiagramEnvelope envelope)
         {
             if (picture == null)

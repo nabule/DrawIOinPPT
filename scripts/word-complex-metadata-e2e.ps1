@@ -66,6 +66,7 @@ try {
 @"
 using System;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using DrawioPpt.Core.Models;
 using DrawioPpt.Core.Services;
@@ -75,11 +76,11 @@ using WordInterop = Microsoft.Office.Interop.Word;
 
 public static class WordComplexMetadataE2E
 {
-    private static WordInterop.InlineShape AddPicture(WordInterop.Document document, string imagePath)
+    private static WordInterop.InlineShape AddPicture(WordInterop.Document document, string imagePath, int position)
     {
         object linkToFile = false;
         object saveWithDocument = true;
-        object range = document.Range(0, 0);
+        object range = document.Range(position, position);
         return document.InlineShapes.AddPicture(imagePath, ref linkToFile, ref saveWithDocument, ref range);
     }
 
@@ -152,7 +153,7 @@ public static class WordComplexMetadataE2E
             DiagramEnvelopeSerializer serializer = new DiagramEnvelopeSerializer();
             DocumentDiagramStore store = new DocumentDiagramStore(serializer);
             WordPictureMetadataService metadata = new WordPictureMetadataService(serializer, new PresentationSidecarPathBuilder());
-            WordPictureReference initialPicture = WordPictureReference.FromInlineShape(AddPicture(document, args[0]));
+            WordPictureReference initialPicture = WordPictureReference.FromInlineShape(AddPicture(document, args[0], 0));
             store.Upsert(document, envelope);
             metadata.Save(initialPicture, envelope);
             initialPicture = null;
@@ -190,6 +191,98 @@ public static class WordComplexMetadataE2E
                 pictureEnvelope.UpdatedUtc == envelope.UpdatedUtc;
             bool sourceEnvelopeUntouched = string.Equals(envelope.DrawioXml, drawioXml, StringComparison.Ordinal);
 
+            DiagramEnvelope fallbackEnvelope = new DiagramEnvelope();
+            fallbackEnvelope.FormatVersion = "word-complex-metadata-v1";
+            fallbackEnvelope.DiagramId = Guid.NewGuid().ToString("N");
+            fallbackEnvelope.DiagramName = "Fallback metadata test";
+            fallbackEnvelope.EditorMode = EditorMode.Desktop;
+            fallbackEnvelope.EditorTarget = "C:\\Program Files\\draw.io\\draw.io.exe";
+            fallbackEnvelope.SidecarPath = "sidecars\\fallback-metadata.drawio";
+            fallbackEnvelope.UpdatedUtc = new DateTime(2026, 7, 28, 3, 5, 0, DateTimeKind.Utc);
+            fallbackEnvelope.DrawioXml = drawioXml + "<!--fallback-->";
+
+            int fallbackPosition = document.Content.End - 1;
+            WordPictureReference fallbackPicture = WordPictureReference.FromInlineShape(
+                AddPicture(document, args[0], fallbackPosition));
+            metadata.SaveFallback(fallbackPicture, fallbackEnvelope);
+            string fallbackAlternativeText = fallbackPicture.AlternativeText ?? string.Empty;
+            DiagramEnvelope savedFallbackEnvelope = serializer.CanDeserialize(fallbackAlternativeText)
+                ? serializer.Deserialize(fallbackAlternativeText)
+                : null;
+            bool fallbackRetainsPayload = savedFallbackEnvelope != null &&
+                string.Equals(savedFallbackEnvelope.DiagramId, fallbackEnvelope.DiagramId, StringComparison.Ordinal) &&
+                string.Equals(savedFallbackEnvelope.DrawioXml, fallbackEnvelope.DrawioXml, StringComparison.Ordinal);
+            fallbackPicture = null;
+
+            DiagramEnvelope legacyEnvelope = new DiagramEnvelope();
+            legacyEnvelope.FormatVersion = "word-complex-metadata-v1";
+            legacyEnvelope.DiagramId = Guid.NewGuid().ToString("N");
+            legacyEnvelope.DiagramName = "Legacy migration test";
+            legacyEnvelope.EditorMode = EditorMode.Url;
+            legacyEnvelope.EditorTarget = "https://app.diagrams.net";
+            legacyEnvelope.SidecarPath = "sidecars\\legacy-metadata.drawio";
+            legacyEnvelope.UpdatedUtc = new DateTime(2026, 7, 28, 3, 10, 0, DateTimeKind.Utc);
+            legacyEnvelope.DrawioXml = drawioXml + "<!--legacy-->";
+
+            DiagramEnvelope unexpectedLegacyStoredEnvelope;
+            bool legacyInitiallyAbsent = !store.TryRead(
+                document,
+                legacyEnvelope.DiagramId,
+                out unexpectedLegacyStoredEnvelope);
+            int legacyPosition = document.Content.End - 1;
+            WordPictureReference legacyPicture = WordPictureReference.FromInlineShape(
+                AddPicture(document, args[0], legacyPosition));
+            metadata.SaveFallback(legacyPicture, legacyEnvelope);
+
+            bool legacyMigrationRead = false;
+            DiagramEnvelope migratedEnvelope = null;
+            AddInHost host = null;
+            try
+            {
+                host = new AddInHost(application);
+                MethodInfo tryReadManagedEnvelope = typeof(AddInHost).GetMethod(
+                    "TryReadManagedEnvelope",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                if (tryReadManagedEnvelope == null)
+                {
+                    throw new MissingMethodException(typeof(AddInHost).FullName, "TryReadManagedEnvelope");
+                }
+
+                object[] migrationArguments = new object[] { legacyPicture, null };
+                legacyMigrationRead = (bool)tryReadManagedEnvelope.Invoke(host, migrationArguments);
+                migratedEnvelope = migrationArguments[1] as DiagramEnvelope;
+            }
+            finally
+            {
+                if (host != null)
+                {
+                    host.Dispose();
+                }
+            }
+
+            DiagramEnvelope storedLegacyEnvelope;
+            bool legacyStoredPayload = store.TryRead(
+                    document,
+                    legacyEnvelope.DiagramId,
+                    out storedLegacyEnvelope) &&
+                storedLegacyEnvelope != null &&
+                string.Equals(storedLegacyEnvelope.DrawioXml, legacyEnvelope.DrawioXml, StringComparison.Ordinal);
+            string migratedAlternativeText = legacyPicture.AlternativeText ?? string.Empty;
+            DiagramEnvelope migratedPictureEnvelope = serializer.CanDeserialize(migratedAlternativeText)
+                ? serializer.Deserialize(migratedAlternativeText)
+                : null;
+            bool legacyPictureLightweight = migratedAlternativeText.Length <= 2048 &&
+                migratedPictureEnvelope != null &&
+                string.Equals(migratedPictureEnvelope.DiagramId, legacyEnvelope.DiagramId, StringComparison.Ordinal) &&
+                string.IsNullOrEmpty(migratedPictureEnvelope.DrawioXml);
+            bool legacyMigrationPassed = legacyInitiallyAbsent &&
+                legacyMigrationRead &&
+                migratedEnvelope != null &&
+                string.Equals(migratedEnvelope.DrawioXml, legacyEnvelope.DrawioXml, StringComparison.Ordinal) &&
+                legacyStoredPayload &&
+                legacyPictureLightweight;
+            legacyPicture = null;
+
             Console.WriteLine("DrawioXmlChars=" + drawioXml.Length);
             Console.WriteLine("AlternativeTextChars=" + alternativeText.Length);
             Console.WriteLine("StoredPayload=" + storedPayload);
@@ -197,11 +290,15 @@ public static class WordComplexMetadataE2E
             Console.WriteLine("SameDiagramId=" + sameDiagramId);
             Console.WriteLine("ReferenceFieldsPreserved=" + referenceFieldsPreserved);
             Console.WriteLine("SourceEnvelopeUntouched=" + sourceEnvelopeUntouched);
+            Console.WriteLine("FallbackRetainsPayload=" + fallbackRetainsPayload);
+            Console.WriteLine("LegacyMigrationPassed=" + legacyMigrationPassed);
             exitCode = storedPayload &&
                 lightweightAlternativeText &&
                 sameDiagramId &&
                 referenceFieldsPreserved &&
-                sourceEnvelopeUntouched ? 0 : 1;
+                sourceEnvelopeUntouched &&
+                fallbackRetainsPayload &&
+                legacyMigrationPassed ? 0 : 1;
         }
         catch (Exception exception)
         {
