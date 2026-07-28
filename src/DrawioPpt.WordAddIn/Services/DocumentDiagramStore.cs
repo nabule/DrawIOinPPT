@@ -21,7 +21,7 @@ namespace DrawioPpt.WordAddIn.Services
             _serializer = serializer;
         }
 
-        public string Upsert(WordInterop.Document document, DiagramEnvelope envelope)
+        public virtual string Upsert(WordInterop.Document document, DiagramEnvelope envelope)
         {
             if (document == null || envelope == null)
             {
