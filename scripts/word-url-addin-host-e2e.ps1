@@ -247,6 +247,7 @@ using System.Text;
 using System.Threading;
 using DrawioPpt.Core.Models;
 using DrawioPpt.Core.Services;
+using DrawioPpt.WordAddIn.Services;
 using Microsoft.Office.Core;
 using WordInterop = Microsoft.Office.Interop.Word;
 
@@ -271,6 +272,35 @@ public static class WordUrlAddInHostE2E
         string identity = "TestWordProcessIdentity=" + processId + ":" + process.StartTime.ToUniversalTime().Ticks;
         File.AppendAllText(processIdentityPath, identity + Environment.NewLine, Encoding.UTF8);
         Console.WriteLine(identity);
+    }
+
+    private static DiagramEnvelope ReadStoredEnvelope(
+        WordInterop.Document document,
+        WordInterop.InlineShape picture,
+        DiagramEnvelopeSerializer serializer)
+    {
+        if (document == null || picture == null || serializer == null)
+        {
+            return null;
+        }
+
+        string alternativeText = picture.AlternativeText ?? string.Empty;
+        if (!serializer.CanDeserialize(alternativeText))
+        {
+            return null;
+        }
+
+        DiagramEnvelope reference = serializer.Deserialize(alternativeText);
+        if (reference == null)
+        {
+            return null;
+        }
+
+        DiagramEnvelope storedEnvelope;
+        DocumentDiagramStore store = new DocumentDiagramStore(serializer);
+        return store.TryRead(document, reference.DiagramId, out storedEnvelope)
+            ? storedEnvelope
+            : reference;
     }
 
     private sealed class MockEditorServer : IDisposable
@@ -553,8 +583,10 @@ public static class WordUrlAddInHostE2E
             if (document.InlineShapes.Count >= 1)
             {
                 DiagramEnvelopeSerializer serializer = new DiagramEnvelopeSerializer();
-                string xml = serializer.Deserialize(document.InlineShapes[1].AlternativeText).DrawioXml;
-                saved = !string.IsNullOrWhiteSpace(xml) && xml.IndexOf("Round2", StringComparison.OrdinalIgnoreCase) >= 0;
+                DiagramEnvelope storedEnvelope = ReadStoredEnvelope(document, document.InlineShapes[1], serializer);
+                saved = storedEnvelope != null &&
+                        !string.IsNullOrWhiteSpace(storedEnvelope.DrawioXml) &&
+                        storedEnvelope.DrawioXml.IndexOf("Round2", StringComparison.OrdinalIgnoreCase) >= 0;
             }
 
             Console.WriteLine("ActualWordUrlEditorSaved=" + saved);
@@ -631,12 +663,14 @@ public static class WordUrlAddInHostE2E
 "@ | Set-Content -LiteralPath $programPath -Encoding UTF8
 
 Copy-Item -LiteralPath $coreAssemblyPath -Destination $tempRoot -Force
+Copy-Item -LiteralPath $wordAssemblyPath -Destination $tempRoot -Force
 $compileArguments = @(
     "/nologo",
     "/t:exe",
     "/platform:x64",
     "/out:$exePath",
     "/r:$([IO.Path]::Combine($tempRoot, 'DrawioPpt.Core.dll'))",
+    "/r:$([IO.Path]::Combine($tempRoot, 'DrawioPpt.WordAddIn.dll'))",
     "/r:$interopWord",
     "/r:$officeCore",
     "/r:System.dll",

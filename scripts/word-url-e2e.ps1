@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $buildScript = Join-Path $PSScriptRoot "build.ps1"
 $tempRoot = Join-Path $env:TEMP ("DrawioPpt\\word-url-e2e-" + [Guid]::NewGuid().ToString("N"))
-$serverPort = Get-Random -Minimum 8800 -Maximum 8999
+$serverPort = $null
 $mockHtmlPath = Join-Path $tempRoot "mock-editor.html"
 $programPath = Join-Path $tempRoot "word-url-e2e.cs"
 $exePath = Join-Path $tempRoot "word-url-e2e.exe"
@@ -21,6 +21,19 @@ $wordAddInRegistryPath = "HKCU:\\Software\\Microsoft\\Office\\Word\\Addins\\Gree
 $savedWordAddInLoadBehavior = $null
 $settingsExistedAtStart = $false
 $settingsBackupCompleted = $false
+
+function Get-AvailableLoopbackPort {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    try {
+        $listener.Start()
+        return ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
+    }
+    finally {
+        $listener.Stop()
+    }
+}
+
+$serverPort = Get-AvailableLoopbackPort
 
 function Backup-Settings {
     $script:settingsExistedAtStart = Test-Path $settingsPath
@@ -263,9 +276,12 @@ public sealed class MockEditorServer : IDisposable
 
 public static class WordUrlE2E
 {
-    private static DiagramEnvelope ReadEnvelope(WordInterop.InlineShape shape, DiagramEnvelopeSerializer serializer)
+    private static DiagramEnvelope ReadEnvelope(
+        WordInterop.Document document,
+        WordInterop.InlineShape shape,
+        DiagramEnvelopeSerializer serializer)
     {
-        if (shape == null || serializer == null)
+        if (document == null || shape == null || serializer == null)
         {
             return null;
         }
@@ -276,7 +292,17 @@ public static class WordUrlE2E
             return null;
         }
 
-        return serializer.Deserialize(alternativeText);
+        DiagramEnvelope reference = serializer.Deserialize(alternativeText);
+        if (reference == null)
+        {
+            return null;
+        }
+
+        DiagramEnvelope storedEnvelope;
+        DocumentDiagramStore store = new DocumentDiagramStore(serializer);
+        return store.TryRead(document, reference.DiagramId, out storedEnvelope)
+            ? storedEnvelope
+            : reference;
     }
 
     private static bool HasDiagramState(WordInterop.Document document, DiagramEnvelopeSerializer serializer, string expectedText)
@@ -286,7 +312,7 @@ public static class WordUrlE2E
             return false;
         }
 
-        DiagramEnvelope envelope = ReadEnvelope(document.InlineShapes[1], serializer);
+        DiagramEnvelope envelope = ReadEnvelope(document, document.InlineShapes[1], serializer);
         return envelope != null &&
                !string.IsNullOrWhiteSpace(envelope.DiagramId) &&
                !string.IsNullOrWhiteSpace(envelope.DrawioXml) &&
@@ -495,8 +521,16 @@ try {
 
     Push-Location $tempRoot
     try {
-        $runOutput = & $exePath 2>&1
-        $exitCode = $LASTEXITCODE
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $runOutput = & $exePath 2>&1
+            $exitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+
         if ($runOutput) {
             $runOutput | ForEach-Object { Write-Host $_ }
         }
