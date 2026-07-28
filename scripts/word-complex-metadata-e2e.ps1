@@ -1,6 +1,7 @@
 param(
     [string]$Configuration = "Release",
     [string]$AssemblyRoot,
+    [string]$ProcessIdentityPath,
     [switch]$SkipBuild
 )
 
@@ -66,8 +67,10 @@ try {
 @"
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using DrawioPpt.Core.Models;
 using DrawioPpt.Core.Services;
@@ -77,6 +80,9 @@ using WordInterop = Microsoft.Office.Interop.Word;
 
 public static class WordComplexMetadataE2E
 {
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr windowHandle, out uint processId);
+
     private sealed class FailingDocumentDiagramStore : DocumentDiagramStore
     {
         public FailingDocumentDiagramStore(DiagramEnvelopeSerializer serializer)
@@ -187,6 +193,40 @@ public static class WordComplexMetadataE2E
         document = null;
     }
 
+    private static void WriteWordProcessIdentity(WordInterop.Application application, string identityPath)
+    {
+        if (application == null ||
+            string.IsNullOrWhiteSpace(identityPath) ||
+            string.Equals(identityPath, "-", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        WordInterop.Window activeWindow = application.ActiveWindow;
+        uint processId;
+        GetWindowThreadProcessId(new IntPtr(activeWindow.Hwnd), out processId);
+        if (processId == 0)
+        {
+            throw new InvalidOperationException("Unable to resolve the Word process identity.");
+        }
+
+        string identityDirectory = Path.GetDirectoryName(identityPath);
+        if (!string.IsNullOrWhiteSpace(identityDirectory) && !Directory.Exists(identityDirectory))
+        {
+            Directory.CreateDirectory(identityDirectory);
+        }
+
+        using (Process process = Process.GetProcessById((int)processId))
+        {
+            string identity = "TestWordProcessIdentity=" +
+                process.Id +
+                ":" +
+                process.StartTime.ToUniversalTime().Ticks;
+            File.WriteAllText(identityPath, identity + Environment.NewLine, new UTF8Encoding(false));
+            Console.WriteLine(identity);
+        }
+    }
+
     [STAThread]
     public static int Main(string[] args)
     {
@@ -196,15 +236,16 @@ public static class WordComplexMetadataE2E
 
         try
         {
-            if (args == null || args.Length != 2)
+            if (args == null || args.Length != 3)
             {
-                throw new ArgumentException("Expected image and document paths.");
+                throw new ArgumentException("Expected image, document, and process identity paths.");
             }
 
             File.WriteAllBytes(args[0], Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl0el0AAAAASUVORK5CYII="));
             application = (WordInterop.Application)Activator.CreateInstance(Type.GetTypeFromProgID("Word.Application", true));
             application.Visible = true;
             document = application.Documents.Add();
+            WriteWordProcessIdentity(application, args[2]);
             document.SaveAs2(args[1]);
 
             string drawioXml = BuildComplexDrawioXml();
@@ -576,7 +617,18 @@ if ($LASTEXITCODE -ne 0) {
 
 Push-Location $tempRoot
 try {
-    & $exePath $imagePath $documentPath
+    $identityArgument = if ([string]::IsNullOrWhiteSpace($ProcessIdentityPath)) {
+        "-"
+    }
+    else {
+        [System.IO.Path]::GetFullPath($ProcessIdentityPath)
+    }
+
+    if ($identityArgument -ne "-" -and (Test-Path -LiteralPath $identityArgument)) {
+        Remove-Item -LiteralPath $identityArgument -Force
+    }
+
+    & $exePath $imagePath $documentPath $identityArgument
     $testExitCode = [int]$LASTEXITCODE
 }
 finally {

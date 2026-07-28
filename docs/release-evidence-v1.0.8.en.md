@@ -18,6 +18,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Con
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-selection-sync-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\webview2-user-data-folder-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e-safety-test.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-cleanup-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-complex-metadata-e2e.ps1 -Configuration Release -SkipBuild
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-selection-event-e2e.ps1 -Configuration Release -SkipBuild
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-e2e.ps1 -Configuration Release -SkipBuild
@@ -30,8 +31,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.
 - The `Release|x64` build passed with 0 warnings and 0 errors.
 - All source-contract and real Word pre-release gates passed; see the [v1.0.8 E2E test report](./e2e-test-report-v1.0.8.en.md) for the detailed evidence.
 - The full Office E2E against the temporary release-package installation passed 9/9: `ReleasePackage`, `InstallRelease`, `InstalledOfficeAddInsVerify`, `PowerPointAddInLoad`, `InstalledUrlSmoke`, `InstalledWordUrlHostE2E`, `InstalledWordComplexMetadataE2E`, `PowerPointUrlE2E`, and `DesktopExporter` all reported PASS.
-- The package contains `DrawioPpt.WordAddIn.dll`, `scripts\word-complex-metadata-e2e.ps1`, and the versioned Chinese and English release notes, E2E reports, and evidence indexes.
-- The full E2E restored the repository Release add-in registration and left no `WINWORD` or `POWERPNT` process behind.
+- The package contains `DrawioPpt.WordAddIn.dll`, `scripts\word-complex-metadata-e2e.ps1`, both architecture documents, both regression checklists, both optimization backlogs, the historical v1.0.5 E2E reports, and the versioned release notes, E2E reports, and evidence indexes. `PACKAGE.txt` also lists both README files and itself.
+- The pre-compression package-link gate reported `PackageMarkdownMissingLinkCount=0`.
+- The full E2E identifies its test-owned Word process by PID and start time. Temporary-package uninstall, repository Release add-in registration restoration, and settings restoration all check their exit status; the run reported `FullE2ECleanupSucceeded=True` and left no `WINWORD` or `POWERPNT` process behind.
 
 ## Release-package DLL SHA256
 

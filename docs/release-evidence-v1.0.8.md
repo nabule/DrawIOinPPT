@@ -18,6 +18,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Con
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-selection-sync-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\webview2-user-data-folder-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e-safety-test.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-cleanup-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-complex-metadata-e2e.ps1 -Configuration Release -SkipBuild
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-selection-event-e2e.ps1 -Configuration Release -SkipBuild
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-e2e.ps1 -Configuration Release -SkipBuild
@@ -30,8 +31,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.
 - `Release|x64` 构建通过：0 warnings，0 errors。
 - 所有源码和真实 Word 发布前门槛通过；详细关键值见 [v1.0.8 E2E 测试报告](./e2e-test-report-v1.0.8.md)。
 - 临时安装发布包的完整 Office E2E 为 9/9 通过：`ReleasePackage`、`InstallRelease`、`InstalledOfficeAddInsVerify`、`PowerPointAddInLoad`、`InstalledUrlSmoke`、`InstalledWordUrlHostE2E`、`InstalledWordComplexMetadataE2E`、`PowerPointUrlE2E`、`DesktopExporter` 全部为 PASS。
-- 发布包包含 `DrawioPpt.WordAddIn.dll` 和 `scripts\word-complex-metadata-e2e.ps1`，并包含本版本中英文发布说明、E2E 报告和证据索引。
-- full E2E 结束后已还原仓库 Release 加载项注册，且没有 `WINWORD` / `POWERPNT` 残留。
+- 发布包包含 `DrawioPpt.WordAddIn.dll` 和 `scripts\word-complex-metadata-e2e.ps1`，并显式包含中英文架构、回归清单、优化 backlog、v1.0.5 历史 E2E、本版本发布说明、E2E 报告和证据索引；`PACKAGE.txt` 同时列出 README 与清单本身。
+- 发布前压缩阶段的包内链接门槛输出 `PackageMarkdownMissingLinkCount=0`。
+- full E2E 按 PID 和启动时间精确识别测试拥有的 Word；卸载临时包、还原仓库 Release 加载项注册和设置都检查退出状态，最终输出 `FullE2ECleanupSucceeded=True`，且没有 `WINWORD` / `POWERPNT` 残留。
 
 ## 发布包 DLL SHA256
 

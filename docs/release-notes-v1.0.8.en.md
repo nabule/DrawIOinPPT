@@ -29,5 +29,7 @@ For cross-document delivery, copy the complete `.docx`, or save/retain the sidec
 - `word-url-addin-host-e2e.ps1` passes in real `WINWORD.EXE`, with `WordAddInConnect=True` and `ActualWordUrlEditorSaved=True`.
 - The full Office E2E against the temporary v1.0.8 installation passes 9/9. It adds `InstalledWordComplexMetadataE2E` and covers packaging, installation, Office registration/load, URL smoke, the real Word URL host, PowerPoint URL write-back, and desktop export.
 - The v1.0.8 package has been generated with `scripts\word-complex-metadata-e2e.ps1` and the Chinese and English reports and evidence indexes. See the [v1.0.8 E2E test report](./e2e-test-report-v1.0.8.en.md) and [v1.0.8 release evidence](./release-evidence-v1.0.8.en.md).
+- Full E2E identifies and cleans up only its test-owned Word process by PID and start time. Temporary-package uninstall, repository add-in re-registration, or settings-restoration failures propagate to the final failure state; the cleanup safety contract passes.
+- The package explicitly includes both architecture documents, regression checklists, optimization backlogs, and historical v1.0.5 E2E reports. Its pre-compression Markdown-link check reports zero missing targets.
 
 v1.0.8 remains pending public release. Final installation into the standard local directory and the manual 10-second drag, resize, reposition, and reopen/edit comparison remain later acceptance steps and are not claimed here.

@@ -22,6 +22,59 @@ $addInBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.PowerPointAddIn\\bin\\{0}\\
 $wordAddInBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.WordAddIn\\bin\\{0}\\{1}" -f $Platform, $Configuration)
 $coreBinRoot = Join-Path $repoRoot ("src\\DrawioPpt.Core\\bin\\{0}\\{1}" -f $Platform, $Configuration)
 
+function Assert-PackageMarkdownLinks {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageRoot
+    )
+
+    $normalizedPackageRoot = [System.IO.Path]::GetFullPath($PackageRoot)
+    $packagePrefix = $normalizedPackageRoot.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    $missingLinks = New-Object System.Collections.Generic.List[string]
+    $markdownFiles = @(Get-ChildItem -LiteralPath $normalizedPackageRoot -Recurse -Filter "*.md" -File)
+    foreach ($markdownFile in $markdownFiles) {
+        $sourceText = Get-Content -Raw -LiteralPath $markdownFile.FullName
+        $matches = [regex]::Matches($sourceText, '\[[^\]]*\]\(([^)]+)\)')
+        foreach ($match in $matches) {
+            $target = $match.Groups[1].Value.Trim()
+            if ([string]::IsNullOrWhiteSpace($target) -or
+                $target.StartsWith("#", [System.StringComparison]::Ordinal) -or
+                $target -match '^[a-zA-Z][a-zA-Z0-9+.-]*:') {
+                continue
+            }
+
+            $pathPart = ($target -split '[#?]', 2)[0].Trim().Trim("<", ">")
+            if ([string]::IsNullOrWhiteSpace($pathPart)) {
+                continue
+            }
+
+            $decodedPath = [Uri]::UnescapeDataString($pathPart).Replace(
+                [System.IO.Path]::AltDirectorySeparatorChar,
+                [System.IO.Path]::DirectorySeparatorChar)
+            $resolvedTarget = [System.IO.Path]::GetFullPath(
+                (Join-Path $markdownFile.DirectoryName $decodedPath))
+            $isInsidePackage = $resolvedTarget.StartsWith(
+                $packagePrefix,
+                [System.StringComparison]::OrdinalIgnoreCase)
+            if (-not $isInsidePackage -or -not (Test-Path -LiteralPath $resolvedTarget)) {
+                $relativeSource = $markdownFile.FullName.Substring($packagePrefix.Length)
+                $missingLinks.Add("$relativeSource -> $target") | Out-Null
+            }
+        }
+    }
+
+    foreach ($missingLink in $missingLinks) {
+        Write-Host "PackageMarkdownMissingLink=$missingLink"
+    }
+
+    Write-Host "PackageMarkdownMissingLinkCount=$($missingLinks.Count)"
+    if ($missingLinks.Count -gt 0) {
+        throw "Release package contains $($missingLinks.Count) unresolved local Markdown link(s)."
+    }
+}
+
 if (-not $SkipBuild) {
     & powershell.exe -ExecutionPolicy Bypass -File $buildScript -Configuration $Configuration -Platform $Platform
     if ($LASTEXITCODE -ne 0) {
@@ -61,12 +114,18 @@ Copy-Item (Join-Path $repoRoot "README.md") $packageRoot -Force
 Copy-Item (Join-Path $repoRoot "README.en.md") $packageRoot -Force
 Copy-Item (Join-Path $repoRoot "docs\\installation.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot "docs\\installation.en.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\architecture.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\architecture.en.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot "docs\\user-guide.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot "docs\\user-guide.en.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot "docs\\word-addin.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot "docs\\word-addin.en.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot "docs\\optimization-backlog.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\optimization-backlog.en.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot "docs\\regression-checklist.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\regression-checklist.en.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\e2e-test-report-v1.0.5.md") (Join-Path $packageRoot "docs") -Force
+Copy-Item (Join-Path $repoRoot "docs\\e2e-test-report-v1.0.5.en.md") (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseNotesName)) (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot ("docs\\" + $releaseNotesEnName)) (Join-Path $packageRoot "docs") -Force
 Copy-Item (Join-Path $repoRoot ("docs\\" + $e2eDocName)) (Join-Path $packageRoot "docs") -Force
@@ -110,6 +169,9 @@ Platform: $Platform
 BuiltAt: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 
 Contents:
+- README.md
+- README.en.md
+- PACKAGE.txt
 - bin\DrawioPpt.PowerPointAddIn.dll
 - bin\DrawioPpt.WordAddIn.dll
 - bin\DrawioPpt.Core.dll
@@ -137,12 +199,18 @@ Contents:
 - scripts\url-editor-smoke.ps1
 - docs\installation.md
 - docs\installation.en.md
+- docs\architecture.md
+- docs\architecture.en.md
 - docs\user-guide.md
 - docs\user-guide.en.md
 - docs\word-addin.md
 - docs\word-addin.en.md
 - docs\optimization-backlog.md
+- docs\optimization-backlog.en.md
 - docs\regression-checklist.md
+- docs\regression-checklist.en.md
+- docs\e2e-test-report-v1.0.5.md
+- docs\e2e-test-report-v1.0.5.en.md
 - docs\$releaseNotesName
 - docs\$releaseNotesEnName
 - docs\$e2eDocName
@@ -150,6 +218,8 @@ Contents:
 - docs\$releaseEvidenceName
 - docs\$releaseEvidenceEnName
 "@ | Set-Content -Path $manifestPath -Encoding UTF8
+
+Assert-PackageMarkdownLinks -PackageRoot $packageRoot
 
 Compress-Archive -Path (Join-Path $packageRoot "*") -DestinationPath $zipPath -Force
 

@@ -21,7 +21,9 @@ $settingsBackupPath = Join-Path $env:TEMP ("DrawioPpt\\settings-backup-" + [Guid
 $pluginLogPath = Join-Path $env:APPDATA "Greensoft\\DrawioPpt\\Logs\\drawioppt.log"
 $pluginLogSnapshotPath = Join-Path $logRoot "drawioppt-full-e2e.log"
 $transcriptPath = Join-Path $logRoot ("full-e2e-" + $Version + ".transcript.log")
+$complexWordIdentityPath = Join-Path $env:TEMP ("DrawioPpt\\word-complex-identity-" + [Guid]::NewGuid().ToString("N") + ".txt")
 $results = New-Object System.Collections.Generic.List[string]
+$cleanupErrors = New-Object System.Collections.Generic.List[string]
 $drawioExe = "C:\\Program Files\\draw.io\\draw.io.exe"
 $fatalError = $null
 $transcriptStarted = $false
@@ -53,6 +55,106 @@ function Get-AvailableLoopbackPort {
 
 function Stop-RunningPowerPointSilently {
     Get-Process -Name POWERPNT -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+}
+
+function Stop-TestOwnedProcess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$IdentityPath,
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedProcessName,
+        [int]$TimeoutSeconds = 10
+    )
+
+    if (-not (Test-Path -LiteralPath $IdentityPath)) {
+        return
+    }
+
+    $identityLines = @(Get-Content -LiteralPath $IdentityPath -ErrorAction Stop)
+    $matchedIdentity = $false
+    foreach ($line in $identityLines) {
+        if ($line -notmatch '^TestWordProcessIdentity=(\d+):(\d+)$') {
+            continue
+        }
+
+        $matchedIdentity = $true
+        $processId = [int]$Matches[1]
+        $expectedStartTicks = [Int64]$Matches[2]
+        $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+        if ($null -eq $process) {
+            Write-Host "TestOwnedProcessAlreadyExited=$processId"
+            continue
+        }
+
+        $actualStartTicks = $process.StartTime.ToUniversalTime().Ticks
+        $processNameMatches = [string]::Equals(
+            $process.ProcessName,
+            $ExpectedProcessName,
+            [System.StringComparison]::OrdinalIgnoreCase)
+        if (-not $processNameMatches -or $actualStartTicks -ne $expectedStartTicks) {
+            Write-Host "TestOwnedProcessIdentityMismatchProtected=$processId"
+            continue
+        }
+
+        Stop-Process -Id $processId -Force -ErrorAction Stop
+        $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+        do {
+            if ($null -eq (Get-Process -Id $processId -ErrorAction SilentlyContinue)) {
+                Write-Host "TestOwnedProcessStopped=$processId"
+                break
+            }
+
+            if ([DateTime]::UtcNow -ge $deadline) {
+                throw "Timed out waiting for the test-owned $ExpectedProcessName process $processId to exit."
+            }
+
+            Start-Sleep -Milliseconds 100
+        } while ($true)
+    }
+
+    if (-not $matchedIdentity) {
+        throw "No valid test-owned process identity was found in: $IdentityPath"
+    }
+}
+
+function Invoke-CheckedPowerShellScript {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ScriptPath,
+        [string[]]$Arguments = @(),
+        [Parameter(Mandatory = $true)]
+        [string]$Description
+    )
+
+    if (-not (Test-Path -LiteralPath $ScriptPath)) {
+        throw "$Description script not found: $ScriptPath"
+    }
+
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ScriptPath @Arguments > $null
+    $exitCode = [int]$LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "$Description failed with exit code $exitCode."
+    }
+}
+
+function Get-ErrorDetail {
+    param([object]$ErrorValue)
+
+    $detail = if ($ErrorValue -is [System.Management.Automation.ErrorRecord]) {
+        $ErrorValue.Exception.Message
+    }
+    elseif ($ErrorValue -is [System.Exception]) {
+        $ErrorValue.Message
+    }
+    else {
+        [string]$ErrorValue
+    }
+
+    if ([string]::IsNullOrWhiteSpace($detail)) {
+        $detail = [string]$ErrorValue
+    }
+
+    return $detail.Replace("|", "/").Replace("`r", " ").Replace("`n", " ").Trim()
 }
 
 function Add-Result {
@@ -663,7 +765,7 @@ try {
     Add-Result -Name "InstalledWordUrlHostE2E" -Passed ($LASTEXITCODE -eq 0) -Detail $installedWordUrlHostE2E
 
     $installedWordComplexMetadataE2E = Join-Path $installRoot "scripts\\word-complex-metadata-e2e.ps1"
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installedWordComplexMetadataE2E -Configuration Release -AssemblyRoot (Join-Path $installRoot "bin") -SkipBuild
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installedWordComplexMetadataE2E -Configuration Release -AssemblyRoot (Join-Path $installRoot "bin") -ProcessIdentityPath $complexWordIdentityPath -SkipBuild
     Add-Result -Name "InstalledWordComplexMetadataE2E" -Passed ($LASTEXITCODE -eq 0) -Detail $installedWordComplexMetadataE2E
 
     $urlE2EExitCode = Compile-And-Run-PowerPointUrlE2E -InstalledRoot $installRoot
@@ -674,30 +776,74 @@ try {
 }
 catch {
     $fatalError = $_
-
-    $detail = $_.Exception.Message
-    if ([string]::IsNullOrWhiteSpace($detail)) {
-        $detail = $_.ToString()
-    }
-
-    $detail = $detail.Replace("|", "/").Replace("`r", " ").Replace("`n", " ").Trim()
-    $results.Add("| FatalError | FAIL | $detail |") | Out-Null
 }
 finally {
     Stop-RunningPowerPointSilently
 
+    try {
+        Stop-TestOwnedProcess `
+            -IdentityPath $complexWordIdentityPath `
+            -ExpectedProcessName "WINWORD" `
+            -TimeoutSeconds 10
+    }
+    catch {
+        $cleanupErrors.Add("OwnedWordCleanup: $(Get-ErrorDetail $_)") | Out-Null
+    }
+
     if (-not $KeepInstalled -and (Test-Path $installRoot)) {
         $uninstallScript = Join-Path $installRoot "scripts\\uninstall-release.ps1"
-        if (Test-Path $uninstallScript) {
-            & powershell.exe -ExecutionPolicy Bypass -File $uninstallScript -InstallRoot $installRoot > $null
+        try {
+            Invoke-CheckedPowerShellScript `
+                -ScriptPath $uninstallScript `
+                -Arguments @("-InstallRoot", $installRoot) `
+                -Description "UninstallRelease"
+        }
+        catch {
+            $cleanupErrors.Add("UninstallRelease: $(Get-ErrorDetail $_)") | Out-Null
         }
     }
 
-if (Test-Path $registerRepoScript) {
-        & powershell.exe -ExecutionPolicy Bypass -File $registerRepoScript -Configuration Release > $null
+    try {
+        Invoke-CheckedPowerShellScript `
+            -ScriptPath $registerRepoScript `
+            -Arguments @("-Configuration", "Release") `
+            -Description "RegisterRepositoryAddIns"
+    }
+    catch {
+        $cleanupErrors.Add("RegisterRepositoryAddIns: $(Get-ErrorDetail $_)") | Out-Null
     }
 
-    Restore-Settings
+    try {
+        Restore-Settings
+    }
+    catch {
+        $cleanupErrors.Add("RestoreSettings: $(Get-ErrorDetail $_)") | Out-Null
+    }
+
+    try {
+        if (Test-Path -LiteralPath $complexWordIdentityPath) {
+            Remove-Item -LiteralPath $complexWordIdentityPath -Force
+        }
+    }
+    catch {
+        $cleanupErrors.Add("RemoveWordIdentity: $(Get-ErrorDetail $_)") | Out-Null
+    }
+}
+
+$failureDetails = New-Object System.Collections.Generic.List[string]
+if ($fatalError -ne $null) {
+    $failureDetails.Add((Get-ErrorDetail $fatalError)) | Out-Null
+}
+
+foreach ($cleanupError in $cleanupErrors) {
+    $failureDetails.Add($cleanupError) | Out-Null
+}
+
+if ($failureDetails.Count -gt 0) {
+    $results.Add("| FatalError | FAIL | $($failureDetails -join '; ') |") | Out-Null
+}
+else {
+    Write-Host "FullE2ECleanupSucceeded=True"
 }
 
 if (-not (Test-Path $reportRoot)) {
@@ -725,8 +871,8 @@ if ($transcriptStarted) {
     }
 }
 
-if ($fatalError -ne $null) {
-    Write-Error $fatalError
+if ($failureDetails.Count -gt 0) {
+    Write-Error ($failureDetails -join "; ")
     exit 1
 }
 

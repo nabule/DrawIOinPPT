@@ -19,6 +19,7 @@
 | Word 选区同步源码约束 | 通过 | `WORD_SELECTION_SYNC_TEST_PASS` |
 | WebView2 用户目录源码约束 | 通过 | `WEBVIEW2_USER_DATA_FOLDER_SOURCE_TEST_PASS` |
 | Word URL 宿主测试安全约束 | 通过 | `WORD_URL_ADDIN_HOST_E2E_SAFETY_TEST_PASS` |
+| full E2E 清理安全约束 | 通过 | `FULL_E2E_CLEANUP_SAFETY_TEST_PASS`；错误启动时间不会终止进程，PID 和启动时间都匹配才清理，清理命令非零会传播为最终失败 |
 | Word 复杂元数据 E2E | 通过 | `DrawioXmlChars=271361`、`AlternativeTextChars=436`，主存储、轻量引用、失败回退、旧版迁移、part ID 稳定、保存关闭重开均满足断言 |
 | Word 选区事件 E2E | 通过 | `NoSelectionPolling=True`、`ManagedSelectionDetected=True`、`PlainPictureCanBind=True` |
 | Word URL E2E | 通过 | `CreatedManagedPicture=True`、`ReopenedEditApplied=True`、`PersistedAfterReopen=True` |
@@ -36,6 +37,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.
 
 结果：9/9 通过。
 
+打包阶段先输出 `PackageMarkdownMissingLinkCount=0`，确认 ZIP 内所有本地 Markdown 链接均能解析到包内文件。
+
 | 检查项 | 结果 | 关键证据 |
 | --- | --- | --- |
 | `ReleasePackage` | PASS | v1.0.8 发布目录生成成功 |
@@ -48,7 +51,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.
 | `PowerPointUrlE2E` | PASS | `CreatedManagedShape=True`、`ReopenedEditApplied=True`、`PersistedAfterReopen=True`、`ExitCode=0` |
 | `DesktopExporter` | PASS | draw.io Desktop 导出 SVG 成功 |
 
-PowerPoint mock 编辑器先由操作系统分配 preferred loopback 端口，并在 C# 宿主中使用 `StartWithRetry` 处理绑定竞争；探活和 `PluginSettings.EditorUrl` 都使用最终绑定端口。本次输出为 `MockServerPort=10764`。
+PowerPoint mock 编辑器先由操作系统分配 preferred loopback 端口，并在 C# 宿主中使用 `StartWithRetry` 处理绑定竞争；探活和 `PluginSettings.EditorUrl` 都使用最终绑定端口。本次输出为 `MockServerPort=3721`。
+
+安装态复杂元数据测试写出 `TestWordProcessIdentity=4132:639208146977213246`。finally 按 PID 和启动时间核对测试拥有的 Word，本次进程已正常退出，因此输出 `TestOwnedProcessAlreadyExited=4132`；卸载临时包、恢复仓库加载项注册和设置均完成，最终输出 `FullE2ECleanupSucceeded=True`。
 
 ## 报告与日志
 
