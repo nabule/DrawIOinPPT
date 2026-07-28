@@ -77,3 +77,22 @@
 - `scripts\word-selection-event-e2e.ps1` 在真实 Word COM 中通过，验证浮动 `Shape` 的受管图片即时识别、普通图片的现场绑定前提，以及发布 DLL 的无轮询约束。
 - 执行 Word E2E 前关闭 Word，且不要与其他 Word 自动化测试并行运行；脚本会还原插件设置并仅清理本次测试创建的自动化 Word 进程。
 - 移动、缩放浮动图片后，功能区状态由 Word 事件更新；如 Word 未立即更新显示，直接选中图片后点击“重新编辑”“刷新”“绑定”或“清除绑定”，命令会现场读取当前选区。
+
+## 10. Word 复杂元数据与拖动性能
+
+自动化检查：
+
+- `scripts\word-complex-metadata-e2e.ps1` 使用大 Draw.io XML 验证：完整正文保存在 `Document.CustomXMLParts`，图片 `AlternativeText` 不含 `DrawioXml` 且长度不超过 2048 字符。
+- 保存、关闭并重开 `.docx` 后，文档级全量 envelope 与图片轻量引用都仍然存在，引用字段保持一致。
+- 模拟 `CustomXMLParts.Upsert` 失败时，图片 `AlternativeText` 保留全量 envelope；保存、关闭、重开后回退数据仍可读取。
+- 旧版仅在 `AlternativeText` 保存全量 envelope 的图片首次读取时自动迁入 `CustomXMLParts`；二次读取不新增部件，相关 XML part ID 保持稳定。
+- `scripts\word-url-e2e.ps1` 严格从 `Document.CustomXMLParts` 验证 URL 模式的创建、重开、编辑和最终回写，不以轻量 `AlternativeText` 冒充完整主存储。
+- `scripts\word-url-addin-host-e2e.ps1` 严格从文档级主存储验证实际宿主回写，`WordAddInConnect=True` 且 `ActualWordUrlEditorSaved=True`。
+- 每个 Word 自动化脚本结束后检查没有残留 `WINWORD.EXE`；发现残留进程即判定失败。
+
+发布前人工验收：
+
+| 状态 | 检查项 |
+| --- | --- |
+| 待验收 | 在同一 Word 文档中插入复杂 Draw.io 图形和相同显示尺寸的普通图片，分别连续拖动、缩放、重新定位，对比响应是否存在明显卡顿差异。 |
+| 待验收 | 保存并重开文档后，再次拖动复杂图形，并进入“重新编辑”确认源 XML 可以恢复。 |

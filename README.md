@@ -4,9 +4,9 @@
 
 DrawioPpt 是一个面向 Microsoft Office Desktop 的 Draw.io / diagrams.net 原生插件。它让你可以在 PowerPoint 和 Word 里直接插入、识别、重新编辑和刷新 Draw.io 图形，而不是把图形当成一次性截图维护。
 
-当前版本：`v1.0.7`
+当前版本：`v1.0.8`
 
-下载发布包：[DrawioPpt v1.0.7](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.7)
+下载发布包：[DrawioPpt v1.0.8](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8)
 
 ## 项目价值
 
@@ -33,9 +33,10 @@ DrawioPpt 解决的是 Office 文档里流程图、架构图和说明图的长�
 - 在当前光标位置插入 Draw.io 图形。
 - 选中已绑定图片后重新编辑、刷新、绑定和清除绑定。
 - 支持 `InlineShape` 和浮动 `Shape` 图片。
-- 通过 `Document.CustomXMLParts + AlternativeText` 保存源数据和引用关系。
+- 通过 `Document.CustomXMLParts + AlternativeText` 保存源数据和轻量引用关系：完整 Draw.io XML 留在文档级主存储，图片属性不再重复承载复杂图形的大 XML。
 - Word 与 PowerPoint 共用桌面编辑器、URL 编辑器和基础设置。
 - Word 选区状态使用 Office 事件同步，不再每 500ms 后台读取图片元数据；手动命令始终读取当前选区。
+- `WindowSelectionChange` 只需解析轻量图片引用，改善复杂图形选中、拖动和缩放时的响应。
 
 ## 核心功能
 
@@ -53,7 +54,8 @@ DrawioPpt 当前采用多层保存策略：
 
 - 主存储：Office 文档级 `CustomXMLParts`，保存压缩后的 Draw.io XML。
 - PowerPoint 图形引用：`Shape.Tags` 记录 `diagramId` 和文档级 XML 部件引用。
-- Word 图片引用：图片 `AlternativeText` 记录可恢复的元数据包。
+- Word 图片引用：正常情况下，图片 `AlternativeText` 只保存不含 `DrawioXml` 的轻量 envelope，包含 `formatVersion`、`diagramId`、名称、编辑模式/目标、sidecar 路径和更新时间；完整 envelope 保存于 `Document.CustomXMLParts`。
+- Word 失败回退：如果写入 `Document.CustomXMLParts` 失败，图片 `AlternativeText` 会保留全量 envelope，避免源数据丢失；旧版全量图片元数据在首次读取时自动迁入文档级主存储。
 - SVG 兜底：生成的 SVG 会补写 draw.io `content` 元数据。
 - sidecar `.drawio`：作为桌面编辑缓存、人工备份和自动刷新辅助，不是唯一数据源。
 
@@ -84,7 +86,7 @@ win-unpacked\draw.io.exe
 
 ## 快速安装
 
-1. 从 [v1.0.7 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.7) 下载 `DrawioPpt-v1.0.7.zip`。
+1. 从 [v1.0.8 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8) 下载 `DrawioPpt-v1.0.8.zip`。
 2. 解压到本地目录。
 3. 关闭 PowerPoint 和 Word。
 4. 双击 `install.cmd`。
@@ -113,9 +115,9 @@ powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\
 - [Word 插件设计与使用说明](./docs/word-addin.md)
 - [架构设计](./docs/architecture.md)
 - [回归清单](./docs/regression-checklist.md)
-- [v1.0.7 发布说明](./docs/release-notes-v1.0.7.md)
-- [v1.0.7 E2E 测试报告](./docs/e2e-test-report-v1.0.7.md)
-- [v1.0.7 发布证据与日志索引](./docs/release-evidence-v1.0.7.md)
+- [v1.0.8 发布说明](./docs/release-notes-v1.0.8.md)
+- [上一版 v1.0.7 E2E 测试报告](./docs/e2e-test-report-v1.0.7.md)
+- [上一版 v1.0.7 发布证据与日志索引](./docs/release-evidence-v1.0.7.md)
 
 开发计划、历史发布记录和优化 backlog 也放在 [docs](./docs/) 目录中，README 只保留项目定位和上手入口。
 

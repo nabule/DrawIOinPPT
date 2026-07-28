@@ -17,8 +17,8 @@ Recommended companion docs:
 
 - [Installation and local debugging guide](./installation.en.md)
 - [Word add-in design and usage](./word-addin.en.md)
-- [Full E2E test report](./e2e-test-report-v1.0.7.en.md)
-- [Release notes for v1.0.7](./release-notes-v1.0.7.en.md)
+- [Previous v1.0.7 full E2E test report](./e2e-test-report-v1.0.7.en.md)
+- [Release notes for v1.0.8](./release-notes-v1.0.8.en.md)
 - [Optimization backlog](./optimization-backlog.en.md)
 
 ## 2. What the Current Version Can Do
@@ -38,6 +38,15 @@ The current version can already do the following:
 - Write logs to help diagnose URL-mode and write-back failures
 - Group the Ribbon into `Create / Current Shape / Workflow / Info`
 - Relocate sidecar `.drawio` files automatically after save-as, path changes, or moving the deck to another machine
+
+Complex diagrams in Word use this storage model:
+
+- `Document.CustomXMLParts` is the normal primary store for the full envelope and Draw.io XML.
+- Picture `AlternativeText` normally keeps only `formatVersion`, `diagramId`, name, editor mode/target, sidecar path, and update time; it does not contain `DrawioXml`.
+- `WindowSelectionChange` therefore parses only the lightweight reference, reducing synchronization work while selecting, dragging, or resizing a complex diagram.
+- If the primary-store write fails, the picture retains the full envelope to avoid source-data loss. Legacy full picture metadata is migrated into the primary store on first read and then rewritten as a lightweight reference.
+
+Important: when copying only one Word picture into another document, Office does not guarantee that the source document's `CustomXMLParts` are copied. Because a normal lightweight reference has no Draw.io XML, the destination may not be able to recover the editing source. Copy the complete `.docx`, or save/retain the sidecar `.drawio` or Draw.io XML first. Only legacy pictures and primary-store failure fallbacks may still carry the full payload in `AlternativeText`.
 
 Areas still being improved:
 

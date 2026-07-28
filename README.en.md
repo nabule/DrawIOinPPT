@@ -4,9 +4,9 @@
 
 DrawioPpt is a native Draw.io / diagrams.net add-in for Microsoft Office Desktop. It lets you insert, detect, re-edit, and refresh Draw.io diagrams directly in PowerPoint and Word, instead of maintaining diagrams as one-time screenshots.
 
-Current version: `v1.0.7`
+Current version: `v1.0.8`
 
-Release package: [DrawioPpt v1.0.7](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.7)
+Release package: [DrawioPpt v1.0.8](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8)
 
 ## Value
 
@@ -34,8 +34,9 @@ DrawioPpt is built for long-lived diagrams in Office documents:
 - Insert a Draw.io diagram at the current cursor position.
 - Re-edit, refresh, bind, and clear binding for selected managed pictures.
 - Support both `InlineShape` and floating `Shape` pictures.
-- Store source data and references through `Document.CustomXMLParts + AlternativeText`.
+- Store source data and lightweight references through `Document.CustomXMLParts + AlternativeText`: the full Draw.io XML stays in the document-level primary store instead of being duplicated in the picture property.
 - Share desktop editor, URL editor, and base settings with the PowerPoint add-in.
+- `WindowSelectionChange` only parses the lightweight picture reference, improving responsiveness while selecting, dragging, or resizing complex diagrams.
 
 ## Core Features
 
@@ -53,7 +54,8 @@ DrawioPpt uses layered persistence:
 
 - Primary store: Office document-level `CustomXMLParts` containing compressed Draw.io XML.
 - PowerPoint shape references: `Shape.Tags` stores `diagramId` and the document-level XML part reference.
-- Word picture references: picture `AlternativeText` stores a recoverable metadata envelope.
+- Word picture references: under normal operation, picture `AlternativeText` contains a lightweight envelope without `DrawioXml`: `formatVersion`, `diagramId`, name, editor mode/target, sidecar path, and update time. The full envelope remains in `Document.CustomXMLParts`.
+- Word failure fallback: if writing `Document.CustomXMLParts` fails, picture `AlternativeText` retains the full envelope to avoid source-data loss. Legacy full picture metadata is migrated into the document-level primary store on first read.
 - SVG fallback: generated SVG receives draw.io `content` metadata.
 - sidecar `.drawio`: desktop editing cache, manual backup, and auto-refresh helper, not the only source of data.
 
@@ -84,7 +86,7 @@ These tools are useful for inspecting embedded Office XML, manually recovering d
 
 ## Quick Install
 
-1. Download `DrawioPpt-v1.0.7.zip` from the [v1.0.7 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.7).
+1. Download `DrawioPpt-v1.0.8.zip` from the [v1.0.8 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8).
 2. Extract it to a local folder.
 3. Close PowerPoint and Word.
 4. Double-click `install.cmd`.
@@ -113,9 +115,9 @@ powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\
 - [Word add-in design and usage](./docs/word-addin.en.md)
 - [Architecture](./docs/architecture.en.md)
 - [Regression checklist](./docs/regression-checklist.en.md)
-- [v1.0.7 release notes](./docs/release-notes-v1.0.7.en.md)
-- [v1.0.7 E2E test report](./docs/e2e-test-report-v1.0.7.en.md)
-- [v1.0.7 release evidence and log index](./docs/release-evidence-v1.0.7.en.md)
+- [v1.0.8 release notes](./docs/release-notes-v1.0.8.en.md)
+- [Previous v1.0.7 E2E test report](./docs/e2e-test-report-v1.0.7.en.md)
+- [Previous v1.0.7 release evidence and log index](./docs/release-evidence-v1.0.7.en.md)
 
 Development plans, historical release notes, and optimization backlog live under [docs](./docs/). The README is kept as the project overview and quick-start entry point.
 

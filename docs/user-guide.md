@@ -17,8 +17,8 @@ DrawioPpt 是一个面向 PowerPoint 和 Word Desktop 的原生插件，用来�
 
 - [安装与联调说明](./installation.md)
 - [Word 插件设计与使用说明](./word-addin.md)
-- [完整 E2E 测试报告](./e2e-test-report-v1.0.7.md)
-- [v1.0.7 发布说明](./release-notes-v1.0.7.md)
+- [上一版 v1.0.7 完整 E2E 测试报告](./e2e-test-report-v1.0.7.md)
+- [v1.0.8 发布说明](./release-notes-v1.0.8.md)
 - [待优化功能点](./optimization-backlog.md)
 
 ## 2. 当前能做什么
@@ -38,6 +38,15 @@ DrawioPpt 是一个面向 PowerPoint 和 Word Desktop 的原生插件，用来�
 - 记录日志，方便排查 URL 模式和回写失败问题
 - Ribbon 已按“创建 / 当前图形 / 工作流 / 信息”重新分组
 - 已支持 sidecar `.drawio` 在 `PPT` 保存、另存为和跨机器迁移后自动按当前文档路径重定位
+
+Word 中的复杂图形采用下面的存储方式：
+
+- `Document.CustomXMLParts` 保存完整 envelope 和 Draw.io XML，是正常路径的主存储。
+- 图片 `AlternativeText` 正常只保存 `formatVersion`、`diagramId`、名称、编辑模式/目标、sidecar 路径和更新时间，不保存 `DrawioXml`。
+- `WindowSelectionChange` 因此只解析轻量引用，减少复杂图形选中、拖动和缩放时的同步开销。
+- 如果主存储写入失败，图片会保留全量 envelope，避免源数据丢失；旧版全量图片元数据在首次读取时自动迁入主存储，迁移后改为轻量引用。
+
+需要注意：单独复制一张 Word 图片到另一文档时，Office 不保证复制原文档的 `CustomXMLParts`。正常轻量引用不含 Draw.io XML，目标文档中可能无法恢复编辑源。跨文档交付时建议复制整份 `.docx`，或提前保存/保留 sidecar `.drawio` 或 Draw.io XML。只有旧版图片或主存储失败回退图片，`AlternativeText` 才可能仍包含全量数据。
 
 当前仍在持续优化的点：
 

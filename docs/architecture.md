@@ -57,7 +57,7 @@
 
 当前 Word 宿主复用 PowerPoint 程序集中的公共编辑器和 SVG 服务，后续可以再把这些公共服务抽成独立 `OfficeShared` 项目。
 
-Word 选区状态由 `WindowSelectionChange` 和插件启动时的一次读取驱动，不再每 500ms 定时读取 Word 选区或解析图片元数据。编辑、刷新、绑定和清除绑定等显式命令会在点击时直接读取当前 Word 选区，作为 Word 未立即发出选区通知时的操作保障。
+Word 选区状态由 `WindowSelectionChange` 和插件启动时的一次读取驱动，不再每 500ms 定时读取 Word 选区或解析图片元数据。图片 `AlternativeText` 正常只保存轻量引用，因此选区事件也不再反序列化复杂图形的大段 Draw.io XML，降低选中、拖动和缩放期间对 Word UI 线程的占用。编辑、刷新、绑定和清除绑定等显式命令会在点击时直接读取当前 Word 选区，作为 Word 未立即发出选区通知时的操作保障。
 
 ### 3.4 安装与注册脚本
 
@@ -103,11 +103,12 @@ Word：
 
 这意味着 Draw.io 源 XML 当前已经嵌入在 `.pptx` / `.docx` 文件内部，而不是只依赖外部 `.drawio` 文件。具体分工如下：
 
-- 文档级 `CustomXMLParts` 是主存储，保存完整的插件 envelope。envelope 内包含 `diagramId`、图形名称、编辑模式、编辑目标、sidecar path、更新时间和压缩后的 `DrawioXml`。
+- 文档级 `CustomXMLParts` 是主存储。PowerPoint 和 Word 都在这里保存完整的插件 envelope；envelope 内包含 `formatVersion`、`diagramId`、图形名称、编辑模式、编辑目标、sidecar path、更新时间和压缩后的 `DrawioXml`。
 - `DrawioXml` 使用 `gzip + base64` 存储在 envelope 的 `drawioXml` 节点中，减少 Office 文件体积并避免把大段原始 XML 直接塞进图形属性。
 - PowerPoint 图形通过 `Shape.Tags["DRAWIO_PPT_ID"]` 和 `Shape.Tags["DRAWIO_PPT_PART_ID"]` 关联到文档级 XML 部件。
-- Word 没有等价的 `Shape.Tags`，所以通过图片 `AlternativeText` 中的压缩 envelope 解析 `diagramId`，再从 `Document.CustomXMLParts` 找到最新完整数据。
-- `AlternativeText` 仍保留一份兼容回退数据，用于旧文档迁移、复制粘贴后的恢复，以及无法立即读取文档级部件时的降级识别。
+- Word 没有等价的 `Shape.Tags`。正常写入时，`InlineShape/Shape.AlternativeText` 只保存不含 `DrawioXml` 的轻量 envelope，字段包括 `formatVersion`、`diagramId`、图形名称、编辑模式、编辑目标、sidecar path 和更新时间；插件据此从 `Document.CustomXMLParts` 读取完整 envelope。
+- 如果 Word `CustomXMLParts.Upsert` 失败，插件会把全量 envelope 留在图片 `AlternativeText` 中，避免保存过程中丢失源数据。这个失败回退不改变 PowerPoint 的存储策略。
+- 旧版 Word 文档可能只在 `AlternativeText` 中保存全量 envelope。首次读取时，插件会把完整数据迁入 `Document.CustomXMLParts`；写入成功后将图片改写为轻量引用，重复读取不会继续创建新部件。
 - SVG 展示文件还会补写 draw.io `content` 元数据，作为第三层恢复信息；它不是主存储，但有助于单个 SVG 被导出或单独排查时恢复源图。
 - sidecar `.drawio` 文件现在更接近编辑缓存和人工备份：桌面版 draw.io 需要真实文件路径时使用它，文档内源数据才是跨机器移动时的主依据。
 
@@ -115,9 +116,10 @@ Word：
 
 ### 已知边界
 
-- 文档级 `CustomXMLParts` 会跟随整个 `.pptx` / `.docx` 保存和移动，但单独复制一个图形到另一个文档时，Office 不保证对应的文档级 XML 部件也被复制；因此图形上的 `AlternativeText` 和 SVG `content` 仍然保留恢复价值。
+- 文档级 `CustomXMLParts` 会跟随整个 `.pptx` / `.docx` 保存和移动，但单独复制一个图形到另一个文档时，Office 不保证对应的文档级 XML 部件也被复制。
+- 对 Word 而言，正常图片上的轻量 `AlternativeText` 不含 Draw.io XML；因此只复制单个图片到另一文档后，编辑源可能无法恢复。建议复制整份 `.docx`，或事先保存/保留 sidecar `.drawio` 或 Draw.io XML。只有旧版图片或主存储写入失败的回退图片，`AlternativeText` 才可能仍包含全量数据。
 - 如果用户使用文档检查器、企业 DLP、另存旧格式、导出 PDF 或第三方 Office 兼容软件，自定义 XML 部件可能被移除或忽略。
-- `AlternativeText` 是可见的辅助说明属性，不适合长期作为大容量主存储；当前只把它作为识别和兼容回退。
+- `AlternativeText` 是可见的辅助说明属性，不适合长期作为大容量主存储。Word 正常路径只把它作为识别引用，写入失败和旧版迁移期间才承担全量回退。
 - 清除绑定会移除图形/图片上的插件元数据，并清理无引用的文档级 XML 部件，但不会删除可见图片本身。
 
 ## 5. 编辑工作流
@@ -176,8 +178,9 @@ Word 中 `InlineShape` 是正文流式对象，没有 PowerPoint 那样的固定
 
 应对：
 
-- 先压缩 XML
-- 在计划中保留文档级存储升级路线
+- Word 正常路径只在 `AlternativeText` 中写轻量引用，完整 envelope 由 `Document.CustomXMLParts` 保存。
+- `CustomXMLParts` 写入失败时保留全量图片回退，旧版全量元数据在读取时幂等迁移。
+- 明确单图跨文档复制的兼容取舍，建议复制整份文档或保留 sidecar/Draw.io XML。
 
 ### 风险 2：外部编辑器保存检测
 

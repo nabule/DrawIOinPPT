@@ -77,3 +77,22 @@
 - `scripts\word-selection-event-e2e.ps1` passes against real Word COM, validating managed floating-`Shape` recognition, the live-selection prerequisite for binding a normal picture, and the no-polling contract of the release DLL.
 - Close Word before running the Word E2E and do not run it alongside another Word automation test. The script restores add-in settings and cleans up only automation Word processes created by this test.
 - After a floating picture is moved or resized, Word events update Ribbon state. If Word does not update the display immediately, select the picture and invoke Re-edit, Refresh, Bind, or Clear Binding; the command reads the live selection.
+
+## 10. Word Complex Metadata and Drag Performance
+
+Automated checks:
+
+- `scripts\word-complex-metadata-e2e.ps1` uses a large Draw.io XML payload to verify that the full body is stored in `Document.CustomXMLParts`, while picture `AlternativeText` contains no `DrawioXml` and is no longer than 2048 characters.
+- After saving, closing, and reopening the `.docx`, both the document-level full envelope and the lightweight picture reference still exist with consistent reference fields.
+- When `CustomXMLParts.Upsert` failure is simulated, picture `AlternativeText` retains the full envelope, which remains readable after save, close, and reopen.
+- A legacy picture with its full envelope only in `AlternativeText` migrates into `CustomXMLParts` on first read; a second read creates no new part and keeps the related XML part ID stable.
+- `scripts\word-url-e2e.ps1` strictly verifies URL-mode create, reopen, edit, and final write-back through `Document.CustomXMLParts`; the lightweight `AlternativeText` must not stand in for the full primary store.
+- `scripts\word-url-addin-host-e2e.ps1` strictly verifies actual-host write-back through the document-level primary store, with `WordAddInConnect=True` and `ActualWordUrlEditorSaved=True`.
+- Each Word automation script checks that no residual `WINWORD.EXE` remains; a residual process fails the check.
+
+Pre-release manual acceptance:
+
+| Status | Check |
+| --- | --- |
+| Pending | Insert a complex Draw.io diagram and a normal picture of the same displayed size in one Word document. Drag, resize, and reposition each continuously, and compare whether there is a noticeable responsiveness difference. |
+| Pending | Save and reopen the document, drag the complex diagram again, then use Re-edit to confirm that the source XML can be recovered. |

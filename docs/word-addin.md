@@ -10,7 +10,7 @@ Word 版插件的目标是把当前 PowerPoint 插件的 Draw.io 工作流带到
 - 以 SVG 图片形式显示，尽量保持矢量清晰度。
 - 选中已绑定图片后重新进入 Draw.io 编辑。
 - 保存后把新的 SVG 和 Draw.io XML 回写到原图片。
-- 把源 XML 同步保存到 Word 文档的 `Document.CustomXMLParts`，并用图片 `AlternativeText` 做回退。
+- 把源 XML 同步保存到 Word 文档的 `Document.CustomXMLParts`，并用图片 `AlternativeText` 保存轻量引用和失败回退。
 - 继续支持桌面 draw.io / diagrams.net 和 URL 模式编辑器。
 
 ## 2. 当前实现范围
@@ -33,7 +33,7 @@ Word 专属代码负责：
 
 ### 2.1 选区同步与图片操作性能
 
-Word 宿主使用 `WindowSelectionChange` 同步功能区状态，并在启动时读取一次当前选区；不再以 500ms 定时器反复访问 Word COM、解析图片元数据。因此拖动、调整大小和位置时不会再由该后台轮询周期性打断 UI 线程。
+Word 宿主使用 `WindowSelectionChange` 同步功能区状态，并在启动时读取一次当前选区；不再以 500ms 定时器反复访问 Word COM、解析图片元数据。正常图片的 `AlternativeText` 只含轻量引用，选区事件无需反序列化复杂图形的大段 Draw.io XML。因此拖动、调整大小和位置时既不会再由后台轮询周期性打断 UI 线程，也减少了事件同步本身的元数据解析开销。
 
 编辑、刷新、绑定和清除绑定是显式操作，点击时会重新读取当前 Word 选区。即使 Word 没有立即发送选区事件，用户仍可先选中图片再点击相应命令；本版本不改变 SVG、Draw.io XML、图片格式、环绕方式或浮动图片布局本身的开销。
 
@@ -41,11 +41,13 @@ Word 宿主使用 `WindowSelectionChange` 同步功能区状态，并在启动�
 
 Word 没有 PowerPoint `Shape.Tags` 这种直接可用的隐藏标签集合，所以 Word 版采用：
 
-- 图片 `AlternativeText`：保存压缩后的 Draw.io 元数据包，作为快速识别和兼容回退。
+- 图片 `AlternativeText`：正常保存不含 `DrawioXml` 的轻量 envelope，用于快速识别和定位主存储。
 - `Document.CustomXMLParts`：保存完整元数据包，保证源 XML 跟随 `.docx`。
 - 图片 `Title`：保存可读的图形名称。
 
-读取时优先用图片 `AlternativeText` 拿到 `diagramId`，再从 `Document.CustomXMLParts` 找最新完整包；如果只找到 `AlternativeText`，会自动补写到文档级 CustomXMLParts。
+轻量 envelope 保留 `formatVersion`、`diagramId`、图形名称、编辑模式、编辑目标、sidecar 路径和更新时间，不保存 `DrawioXml`。读取时先用它拿到 `diagramId`，再从 `Document.CustomXMLParts` 找最新完整包。
+
+如果 `CustomXMLParts.Upsert` 失败，插件会把全量 envelope 留在图片 `AlternativeText` 中，避免源数据丢失。旧版文档如果只在 `AlternativeText` 中保存全量 envelope，首次读取时会自动迁入 `Document.CustomXMLParts`；迁移成功后图片改写为轻量引用，二次读取复用同一主存储部件，不重复迁移。
 
 ### 3.1 Word 文件内嵌入方式
 
@@ -59,11 +61,11 @@ Word 版当前同样已经把 Draw.io 源 XML 嵌入 `.docx` 文件内部。主�
 - 更新时间
 - 经过 `gzip + base64` 压缩的 Draw.io XML
 
-选中图片重新编辑时，插件先从图片 `AlternativeText` 解析 `diagramId`，再在 `Document.CustomXMLParts` 中查找最新完整 envelope。保存后，插件会同时更新可见 SVG 图片、图片上的回退元数据和文档级 XML。
+选中图片重新编辑时，插件先从图片 `AlternativeText` 解析 `diagramId`，再在 `Document.CustomXMLParts` 中查找最新完整 envelope。保存后，插件会同时更新可见 SVG 图片、图片上的轻量引用和文档级 XML；只有主存储写入失败时才在图片上保留全量回退。
 
 sidecar `.drawio` 在 Word 版里也是编辑缓存和人工备份，不是主存储。把 `.docx` 移到另一台机器后，只要 `Document.CustomXMLParts` 没被清理，插件仍可以从文档内部恢复 Draw.io XML，并在需要桌面版 draw.io 时重新生成 sidecar。
 
-当前没有把 `.drawio` 文件作为 OLE 对象或 Office 附件嵌入 Word。这样可以避免 Office 安全提示、外部文件关联和跨机器打开差异；代价是 Word 图形复制到另一个文档时，需要依赖 `AlternativeText` 或 SVG `content` 尽量恢复，因为文档级 `CustomXMLParts` 不一定会随单个图片一起复制。
+当前没有把 `.drawio` 文件作为 OLE 对象或 Office 附件嵌入 Word。这样可以避免 Office 安全提示、外部文件关联和跨机器打开差异；兼容取舍是：Office 不保证单独复制一张 Word 图片时带走原文档的 `CustomXMLParts`，而正常轻量 `AlternativeText` 又不含 Draw.io XML，因此复制到另一文档后编辑源可能无法恢复。建议复制整份 `.docx`，或事先保存/保留 sidecar `.drawio` 或 Draw.io XML。只有旧版图片或主存储写入失败的回退图片，`AlternativeText` 才可能含全量数据。
 
 ### 3.2 推荐桌面编辑器
 
@@ -145,21 +147,27 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-word-addin.ps1
 当前已通过这些真实验证：
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Configuration Debug -Platform x64
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Configuration Release -Platform x64
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-complex-metadata-e2e.ps1 -Configuration Release -SkipBuild
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-selection-event-e2e.ps1 -Configuration Release -SkipBuild
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-url-e2e.ps1 -SkipBuild
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e.ps1 -Configuration Release
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1 -Configuration Debug
 ```
 
 验证覆盖：
 
-- 解决方案 Debug 构建通过。
+- 解决方案 Release x64 构建通过，`0` 个警告、`0` 个错误。
 - 真实 Word COM 打开 `.docx`。
 - URL 模式创建 Draw.io 图形并回写 SVG/XML。
 - 保存后重开 Word 文档，再次编辑并回写。
 - `Document.CustomXMLParts` 持久化存在。
+- 复杂 Draw.io XML 保存在 `CustomXMLParts`，图片 `AlternativeText` 为不含 `DrawioXml` 的轻量引用；保存、关闭、重开后仍成立。
+- `CustomXMLParts` 写入失败时全量图片回退可持久化；旧版全量元数据迁移后再次读取保持 XML part ID 稳定。
 - Word COM Add-in 能通过 `COMAddIns.Item("Greensoft.DrawioWordAddIn")` 加载，`Connect=True`。
 - `word-url-addin-host-e2e.ps1` 在真实 `WINWORD.EXE` 中加载被测 DLL，通过选择受管图片触发 URL 编辑器，并验证 `configure -> init -> load -> save -> export` 回写、用户级 WebView2 目录以及日志中没有 `E_ACCESSDENIED`。
+- Word 自动化脚本结束后没有残留 `WINWORD.EXE`。
 
 `word-url-e2e.ps1` 不会强制关闭用户已有 Word 进程；如果检测到 Word 正在运行，会直接中止，避免影响未保存文档。为隔离测试自身创建的宿主，它会在测试期间暂时禁用已注册插件的自动加载，并在 finally 中恢复原 `LoadBehavior`；运行期间不要启动 Word 或并行执行其他 Word 自动化。
 

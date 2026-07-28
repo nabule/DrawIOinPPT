@@ -57,7 +57,7 @@ Responsibilities:
 
 The current Word host reuses public editor and SVG services from the PowerPoint assembly. These shared services can later be extracted into a dedicated `OfficeShared` project.
 
-Word selection state is driven by `WindowSelectionChange` and one read at add-in startup; the host no longer reads the Word selection or picture metadata every 500 ms. Explicit Edit, Refresh, Bind, and Clear Binding commands read the live Word selection when invoked, preserving operation when Word does not immediately raise a selection notification.
+Word selection state is driven by `WindowSelectionChange` and one read at add-in startup; the host no longer reads the Word selection or picture metadata every 500 ms. Picture `AlternativeText` normally carries only a lightweight reference, so selection events no longer deserialize a complex diagram's large Draw.io XML payload. This reduces Word UI-thread work while selecting, dragging, or resizing. Explicit Edit, Refresh, Bind, and Clear Binding commands read the live Word selection when invoked, preserving operation when Word does not immediately raise a selection notification.
 
 ### 3.4 Installation and Registration Scripts
 
@@ -103,11 +103,12 @@ PowerPoint has now been enhanced to `Presentation.CustomXMLParts + Shape.Tags + 
 
 This means the Draw.io source XML is already embedded inside the `.pptx` / `.docx` file, instead of relying only on an external `.drawio` file. The responsibilities are split as follows:
 
-- Document-level `CustomXMLParts` are the primary store. They contain the full add-in envelope with `diagramId`, diagram name, editor mode, editor target, sidecar path, update time, and compressed `DrawioXml`.
+- Document-level `CustomXMLParts` are the primary store. Both PowerPoint and Word keep the full add-in envelope there, including `formatVersion`, `diagramId`, diagram name, editor mode, editor target, sidecar path, update time, and compressed `DrawioXml`.
 - `DrawioXml` is stored in the envelope's `drawioXml` node using `gzip + base64`, reducing Office file size and avoiding large raw XML payloads in shape properties.
 - PowerPoint shapes point back to the document-level XML part through `Shape.Tags["DRAWIO_PPT_ID"]` and `Shape.Tags["DRAWIO_PPT_PART_ID"]`.
-- Word has no direct equivalent to `Shape.Tags`, so the add-in resolves `diagramId` from the picture `AlternativeText`, then looks up the newest full envelope in `Document.CustomXMLParts`.
-- `AlternativeText` still carries fallback data for older documents, copy/paste recovery, and degraded recognition when the document-level part cannot be read immediately.
+- Word has no direct equivalent to `Shape.Tags`. On a normal write, `InlineShape/Shape.AlternativeText` holds a lightweight envelope without `DrawioXml`: `formatVersion`, `diagramId`, diagram name, editor mode, editor target, sidecar path, and update time. The add-in uses that reference to load the full envelope from `Document.CustomXMLParts`.
+- If Word `CustomXMLParts.Upsert` fails, the add-in leaves the full envelope in picture `AlternativeText` so that the save does not lose source data. This failure fallback does not change the PowerPoint storage strategy.
+- A legacy Word document may have its full envelope only in `AlternativeText`. On first read, the add-in migrates the full data into `Document.CustomXMLParts` and, after a successful write, rewrites the picture with a lightweight reference. Repeated reads do not keep creating new parts.
 - The visible SVG also receives draw.io `content` metadata as a third recovery layer. This is not the primary store, but it helps when a single SVG is exported or inspected separately.
 - The sidecar `.drawio` file is now closer to an editing cache and manual backup. It is still useful when draw.io Desktop needs a real file path, while the in-document XML is the primary source for cross-machine document movement.
 
@@ -115,9 +116,10 @@ The current implementation does not embed `.drawio` as an OLE object or `Embedde
 
 ### Known Boundaries
 
-- Document-level `CustomXMLParts` travel when the whole `.pptx` / `.docx` file is saved and moved, but Office does not guarantee that copying one shape into another document also copies its matching document-level XML part. This is why `AlternativeText` and SVG `content` still have recovery value.
+- Document-level `CustomXMLParts` travel when the whole `.pptx` / `.docx` file is saved and moved, but Office does not guarantee that copying one shape into another document also copies its matching document-level XML part.
+- For Word, the normal lightweight `AlternativeText` does not contain Draw.io XML. Editing source may therefore be unrecoverable after copying only one picture into another document. Copy the complete `.docx`, or save/retain the sidecar `.drawio` or Draw.io XML first. Only legacy pictures and primary-store failure fallbacks may still contain the full payload in `AlternativeText`.
 - Document Inspector, enterprise DLP, saving to older formats, exporting to PDF, or third-party Office-compatible software may remove or ignore custom XML parts.
-- `AlternativeText` is a visible accessibility/description property and should not be treated as the long-term high-capacity primary store. It is used here for recognition and compatibility fallback.
+- `AlternativeText` is a visible accessibility/description property and should not be treated as the long-term high-capacity primary store. Word uses it as a normal recognition reference and as a full-payload fallback only during a failed primary-store write or legacy migration.
 - Clearing binding removes add-in metadata from the visible shape/picture and cleans unreferenced document-level XML parts, but it does not delete the visible picture itself.
 
 ## 5. Editing Workflow
@@ -176,8 +178,9 @@ If later validation shows that animations, hyperlinks, or complex formatting are
 
 Response:
 
-- Compress XML first
-- Keep the document-level storage upgrade path in the plan
+- Keep only a lightweight reference in Word `AlternativeText` during normal operation, with the full envelope in `Document.CustomXMLParts`.
+- Retain a full picture fallback when `CustomXMLParts` cannot be written, and migrate legacy full metadata idempotently on read.
+- Document the single-picture cross-document copy tradeoff and recommend copying the complete document or retaining sidecar/Draw.io XML.
 
 ### Risk 2: Detecting saves from the external editor
 
