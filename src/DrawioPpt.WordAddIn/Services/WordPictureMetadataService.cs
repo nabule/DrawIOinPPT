@@ -134,6 +134,12 @@ namespace DrawioPpt.WordAddIn.Services
 
         public void Save(WordPictureReference picture, DiagramEnvelope envelope)
         {
+            ValidateSaveArguments(picture, envelope);
+            SaveEnvelope(picture, CreatePictureReferenceEnvelope(envelope));
+        }
+
+        private static void ValidateSaveArguments(WordPictureReference picture, DiagramEnvelope envelope)
+        {
             if (picture == null)
             {
                 throw new ArgumentNullException("picture");
@@ -143,7 +149,24 @@ namespace DrawioPpt.WordAddIn.Services
             {
                 throw new ArgumentNullException("envelope");
             }
+        }
 
+        private static DiagramEnvelope CreatePictureReferenceEnvelope(DiagramEnvelope envelope)
+        {
+            DiagramEnvelope referenceEnvelope = new DiagramEnvelope();
+            referenceEnvelope.FormatVersion = envelope.FormatVersion;
+            referenceEnvelope.DiagramId = envelope.DiagramId;
+            referenceEnvelope.DiagramName = envelope.DiagramName;
+            referenceEnvelope.EditorMode = envelope.EditorMode;
+            referenceEnvelope.EditorTarget = envelope.EditorTarget;
+            referenceEnvelope.SidecarPath = envelope.SidecarPath;
+            referenceEnvelope.UpdatedUtc = envelope.UpdatedUtc;
+            referenceEnvelope.DrawioXml = string.Empty;
+            return referenceEnvelope;
+        }
+
+        private void SaveEnvelope(WordPictureReference picture, DiagramEnvelope envelope)
+        {
             picture.Title = envelope.DiagramName ?? string.Empty;
             picture.AlternativeText = _serializer.Serialize(envelope);
         }
