@@ -1083,6 +1083,17 @@ finally {
         $cleanupErrors.Add("OwnedWordCleanup: $(Get-ErrorDetail $_)") | Out-Null
     }
 
+    try {
+        Assert-NoOfficeProcesses `
+            -ProcessNames @("WINWORD", "POWERPNT") `
+            -TimeoutSeconds 20
+    }
+    catch {
+        $cleanupErrors.Add(
+            "PreUninstallOfficeProcessResidual: $(Get-ErrorDetail $_)"
+        ) | Out-Null
+    }
+
     if (-not $KeepInstalled -and (Test-Path $installRoot)) {
         $uninstallScript = Join-Path $installRoot "scripts\\uninstall-release.ps1"
         try {
