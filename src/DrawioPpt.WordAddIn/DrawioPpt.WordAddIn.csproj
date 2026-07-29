@@ -64,6 +64,7 @@
     <Compile Include="Services\AddInHost.cs" />
     <Compile Include="Services\DocumentDiagramStore.cs" />
     <Compile Include="Services\WordPictureMetadataService.cs" />
+    <Compile Include="Services\WordPreviewImageProvider.cs" />
     <Compile Include="Services\WordSvgPictureService.cs" />
     <Compile Include="Word\SelectedPictureAccessor.cs" />
     <Compile Include="Word\SelectionContext.cs" />

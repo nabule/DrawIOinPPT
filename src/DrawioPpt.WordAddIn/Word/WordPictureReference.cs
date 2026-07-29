@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using Microsoft.Office.Core;
 using WordInterop = Microsoft.Office.Interop.Word;
 
@@ -58,13 +59,20 @@ namespace DrawioPpt.WordAddIn.Word
 
                 if (_inlineShape != null)
                 {
+                    WordInterop.Range sourceRange = null;
                     try
                     {
-                        return "inline:" + _inlineShape.Range.Start.ToString();
+                        sourceRange = _inlineShape.Range;
+                        return "inline:" +
+                            sourceRange.Start.ToString();
                     }
                     catch
                     {
                         return "inline";
+                    }
+                    finally
+                    {
+                        SafeReleaseComObject(sourceRange);
                     }
                 }
 
@@ -269,23 +277,53 @@ namespace DrawioPpt.WordAddIn.Word
 
         public WordInterop.Range GetRange()
         {
+            WordInterop.Range sourceRange = null;
             try
             {
                 if (_inlineShape != null)
                 {
-                    return _inlineShape.Range.Duplicate;
+                    sourceRange = _inlineShape.Range;
+                    return sourceRange.Duplicate;
                 }
 
-                if (_shape != null && _shape.Anchor != null)
+                if (_shape != null)
                 {
-                    return _shape.Anchor.Duplicate;
+                    sourceRange = _shape.Anchor;
+                    if (sourceRange != null)
+                    {
+                        return sourceRange.Duplicate;
+                    }
                 }
             }
             catch
             {
             }
+            finally
+            {
+                SafeReleaseComObject(sourceRange);
+            }
 
             return null;
+        }
+
+        private static void SafeReleaseComObject(
+            object comObject)
+        {
+            if (comObject == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (Marshal.IsComObject(comObject))
+                {
+                    Marshal.FinalReleaseComObject(comObject);
+                }
+            }
+            catch
+            {
+            }
         }
 
         public void Delete()

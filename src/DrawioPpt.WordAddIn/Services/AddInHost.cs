@@ -26,6 +26,7 @@ namespace DrawioPpt.WordAddIn.Services
         private readonly DocumentDiagramStore _documentDiagramStore;
         private readonly SvgFileProvider _svgFileProvider;
         private readonly SvgMarkupFileStore _svgMarkupFileStore;
+        private readonly WordPreviewImageProvider _previewImageProvider;
         private readonly WordSvgPictureService _svgPictureService;
         private readonly DesktopDiagramMonitor _desktopDiagramMonitor;
         private readonly PluginTraceLog _traceLog;
@@ -49,6 +50,7 @@ namespace DrawioPpt.WordAddIn.Services
             _documentDiagramStore = new DocumentDiagramStore(_envelopeSerializer);
             _svgFileProvider = new SvgFileProvider();
             _svgMarkupFileStore = new SvgMarkupFileStore();
+            _previewImageProvider = new WordPreviewImageProvider();
             _svgPictureService = new WordSvgPictureService(_selectedPictureAccessor);
             _desktopDiagramMonitor = new DesktopDiagramMonitor(RefreshDiagramFromMonitoredFile);
             _traceLog = new PluginTraceLog();
@@ -113,7 +115,22 @@ namespace DrawioPpt.WordAddIn.Services
                 }
 
                 string svgPath = _svgFileProvider.GetSvgPath(envelope, _settings, workingFile);
-                WordPictureReference picture = _svgPictureService.InsertAtSelection(_application, svgPath, envelope.DiagramName);
+                string previewImagePath = _previewImageProvider.GetPreviewImagePath(
+                    envelope,
+                    _settings.DesktopEditorPath,
+                    svgPath);
+                WordPictureReference picture;
+                try
+                {
+                    picture = _svgPictureService.InsertAtSelection(
+                        _application,
+                        previewImagePath,
+                        envelope.DiagramName);
+                }
+                finally
+                {
+                    _previewImageProvider.CleanupPreviewImage(previewImagePath);
+                }
                 SaveManagedEnvelope(picture, envelope);
                 ApplySelectionContext(_pictureMetadataService.BuildSelectionContext(picture));
 
@@ -386,13 +403,29 @@ namespace DrawioPpt.WordAddIn.Services
             envelope.SidecarPath = filePath;
 
             string svgPath = _svgFileProvider.GetSvgPath(envelope, _settings, filePath);
+            string previewImagePath = _previewImageProvider.GetPreviewImagePath(
+                envelope,
+                _settings.DesktopEditorPath,
+                svgPath);
             WordInterop.Document document = _selectedPictureAccessor.GetActiveDocument(_application);
             if (document == null)
             {
+                _previewImageProvider.CleanupPreviewImage(previewImagePath);
                 return;
             }
 
-            WordPictureReference newPicture = _svgPictureService.Replace(document, picture, svgPath);
+            WordPictureReference newPicture;
+            try
+            {
+                newPicture = _svgPictureService.Replace(
+                    document,
+                    picture,
+                    previewImagePath);
+            }
+            finally
+            {
+                _previewImageProvider.CleanupPreviewImage(previewImagePath);
+            }
             SaveManagedEnvelope(newPicture, envelope);
             ApplySelectionContext(_pictureMetadataService.BuildSelectionContext(newPicture));
 
@@ -526,19 +559,36 @@ namespace DrawioPpt.WordAddIn.Services
                 _traceLog.Info("WordAddInHost", "Received URL editor save for diagram " + envelope.DiagramId + ". ExitRequested=" + args.ExitRequested);
 
                 string svgPath = _svgMarkupFileStore.Write(envelope, args.SvgMarkup);
+                string previewImagePath = _previewImageProvider.GetPreviewImagePath(
+                    envelope,
+                    _settings.DesktopEditorPath,
+                    svgPath);
                 WordPictureReference picture = _selectedPictureAccessor.FindPictureByDiagramId(_application, envelope.DiagramId) ?? originalPicture;
                 if (picture == null)
                 {
+                    _previewImageProvider.CleanupPreviewImage(previewImagePath);
                     return;
                 }
 
                 WordInterop.Document document = _selectedPictureAccessor.GetActiveDocument(_application);
                 if (document == null)
                 {
+                    _previewImageProvider.CleanupPreviewImage(previewImagePath);
                     return;
                 }
 
-                WordPictureReference newPicture = _svgPictureService.Replace(document, picture, svgPath);
+                WordPictureReference newPicture;
+                try
+                {
+                    newPicture = _svgPictureService.Replace(
+                        document,
+                        picture,
+                        previewImagePath);
+                }
+                finally
+                {
+                    _previewImageProvider.CleanupPreviewImage(previewImagePath);
+                }
                 SaveManagedEnvelope(newPicture, envelope);
                 ApplySelectionContext(new SelectionContext());
             }
