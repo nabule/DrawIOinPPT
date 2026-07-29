@@ -7,7 +7,7 @@
 The Word add-in brings the current PowerPoint Draw.io workflow to Word Desktop:
 
 - Insert a Draw.io diagram at the current cursor position.
-- Render a 620px-wide PNG preview from the Draw.io source while preserving its aspect ratio.
+- Render a 1240px-wide PNG preview from the Draw.io source while preserving its aspect ratio.
 - Display it as a floating `wdWrapFront` picture; editing starts only after the user selects the picture and clicks a command.
 - Write the updated PNG preview and Draw.io XML back to the original picture after save.
 - Store source XML in `Document.CustomXMLParts`, with picture `AlternativeText` carrying the lightweight reference and failure fallback.
@@ -20,16 +20,16 @@ The new project is `src/DrawioPpt.WordAddIn/`, an independent Word COM Add-in ho
 - Desktop draw.io launch and SVG export.
 - URL-mode `WebView2 + diagrams.net embed` editor.
 - Settings UI, logging, and user notifications.
-- SVG export and sanitization, 620px PNG preview generation, and draw.io `content` metadata embedding.
+- SVG export and sanitization, 1240px PNG preview generation, and draw.io `content` metadata embedding.
 
 Word-specific code handles:
 
 - Word COM Add-in registration and Ribbon callbacks.
 - Explicit Word double-click handling, without monitoring ordinary selection changes.
 - `InlineShape` / floating `Shape` picture detection.
-- 620px aspect-preserving PNG floating-picture insertion and replacement.
+- 1240px aspect-preserving PNG floating-picture insertion and replacement.
 
-Word uses a display path separate from PowerPoint. PowerPoint continues to insert the original SVG directly. The normal Word path exports a 620px-wide PNG from the Draw.io source, preserves source aspect ratio with zero border pixels, and converts the picture to a floating `Shape` with `wdWrapFront`. Both horizontal and vertical diagrams use `contain` within the document bounds; the vertical regression ratio is `0.25`. Re-edit and Refresh create and fully configure the new picture before deleting the original; failures remove the incomplete new object and preserve the original. If draw.io Desktop export is unavailable, the add-in generates a lightweight aspect-preserving 620×310 PNG placeholder instead of falling back to complex SVG. Complete Draw.io XML remains in document-level primary storage, and the placeholder remains editable after selection plus Re-edit.
+Word uses a display path separate from PowerPoint. PowerPoint continues to insert the original SVG directly. The normal Word path exports a 1240px-wide PNG from the Draw.io source, preserves source aspect ratio with zero border pixels, and converts the picture to a floating `Shape` with `wdWrapFront`. Both horizontal and vertical diagrams use `contain` within the document bounds; the vertical regression ratio is `0.25`. Re-edit and Refresh create and fully configure the new picture before deleting the original; failures remove the incomplete new object and preserve the original. If draw.io Desktop export is unavailable, the add-in generates a lightweight PNG placeholder from a 1240px baseline while preserving the source aspect ratio, with a 1200px height cap for extreme portrait diagrams, instead of falling back to complex SVG. Complete Draw.io XML remains in document-level primary storage, and the placeholder remains editable after selection plus Re-edit.
 
 The preview provider creates temporary Draw.io XML and PNG files only under `%TEMP%\DrawioPpt\word-preview`. Temporary XML deletion uses four bounded attempts separated by 50ms. If synchronous cleanup cannot finish, a deferred background retry is queued; provider startup also removes managed directories that are more than one hour old.
 - `Document.CustomXMLParts` write/read/orphan cleanup.
@@ -39,7 +39,7 @@ The preview provider creates temporary Draw.io XML and PNG files only under `%TE
 
 The Word host does not subscribe to `WindowSelectionChange`, and startup does not read the current selection, picture properties, `AlternativeText`, or `Document.CustomXMLParts`. During ordinary selection, dragging, resizing, and repositioning, the add-in performs no metadata recognition, Ribbon-state refresh, orphan cleanup, or auto-open work; Word performs only its native picture interaction.
 
-Re-edit, Refresh, Bind, and Clear Binding remain enabled. The user selects a picture and then clicks the command; only then does the add-in read the live Word selection and validate metadata. Ribbon information displays fixed select-then-click guidance rather than changing with selection. Double-click is also an explicit edit action and may open a managed picture. Ordinary selection, dragging, resizing, and repositioning perform no add-in metadata work. This release changes the normal display to a 620px aspect-preserving PNG and `wdWrapFront` floating layout, but that does not establish that native Word mouse dragging passed acceptance.
+Re-edit, Refresh, Bind, and Clear Binding remain enabled. The user selects a picture and then clicks the command; only then does the add-in read the live Word selection and validate metadata. Ribbon information displays fixed select-then-click guidance rather than changing with selection. Double-click is also an explicit edit action and may open a managed picture. Ordinary selection, dragging, resizing, and repositioning perform no add-in metadata work. This release changes the normal display to a 1240px aspect-preserving PNG and `wdWrapFront` floating layout, but that does not establish that native Word mouse dragging passed acceptance.
 
 ## 3. Data Strategy
 
@@ -173,7 +173,7 @@ Coverage:
 - A full picture fallback persists when `CustomXMLParts` cannot be written, and the XML part ID remains stable on a second read after migrating legacy full metadata.
 - Word can load the COM add-in through `COMAddIns.Item("Greensoft.DrawioWordAddIn")`, with `Connect=True`.
 - `word-url-addin-host-e2e.ps1` loads the tested DLL inside real `WINWORD.EXE`, selects a managed picture, and invokes Re-edit through the add-in's explicit-command automation entry. It verifies `ExplicitEditAutomationAvailable=True`, `ExplicitEditCommandInvoked=True`, `configure -> init -> load -> save -> export` write-back, the per-user WebView2 folder, and no `E_ACCESSDENIED` in the log.
-- `word-preview-image-provider-e2e.ps1` verifies normal PNG signature/620px width/source ratio and the 620×310 aspect-preserving lightweight PNG placeholder on export failure; it also verifies temporary-XML retry/deferred cleanup and startup cleanup.
+- `word-preview-image-provider-e2e.ps1` verifies the normal PNG signature, 1240px width, and source ratio, plus the 1240×620 aspect-preserving lightweight PNG placeholder produced for its 2:1 export-failure sample. It also verifies the safe temporary path and immediate source-file and preview-file cleanup, with no fallback to complex SVG. Bounded retries, deferred background cleanup, and startup cleanup are implementation mechanisms; this E2E does not fault-inject those mechanisms.
 - `word-svg-aspect-ratio-e2e.ps1` verifies a 2:1 PNG remains 2:1 and stays a floating `wdWrapFront` picture after real Word insert and replacement; the vertical case reports `VerticalRatio=0.25` and `VerticalContained=True`. A failed replacement reports `FailedReplacementPreservedOriginal=True`, proving that the original is not deleted early.
 - No residual `WINWORD.EXE` remains after the Word automation scripts finish.
 

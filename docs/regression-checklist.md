@@ -64,7 +64,7 @@
 - 替换后旋转保留
 - 替换后名称保留
 - 替换后超链接保留
-- `scripts\word-preview-image-provider-e2e.ps1` 覆盖正常 620px 等比例 PNG、导出失败时 620×310 等比例轻量 PNG 占位预览，以及临时 XML 重试、延迟和启动清理；不得回退复杂 SVG。
+- `scripts\word-preview-image-provider-e2e.ps1` 覆盖正常 PNG 的签名、1240px 宽度和源比例，以及 2:1 样本在导出失败时生成的 1240×620 等比例轻量 PNG 占位预览；同时覆盖安全临时路径以及即时源文件和预览文件清理，不得回退复杂 SVG。有限重试、后台延迟和启动清理属于实现机制，该 E2E 未通过故障注入验证这些机制。
 - `scripts\word-svg-aspect-ratio-e2e.ps1` 在真实 Word 中通过：2:1 PNG 新建和替换保持 2:1，均为 `wdWrapFront` 浮动图片；`VerticalRatio=0.25`、`VerticalContained=True`；`FailedReplacementPreservedOriginal=True` 验证替换先建新图、成功后才删原图。
 - `scripts\powerpoint-svg-aspect-ratio-e2e.ps1` 在真实 PowerPoint 中通过：直接插入原始 SVG，按边界 `contain` 等比居中，替换后保持源比例且不扩展 `viewBox` 产生图内留白。
 

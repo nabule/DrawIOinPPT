@@ -64,7 +64,7 @@
 - Rotation is preserved after replacement
 - Shape name is preserved after replacement
 - Hyperlinks are preserved after replacement
-- `scripts\word-preview-image-provider-e2e.ps1` covers the normal 620px aspect-preserving PNG, the 620×310 aspect-preserving lightweight PNG placeholder on export failure, and temporary-XML retry/deferred/startup cleanup. It must not fall back to complex SVG.
+- `scripts\word-preview-image-provider-e2e.ps1` covers the normal PNG signature, 1240px width, and source ratio, plus the 1240×620 aspect-preserving lightweight PNG placeholder produced for its 2:1 export-failure sample. It also covers the safe temporary path and immediate source-file and preview-file cleanup, and must not fall back to complex SVG. Bounded retries, deferred background cleanup, and startup cleanup are implementation mechanisms; this E2E does not fault-inject those mechanisms.
 - `scripts\word-svg-aspect-ratio-e2e.ps1` passes in real Word: a 2:1 PNG remains 2:1 after insertion and replacement, both pictures are floating `wdWrapFront` shapes, `VerticalRatio=0.25`, `VerticalContained=True`, and `FailedReplacementPreservedOriginal=True` proves create-new-before-delete-old replacement.
 - `scripts\powerpoint-svg-aspect-ratio-e2e.ps1` passes in real PowerPoint: the original SVG is inserted directly, centered with proportional `contain` sizing, and replacement retains source ratio without expanding the `viewBox` or adding internal blank space.
 
