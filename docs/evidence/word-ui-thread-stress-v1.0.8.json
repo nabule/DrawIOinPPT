@@ -1,9 +1,24 @@
 {
-  "EvidenceSchemaVersion": 2,
+  "EvidenceSchemaVersion": 4,
   "SourceReportVersion": 9,
   "TestedVersion": "v1.0.8",
-  "ExecutedUtc": "2026-07-29T05:01:52.1081217Z",
-  "SourceArtifact": "artifacts\\test-reports\\word-ui-thread-stress-user-source-v1.0.8.json",
+  "SourceArtifacts": [
+    {
+      "Path": "artifacts\\test-reports\\word-ui-thread-stress-user-source-v1.0.8-1240px.json",
+      "Sha256": "0C4B1FFB8C2ABB31505B277A1035E2716D87E7456BF47C7030DBFD91618A5B1B",
+      "Role": "First corrected run"
+    },
+    {
+      "Path": "artifacts\\test-reports\\word-ui-thread-stress-user-source-v1.0.8-1240px-rerun.json",
+      "Sha256": "0D153F545245F0F0D6E405AA717E22012FE6916724722D14B6E111B6254F7D16",
+      "Role": "Confirmation rerun"
+    },
+    {
+      "Path": "artifacts\\test-reports\\word-ui-thread-stress-user-source-v1.0.8-1240px-final.json",
+      "Sha256": "4C7B7C5EDA65B7F5BBF0A56FE18D974C7AA863B1C84D7E3556DF58D355A90C42",
+      "Role": "Latest run after opaque-raster validation correction"
+    }
+  ],
   "Sanitization": {
     "UserNameRemoved": true,
     "AbsoluteAttachmentPathRemoved": true,
@@ -21,12 +36,12 @@
     "TestDocument": "%TEMP%\\DrawioPpt\\word-real-pointer-<RUN>\\word-ui-thread-stress.docx",
     "PictureWrapMode": "Front",
     "PictureRenderFormat": "Png",
-    "PreviewPixelWidth": 620
+    "PreviewPixelWidth": 1240
   },
   "BinaryProvenanceAtDocumentationClose": {
-    "TestedInstalledWordDllSha256": "6E6DEAF2D5DFFDF9363FD28787E40E7AE681290CB669B4A64D82ED2D364B127D",
-    "PackageWordDllSha256": "6E6DEAF2D5DFFDF9363FD28787E40E7AE681290CB669B4A64D82ED2D364B127D",
-    "LatestSourceWordDllSha256": "6E6DEAF2D5DFFDF9363FD28787E40E7AE681290CB669B4A64D82ED2D364B127D",
+    "TestedInstalledWordDllSha256": "A6AB59AA0CDA6AA19B0D3A09150494BF4DB6419774F376A28986314B8C3492E8",
+    "PackageWordDllSha256": "A6AB59AA0CDA6AA19B0D3A09150494BF4DB6419774F376A28986314B8C3492E8",
+    "LatestSourceWordDllSha256": "A6AB59AA0CDA6AA19B0D3A09150494BF4DB6419774F376A28986314B8C3492E8",
     "SourcePackageLocalSynchronized": true,
     "RerunRequiredAfterReinstall": false
   },
@@ -37,14 +52,18 @@
     "PicturePath": "%TEMP%\\DrawioPpt\\word-real-pointer-<RUN>\\source.png",
     "Rendering": {
       "Format": "Png",
-      "RequestedPixelWidth": 620,
-      "PixelWidth": 620,
-      "PixelHeight": 876,
-      "AspectRatio": 0.707763,
-      "SourceAspectRatio": 0.707763,
-      "AspectRatioError": 0,
-      "Bytes": 244757,
-      "BorderPixels": 0,
+      "RequestedPixelWidth": 1240,
+      "PixelWidth": 1240,
+      "PixelHeight": 1753,
+      "AspectRatio": 0.707359,
+      "IndependentSvgSourceAspectRatio": 0.707123,
+      "AspectRatioError": 0.000236,
+      "BorderArgument": 0,
+      "BlankPaddingDetectionSupported": false,
+      "BlankPaddingDetectionStatus": "UnsupportedOpaqueRaster",
+      "TransparentBorderPixels": null,
+      "TransparentBorderPaddingPassed": null,
+      "PixelWidthPassed": true,
       "PreservesAspectRatio": true,
       "Passed": true
     },
@@ -55,10 +74,39 @@
     "MxCellCount": 66,
     "VertexCount": 59,
     "EdgeCount": 0,
-    "CopiedSourceSha256": "AB6E4281F949B9F7F3B147B3DE271C3F9F3CA24D06593D9920BADFCD0F05097D",
     "CopiedSourceUnchanged": true,
     "OriginalSourceUnchanged": true,
     "Passed": true
+  },
+  "RenderingValidationContract": {
+    "IndependentSvgProbeRequired": true,
+    "RenderedSelfComparisonForbidden": true,
+    "Forced1240SquareRejected": true,
+    "TransparentPaddingWithLowAlphaNoiseRejected": true,
+    "OpaqueRasterExplicitlyMarkedUnsupported": true,
+    "OpaqueNearWhiteAuthorContentNotMisclassified": true,
+    "OnePixelEdgeTouchingLinePreserved": true,
+    "IndependentProbeRuntimeReturnVerified": true,
+    "UnusedFunctionCannotSatisfyMainWiring": true,
+    "AnonymousScriptBlockCannotSatisfyMainWiring": true,
+    "DeadBranchCannotSatisfyMainWiring": true,
+    "FalseConditionCannotSatisfyMainWiring": true,
+    "StringRhsCannotSatisfyMainWiring": true,
+    "HiddenCommandCannotSatisfyMainWiring": true,
+    "DuplicateAssignmentCannotSatisfyMainWiring": true,
+    "NonEqualsCannotSatisfyMainWiring": true,
+    "RedirectedCommandCannotSatisfyMainWiring": true,
+    "PostBranchOverwriteCannotSatisfyWriteContract": true,
+    "MovedInitializationCannotSatisfyWriteContract": true,
+    "UnconditionalFallbackCannotSatisfyWriteContract": true,
+    "SetVariableCannotSatisfyWriteContract": true,
+    "UnaryWriteCannotSatisfyWriteContract": true,
+    "SourceAspectWriteContractPassed": true,
+    "ExceptionalTemporaryFileCleanupVerified": true,
+    "AlphaThreshold": 8,
+    "TransparentPixelRatioThreshold": 1.0,
+    "RasterizationFringePixels": 2,
+    "TestResult": "WORD_UI_THREAD_RENDERING_VALIDATION_TEST_PASS"
   },
   "DocumentContent": {
     "BodyParagraphs": 150,
@@ -71,18 +119,6 @@
     "StableAfterReopen": true,
     "Passed": true
   },
-  "Measurement": {
-    "DurationSecondsPerPicturePerRound": 10,
-    "WarmupSecondsPerPicturePerRound": 4,
-    "ResizeOperationsPerPicturePerRound": 12,
-    "SelectionSettleMilliseconds": 75,
-    "SelectionEventTimeoutMilliseconds": 500,
-    "Order": [
-      "Round1:PlainThenManaged",
-      "Round2:ManagedThenPlain"
-    ],
-    "MinimumOperationsPerRound": 10
-  },
   "Thresholds": {
     "MaximumP95Ratio": 1.25,
     "MaximumPerRoundP95Ratio": 1.25,
@@ -92,149 +128,129 @@
     "MaximumAbsoluteP95Ms": 300,
     "MaximumAbsoluteResizeP95Ms": 300
   },
-  "ComparisonPictureSemantics": {
-    "SameSize": true,
-    "SameAnchorSemantics": true,
-    "SameWrap": true,
-    "SourceAspectRatio": 0.707763,
-    "ManagedDisplayedAspectRatio": 0.707775,
-    "PlainDisplayedAspectRatio": 0.707775,
-    "ManagedAspectRatioError": 0.000012,
-    "PlainAspectRatioError": 0.000012,
-    "AspectRatioLocked": true,
-    "AspectRatioPassed": true,
-    "Passed": true
-  },
-  "Rounds": [
-    {
-      "Round": 1,
-      "Order": "PlainThenManaged",
-      "PlainPositionP95Ms": 540.403,
-      "ManagedPositionP95Ms": 499.107,
-      "ManagedPlainPositionP95Ratio": 0.924,
-      "ManagedPlainPositionP95DeltaMs": -41.296,
-      "PlainPositionOperations": 12,
-      "ManagedPositionOperations": 12,
-      "PlainSelectionOperations": 24,
-      "ManagedSelectionOperations": 24
+  "FirstCorrectedRun": {
+    "Normal": {
+      "SelectionP95Ms": 48.041,
+      "PositionP95Ms": 190.830,
+      "ResizeP95Ms": 108.984
     },
-    {
-      "Round": 2,
-      "Order": "ManagedThenPlain",
-      "PlainPositionP95Ms": 522.370,
-      "ManagedPositionP95Ms": 488.881,
-      "ManagedPlainPositionP95Ratio": 0.936,
-      "ManagedPlainPositionP95DeltaMs": -33.489,
-      "PlainPositionOperations": 13,
-      "ManagedPositionOperations": 13,
-      "PlainSelectionOperations": 25,
-      "ManagedSelectionOperations": 25
-    }
-  ],
-  "Plain": {
-    "Label": "PlainComplex",
-    "Rounds": 2,
-    "DurationSeconds": 20.895,
-    "Operations": 25,
-    "SelectionOperations": 49,
-    "SelectionAverageMs": 10.233,
-    "SelectionP95Ms": 37.136,
-    "SelectionMaxMs": 98.931,
-    "SelectionFailures": 0,
-    "ConfirmedShapeSelectionEvents": 49,
+    "Managed": {
+      "SelectionP95Ms": 46.322,
+      "PositionP95Ms": 262.895,
+      "ResizeP95Ms": 30.868
+    },
+    "NormalRoundMaximumPositionP95Ms": 317.037,
+    "ManagedRoundMaximumPositionP95Ms": 273.494,
+    "ConfirmedShapeSelectionEvents": 114,
     "MissingShapeSelectionEvents": 0,
-    "AverageMs": 363.771,
-    "P95Ms": 524.962,
-    "P99Ms": 540.403,
-    "MaxMs": 540.403,
-    "TransientRetries": 0,
-    "SetFailures": 0,
-    "ResizeOperations": 24,
-    "ResizeAverageMs": 27.686,
-    "ResizeP95Ms": 83.134,
-    "ResizeMaxMs": 115.717,
-    "ResizeTransientRetries": 0,
-    "ResizeSetFailures": 0,
-    "UnresponsiveSamples": 0
-  },
-  "Managed": {
-    "Label": "ManagedComplex",
-    "Rounds": 2,
-    "DurationSeconds": 20.624,
-    "Operations": 25,
-    "SelectionOperations": 49,
-    "SelectionAverageMs": 17.587,
-    "SelectionP95Ms": 49.044,
-    "SelectionMaxMs": 77.194,
-    "SelectionFailures": 0,
-    "ConfirmedShapeSelectionEvents": 49,
-    "MissingShapeSelectionEvents": 0,
-    "AverageMs": 344.120,
-    "P95Ms": 488.881,
-    "P99Ms": 499.107,
-    "MaxMs": 499.107,
-    "TransientRetries": 0,
-    "SetFailures": 0,
-    "ResizeOperations": 24,
-    "ResizeAverageMs": 36.162,
-    "ResizeP95Ms": 71.072,
-    "ResizeMaxMs": 72.767,
-    "ResizeTransientRetries": 0,
-    "ResizeSetFailures": 0,
-    "UnresponsiveSamples": 0
-  },
-  "Comparison": {
-    "ManagedPlainSelectionP95Ratio": 1.321,
-    "ManagedPlainSelectionP95DeltaMs": 11.908,
-    "ManagedPlainPositionP95Ratio": 0.931,
-    "ManagedPlainPositionP95DeltaMs": -36.081,
-    "ManagedPlainResizeP95Ratio": 0.855,
-    "ManagedPlainResizeP95DeltaMs": -12.062,
-    "SelectionComparisonPassed": false,
     "ComparisonPassed": false,
     "AbsoluteLatencyGatePassed": false,
-    "MinimumSamplesPassed": true,
-    "NoAdditionalMetadataPathDifferenceObserved": false
+    "NoAdditionalMetadataPathDifferenceObserved": false,
+    "OverallPassed": false
   },
-  "SelectionEvents": {
-    "ObservedSelectionChangeEvents": 336,
-    "ExpectedSelectionChangeEvents": 98,
-    "ConfirmedShapeSelectionEvents": 98,
-    "MissingShapeSelectionEvents": 0,
-    "SelectionChangeEventsPassed": true
+  "ConfirmationRerun": {
+    "Normal": {
+      "SelectionOperations": 51,
+      "SelectionP95Ms": 41.857,
+      "PositionOperations": 27,
+      "PositionP95Ms": 284.268,
+      "ResizeOperations": 24,
+      "ResizeP95Ms": 94.779,
+      "FinalFailures": 0,
+      "UnresponsiveSamples": 0
+    },
+    "Managed": {
+      "SelectionOperations": 55,
+      "SelectionP95Ms": 45.531,
+      "PositionOperations": 31,
+      "PositionP95Ms": 250.764,
+      "ResizeOperations": 24,
+      "ResizeP95Ms": 77.952,
+      "FinalFailures": 0,
+      "UnresponsiveSamples": 0
+    },
+    "Comparison": {
+      "ManagedPlainSelectionP95Ratio": 1.088,
+      "ManagedPlainSelectionP95DeltaMs": 3.674,
+      "ManagedPlainPositionP95Ratio": 0.882,
+      "ManagedPlainPositionP95DeltaMs": -33.504,
+      "ManagedPlainResizeP95Ratio": 0.822,
+      "ManagedPlainResizeP95DeltaMs": -16.827,
+      "ComparisonPassed": true,
+      "NoAdditionalMetadataPathDifferenceObserved": true
+    },
+    "PerRoundAbsoluteGate": {
+      "NormalRound1PositionP95Ms": 331.880,
+      "NormalRound2PositionP95Ms": 264.887,
+      "ManagedRound1PositionP95Ms": 250.157,
+      "ManagedRound2PositionP95Ms": 251.572,
+      "AbsoluteLatencyGatePassed": false
+    },
+    "SelectionEvents": {
+      "ConfirmedShapeSelectionEvents": 106,
+      "MissingShapeSelectionEvents": 0,
+      "SelectionChangeEventsPassed": true
+    },
+    "OverallPassed": false
+  },
+  "LatestValidationRun": {
+    "Normal": {
+      "SelectionOperations": 48,
+      "SelectionP95Ms": 68.866,
+      "PositionOperations": 24,
+      "PositionP95Ms": 321.844,
+      "ResizeOperations": 24,
+      "ResizeP95Ms": 89.633,
+      "FinalFailures": 0,
+      "UnresponsiveSamples": 0
+    },
+    "Managed": {
+      "SelectionOperations": 48,
+      "SelectionP95Ms": 74.243,
+      "PositionOperations": 24,
+      "PositionP95Ms": 325.764,
+      "ResizeOperations": 24,
+      "ResizeP95Ms": 122.968,
+      "FinalFailures": 0,
+      "UnresponsiveSamples": 0
+    },
+    "Comparison": {
+      "ManagedPlainSelectionP95Ratio": 1.078,
+      "ManagedPlainSelectionP95DeltaMs": 5.377,
+      "ManagedPlainPositionP95Ratio": 1.012,
+      "ManagedPlainPositionP95DeltaMs": 3.920,
+      "ManagedPlainResizeP95Ratio": 1.372,
+      "ManagedPlainResizeP95DeltaMs": 33.335,
+      "ComparisonPassed": false,
+      "NoAdditionalMetadataPathDifferenceObserved": false
+    },
+    "PerRoundAbsoluteGate": {
+      "NormalRound1PositionP95Ms": 328.256,
+      "NormalRound2PositionP95Ms": 318.748,
+      "ManagedRound1PositionP95Ms": 303.892,
+      "ManagedRound2PositionP95Ms": 337.339,
+      "AbsoluteLatencyGatePassed": false
+    },
+    "SelectionEvents": {
+      "ConfirmedShapeSelectionEvents": 96,
+      "MissingShapeSelectionEvents": 0,
+      "SelectionChangeEventsPassed": true
+    },
+    "OverallPassed": false
   },
   "Persistence": {
     "ReopenPersistencePassed": true,
-    "ReopenedAspectRatio": 0.707817,
-    "ReopenedAspectRatioError": 0.000054,
-    "ReopenedGeometryPassed": true,
     "GeometryGatePassed": true,
-    "ReopenedPositionAndSize": {
-      "Left": 69,
-      "Top": 82,
-      "Width": 340,
-      "Height": 480.35
-    },
-    "StoredDrawioXmlChars": 26106,
     "StoredPayloadPassed": true,
     "StoragePassed": true,
-    "WordAddInConnect": true
-  },
-  "Absolute300MsBaseline": {
-    "ReferenceImage": "17x24 solid-color PNG",
-    "GatePassed": false,
-    "Interpretation": "The same absolute 300 ms gate also failed for the tiny solid-color baseline, so the absolute result cannot be attributed to Draw.io diagram complexity or managed metadata alone."
+    "WordAddInConnect": true,
+    "CleanupResidualWinWord": false
   },
   "PointerInput": {
     "PointerInputCovered": false,
-    "PointerInputBoundary": "This test updates Word Shape properties on the visible Word STA UI thread; it does not inject mouse pointer input.",
-    "WindowsPointerApiAttempted": true,
-    "WindowsPointerApiResult": "Denied",
-    "Win32Error": 5,
-    "GetCursorPos": "AccessDenied",
-    "SetIsBorderRequired": "Unsupported",
+    "Boundary": "The stress test updates Word Shape properties on the visible Word STA UI thread and does not inject mouse pointer input.",
+    "ManualMouseAcceptanceStatus": "SkippedByUser",
     "ManualMouseAcceptancePassed": false
   },
-  "CleanupResidualWinWord": false,
   "OverallPassed": false
 }

@@ -19,7 +19,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. Installation for End Users
 
-If you received a release package such as `DrawioPpt-v1.0.5.zip`, the recommended installation flow is:
+If you received a release package such as `DrawioPpt-v1.0.8.zip`, the recommended installation flow is:
 
 1. Extract the zip file to a local directory.
 2. Make sure PowerPoint and Word are not currently running.
@@ -40,9 +40,9 @@ Core installation files included in the release package:
 - `scripts\unregister-addin.ps1`
 - `scripts\register-word-addin.ps1`
 - `scripts\unregister-word-addin.ps1`
-- `docs\release-notes-v1.0.5.md`
-- `docs\e2e-test-report-v1.0.5.md`
-- `docs\release-evidence-v1.0.5.md`
+- `docs\release-notes-v1.0.8.en.md`
+- `docs\e2e-test-report-v1.0.8.en.md`
+- `docs\release-evidence-v1.0.8.en.md`
 
 Default installation path:
 
@@ -166,7 +166,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 Full test report:
 
-- [v1.0.5 E2E test report](./e2e-test-report-v1.0.5.en.md)
+- [v1.0.8 E2E test report](./e2e-test-report-v1.0.8.en.md)
 
 ## 9. Desktop Mode Validation
 

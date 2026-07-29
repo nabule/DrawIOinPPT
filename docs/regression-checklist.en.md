@@ -8,8 +8,8 @@
 | --- | --- |
 | PASS | Full Office E2E against the temporary release-package installation passed 12/12; this result covers only the isolated temporary installation. |
 | PASS | Standard local installation at `%LOCALAPPDATA%\Greensoft\DrawioPpt`, DLL hashes, Office registration, and real COM loading. |
-| Absolute gate failed | In the final 620px PNG / `Front` rich-document stress sample, normal/managed position P95 values were 524.962/488.881 ms, with the managed picture 36.081 ms lower and 98/98 target selection events confirmed. Both failed the absolute 300 ms gate, as did the 17×24 solid-color PNG baseline. |
-| Pending manual confirmation | `PointerInputCovered=false`. Windows denied `GetCursorPos`, and the `SetIsBorderRequired` interface is unsupported, so automation cannot substitute for real-pointer drag, resize, reposition, and command-click acceptance. |
+| Overall stress gate failed | In the latest 1240×1753 PNG / `Front` rich-document run after blank-padding validation was corrected, normal/managed position P95 values were 321.844/325.764 ms. Both relative and absolute gates failed, with `OverallPassed=false`. |
+| Skipped by user | `PointerInputCovered=false`; automation cannot substitute for real-pointer drag, resize, reposition, and command-click acceptance. The user chose to skip that manual acceptance, whose status is not “passed.” |
 
 ## 1. Build and Registration
 
@@ -99,11 +99,11 @@ Automated checks:
 - `scripts\word-url-e2e.ps1` strictly verifies URL-mode create, reopen, edit, and final write-back through `Document.CustomXMLParts`; the lightweight `AlternativeText` must not stand in for the full primary store.
 - `scripts\word-url-addin-host-e2e.ps1` strictly verifies actual-host write-back through the document-level primary store, with `WordAddInConnect=True` and `ActualWordUrlEditorSaved=True`.
 - Each Word automation script checks that no residual `WINWORD.EXE` remains; a residual process fails the check.
-- The installed visible-Word UI-thread stress comparison rendered the user-supplied complex source as a 620×876 PNG; normal and managed pictures were proportional floating `Front` pictures. Normal/managed position P95 values were 524.962/488.881 ms, with the managed picture 36.081 ms lower and all 98/98 target-Shape selection events confirmed. The absolute 300 ms gate failed, and a 17×24 solid-color PNG baseline failed it as well; `ComparisonPassed=false`, `AbsoluteLatencyGatePassed=false`, and `OverallPassed=false`. Installed-build runtime reflection independently confirms `NoPassiveSelectionMetadataPath=True`, but that source/runtime fact is not a performance or mouse-acceptance pass. See the [v1.0.8 Word UI-thread stress test report](./word-ui-thread-stress-report-v1.0.8.en.md).
+- The installed visible-Word UI-thread stress comparison rendered the user-supplied complex source as a 1240×1753 PNG; normal and managed pictures were proportional floating `Front` pictures. In the latest run after blank-padding validation was corrected, normal/managed position P95 values were 321.844/325.764 ms, and all 96/96 target-Shape selection events were confirmed, with none missing. Both the relative and absolute 300ms gates failed: `ComparisonPassed=false`, `AbsoluteLatencyGatePassed=false`, and `OverallPassed=false`. The PNG is opaque 24bpp, so transparent-padding pixel inspection is explicitly unsupported; the ratio error is 0.000236 and export uses `--border 0`. Installed-build runtime reflection independently confirms `NoPassiveSelectionMetadataPath=True`, but that source/runtime fact is not a performance or mouse-acceptance pass. See the [v1.0.8 Word UI-thread stress test report](./word-ui-thread-stress-report-v1.0.8.en.md).
 
 Pre-release manual acceptance:
 
 | Status | Check |
 | --- | --- |
-| Not covered by automation; pointer confirmation pending | `PointerInputCovered=false`; Windows denied or did not support the pointer interfaces, and the absolute 300 ms gate failed. The user must still drag, resize, and reposition each object with a real pointer for 10 continuous seconds each to confirm visual tracking. |
-| Automated explicit command passed; manual button confirmation pending | Save and reopen preserved position, size, and all 26,106 source-XML characters, and the real URL-host E2E completed write-back through select-then-explicit-Re-edit. This is not user-click acceptance; one local manual Re-edit click is still required. |
+| Skipped by user | `PointerInputCovered=false`; continuous real-pointer drag, resize, and reposition were not performed and must not be represented as passed. |
+| Automated explicit command passed; manual button skipped | Save and reopen preserved position, size, and all 26,106 source-XML characters, and the real URL-host E2E completed write-back through select-then-explicit-Re-edit. The user chose to skip the local manual click, so automation must not be represented as user-click acceptance. |

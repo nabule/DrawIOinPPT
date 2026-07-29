@@ -19,7 +19,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. 面向最终用户的安装
 
-如果你拿到的是发布包 `DrawioPpt-v1.0.5.zip`，推荐按下面流程安装：
+如果你拿到的是发布包 `DrawioPpt-v1.0.8.zip`，推荐按下面流程安装：
 
 1. 解压 zip 到一个本地目录
 2. 确认 PowerPoint 和 Word 当前没有运行
@@ -40,9 +40,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 - `scripts\unregister-addin.ps1`
 - `scripts\register-word-addin.ps1`
 - `scripts\unregister-word-addin.ps1`
-- `docs\release-notes-v1.0.5.md`
-- `docs\e2e-test-report-v1.0.5.md`
-- `docs\release-evidence-v1.0.5.md`
+- `docs\release-notes-v1.0.8.md`
+- `docs\e2e-test-report-v1.0.8.md`
+- `docs\release-evidence-v1.0.8.md`
 
 默认安装位置：
 
@@ -166,7 +166,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 完整测试报告：
 
-- [v1.0.5 E2E 测试报告](./e2e-test-report-v1.0.5.md)
+- [v1.0.8 E2E 测试报告](./e2e-test-report-v1.0.8.md)
 
 ## 9. 桌面模式验证
 

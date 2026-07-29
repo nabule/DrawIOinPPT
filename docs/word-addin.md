@@ -29,7 +29,7 @@ Word 专属代码负责：
 - `InlineShape` / 浮动 `Shape` 图片识别。
 - 1240px 等比例 PNG 浮动图片插入和替换。
 
-Word 的展示路径与 PowerPoint 分开：PowerPoint 继续直接插入原始 SVG；Word 正常路径从 Draw.io 源导出宽度 1240px 的 PNG，保持源宽高比和零边框像素，并把图片转换为 `wdWrapFront` 浮动 `Shape`。横向和纵向图均在文档可用边界内 `contain`，纵向图回归比例为 `0.25`。重新编辑或刷新采用“先创建并完整配置新图，再删除原图”；失败时清理未完成的新图并保留原图。draw.io Desktop 导出不可用时以 1240px 为基准、按源比例生成轻量 PNG 占位预览，极端纵向图受 1200px 高度上限保护，不回退复杂 SVG；完整 Draw.io XML 仍保存在文档级主存储中，用户选中占位图后点击“重新编辑”仍可恢复编辑。
+Word 的展示路径与 PowerPoint 分开：PowerPoint 继续直接插入原始 SVG；Word 正常路径从 Draw.io 源导出宽度 1240px 的 PNG，保持源宽高比，导出明确请求 `--border 0`，并把图片转换为 `wdWrapFront` 浮动 `Shape`。横向和纵向图均在文档可用边界内 `contain`，纵向图回归比例为 `0.25`。重新编辑或刷新采用“先创建并完整配置新图，再删除原图”；失败时清理未完成的新图并保留原图。draw.io Desktop 导出不可用时以 1240px 为基准、按源比例生成轻量 PNG 占位预览，极端纵向图受 1200px 高度上限保护，不回退复杂 SVG；完整 Draw.io XML 仍保存在文档级主存储中，用户选中占位图后点击“重新编辑”仍可恢复编辑。实际 24bpp 不透明 PNG 的透明空白边像素扫描不适用；验收记录独立 SVG 源比例对比和 `--border 0`，不把不支持的像素扫描写成通过。
 
 预览提供器仅在 `%TEMP%\DrawioPpt\word-preview` 下创建临时 Draw.io XML 和 PNG。临时 XML 删除采用 4 次、间隔 50ms 的有限重试；同步清理未完成时安排后台延迟重试，提供器启动时还会清理一小时前遗留的受管目录。
 - `Document.CustomXMLParts` 写入、读取和孤儿清理。
