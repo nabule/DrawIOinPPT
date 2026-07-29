@@ -1,18 +1,26 @@
 param(
     [string]$InstallRoot = (Join-Path $env:LOCALAPPDATA "Greensoft\DrawioPpt"),
+    [string]$DrawioSourcePath = "",
     [int]$DurationSeconds = 12,
     [double]$MaximumP95Ratio = 1.25,
-    [double]$MaximumPerRoundP95Ratio = 1.50,
-    [double]$MaximumSelectionP95DeltaMs = 100,
-    [double]$MaximumAbsoluteSelectionP95Ms = 2000,
-    [double]$MaximumAbsoluteP95Ms = 2000,
-    [double]$MaximumAbsoluteResizeP95Ms = 750,
+    [double]$MaximumPerRoundP95Ratio = 1.25,
+    [double]$MaximumP95DeltaMs = 50,
+    [double]$MaximumSelectionP95DeltaMs = 50,
+    [double]$MaximumAbsoluteSelectionP95Ms = 300,
+    [double]$MaximumAbsoluteP95Ms = 300,
+    [double]$MaximumAbsoluteResizeP95Ms = 300,
     [int]$MinimumOperationsPerRound = 10,
+    [int]$MinimumBodyParagraphs = 100,
+    [int]$MinimumBodyCharacters = 10000,
+    [int]$MinimumPageCount = 8,
+    [int]$MinimumTableCount = 2,
+    [int]$MinimumAuxiliaryPictureCount = 3,
     [int]$WarmupSeconds = 4,
     [int]$ResizeOperationsPerRound = 12,
     [int]$SelectionSettleMilliseconds = 75,
     [int]$SelectionEventTimeoutMilliseconds = 500,
-    [string]$OutputPath = ""
+    [string]$OutputPath = "",
+    [switch]$KeepArtifacts
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,6 +32,7 @@ if ($DurationSeconds -lt 10) {
 foreach ($positiveThreshold in @(
         $MaximumP95Ratio,
         $MaximumPerRoundP95Ratio,
+        $MaximumP95DeltaMs,
         $MaximumSelectionP95DeltaMs,
         $MaximumAbsoluteSelectionP95Ms,
         $MaximumAbsoluteP95Ms,
@@ -35,6 +44,17 @@ foreach ($positiveThreshold in @(
 
 if ($MinimumOperationsPerRound -lt 1) {
     throw "MinimumOperationsPerRound must be at least one."
+}
+
+foreach ($minimumDocumentContent in @(
+        $MinimumBodyParagraphs,
+        $MinimumBodyCharacters,
+        $MinimumPageCount,
+        $MinimumTableCount,
+        $MinimumAuxiliaryPictureCount)) {
+    if ($minimumDocumentContent -lt 1) {
+        throw "Document-content minimums must be at least one."
+    }
 }
 
 if ($WarmupSeconds -lt 1) {
@@ -103,6 +123,10 @@ public static class DrawioPptWordWindowProcessResolver
             out processId);
         return (int)processId;
     }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsWindow(IntPtr windowHandle);
 }
 '@
 }
@@ -129,6 +153,7 @@ function Get-WordProcessIdentity {
             ProcessId = $process.Id
             StartTimeUtcTicks =
                 $process.StartTime.ToUniversalTime().Ticks
+            WindowHandle = $windowHandle
         }
     }
     finally {
@@ -176,6 +201,11 @@ function Assert-WordProcessIdentityMatch {
             $Actual.StartTimeUtcTicks) {
         throw "The Word ActiveWindow process identity does not match the process created for this isolated COM application."
     }
+
+    $Expected | Add-Member `
+        -NotePropertyName WindowHandle `
+        -NotePropertyValue ([long]$Actual.WindowHandle) `
+        -Force
 }
 
 function Release-ComObject {
@@ -271,6 +301,142 @@ function New-ComplexDrawioXml {
     return $builder.ToString()
 }
 
+function New-AuxiliarySvg {
+    return @'
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120">
+  <rect width="240" height="120" rx="12" fill="#eaf2f8"/>
+  <circle cx="42" cy="60" r="24" fill="#5b9bd5"/>
+  <path d="M82 42h130v14H82zm0 30h92v12H82z" fill="#315b7d"/>
+</svg>
+'@
+}
+
+function Get-Sha256 {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    return (Get-FileHash `
+        -LiteralPath $Path `
+        -Algorithm SHA256).Hash.ToUpperInvariant()
+}
+
+function Get-DrawioSourceStatistics {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [string]$XmlText
+    )
+
+    try {
+        [xml]$xmlDocument = $XmlText
+    }
+    catch {
+        throw "Draw.io source is not valid XML: $($_.Exception.Message)"
+    }
+
+    if ($null -eq $xmlDocument.DocumentElement -or
+        -not [string]::Equals(
+            $xmlDocument.DocumentElement.LocalName,
+            "mxfile",
+            [StringComparison]::Ordinal)) {
+        throw "Draw.io source root element must be mxfile."
+    }
+
+    $diagramNodes = @($xmlDocument.SelectNodes(
+        "//*[local-name()='diagram']"))
+    $cellNodes = @($xmlDocument.SelectNodes(
+        "//*[local-name()='mxCell']"))
+    $vertexNodes = @($xmlDocument.SelectNodes(
+        "//*[local-name()='mxCell' and @vertex='1']"))
+    $edgeNodes = @($xmlDocument.SelectNodes(
+        "//*[local-name()='mxCell' and @edge='1']"))
+    if ($diagramNodes.Count -lt 1 -or $cellNodes.Count -lt 2) {
+        throw "Draw.io source must contain at least one diagram and two mxCell elements."
+    }
+
+    return [pscustomobject]@{
+        Chars = $XmlText.Length
+        Bytes = (Get-Item -LiteralPath $Path).Length
+        Sha256 = Get-Sha256 -Path $Path
+        DiagramCount = $diagramNodes.Count
+        MxCellCount = $cellNodes.Count
+        VertexCount = $vertexNodes.Count
+        EdgeCount = $edgeNodes.Count
+    }
+}
+
+function Export-DrawioSourceSvg {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourcePath,
+        [Parameter(Mandatory = $true)]
+        [string]$SvgPath
+    )
+
+    $drawioDesktopPath = "C:\Program Files\draw.io\draw.io.exe"
+    if (-not (Test-Path -LiteralPath $drawioDesktopPath)) {
+        throw "draw.io Desktop was not found: $drawioDesktopPath"
+    }
+
+    $process = Start-Process `
+        -FilePath $drawioDesktopPath `
+        -ArgumentList @(
+            "--export",
+            "--format", "svg",
+            "--page-index", "1",
+            "--border", "0",
+            "--output", $SvgPath,
+            $SourcePath) `
+        -WindowStyle Hidden `
+        -Wait `
+        -PassThru
+    try {
+        if ($process.ExitCode -ne 0) {
+            throw "draw.io Desktop SVG export failed with exit code $($process.ExitCode)."
+        }
+    }
+    finally {
+        $process.Dispose()
+    }
+
+    if (-not (Test-Path -LiteralPath $SvgPath) -or
+        (Get-Item -LiteralPath $SvgPath).Length -le 0) {
+        throw "draw.io Desktop did not create a non-empty SVG."
+    }
+}
+
+function Remove-OwnedTestRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
+    $expectedParent = [System.IO.Path]::GetFullPath(
+        (Join-Path $env:TEMP "DrawioPpt"))
+    $actualParent = [System.IO.Path]::GetFullPath(
+        (Split-Path -Parent $resolvedPath))
+    $leaf = Split-Path -Leaf $resolvedPath
+    if (-not [string]::Equals(
+            $actualParent.TrimEnd('\'),
+            $expectedParent.TrimEnd('\'),
+            [StringComparison]::OrdinalIgnoreCase) -or
+        -not $leaf.StartsWith(
+            "word-real-pointer-",
+            [StringComparison]::Ordinal)) {
+        throw "Refusing to recursively remove a path outside the dedicated Word test root: $resolvedPath"
+    }
+
+    Remove-Item -LiteralPath $resolvedPath -Recurse -Force
+}
+
 function Get-ShapeByName {
     param(
         [Parameter(Mandatory = $true)]
@@ -299,6 +465,75 @@ function Get-ShapeByName {
     }
 
     return $null
+}
+
+function Get-ShapeComparisonSemantics {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$ManagedShape,
+        [Parameter(Mandatory = $true)]
+        [object]$PlainShape
+    )
+
+    $managedAnchor = $null
+    $plainAnchor = $null
+    $managedAnchorParagraph = $null
+    $plainAnchorParagraph = $null
+    $managedAnchorParagraphRange = $null
+    $plainAnchorParagraphRange = $null
+    $managedWrap = $null
+    $plainWrap = $null
+    try {
+        $managedAnchor = $ManagedShape.Anchor
+        $plainAnchor = $PlainShape.Anchor
+        $managedAnchorParagraph =
+            $managedAnchor.Paragraphs.Item(1)
+        $plainAnchorParagraph =
+            $plainAnchor.Paragraphs.Item(1)
+        $managedAnchorParagraphRange =
+            $managedAnchorParagraph.Range
+        $plainAnchorParagraphRange =
+            $plainAnchorParagraph.Range
+        $managedWrap = $ManagedShape.WrapFormat
+        $plainWrap = $PlainShape.WrapFormat
+        $sameSize =
+            [Math]::Abs(
+                [single]$ManagedShape.Width -
+                    [single]$PlainShape.Width) -lt 0.1 -and
+            [Math]::Abs(
+                [single]$ManagedShape.Height -
+                    [single]$PlainShape.Height) -lt 0.1
+        $sameAnchorSemantics =
+            [int]$managedAnchor.StoryType -eq
+                [int]$plainAnchor.StoryType -and
+            [int]$managedAnchorParagraphRange.Start -eq
+                [int]$plainAnchorParagraphRange.Start -and
+            [int]$ManagedShape.RelativeHorizontalPosition -eq
+                [int]$PlainShape.RelativeHorizontalPosition -and
+            [int]$ManagedShape.RelativeVerticalPosition -eq
+                [int]$PlainShape.RelativeVerticalPosition
+        $sameWrap =
+            [int]$managedWrap.Type -eq [int]$plainWrap.Type
+        return [pscustomobject]@{
+            SameSize = $sameSize
+            SameAnchorSemantics = $sameAnchorSemantics
+            SameWrap = $sameWrap
+            Passed =
+                $sameSize -and
+                $sameAnchorSemantics -and
+                $sameWrap
+        }
+    }
+    finally {
+        Release-ComObject -Value $plainWrap
+        Release-ComObject -Value $managedWrap
+        Release-ComObject -Value $plainAnchorParagraphRange
+        Release-ComObject -Value $managedAnchorParagraphRange
+        Release-ComObject -Value $plainAnchorParagraph
+        Release-ComObject -Value $managedAnchorParagraph
+        Release-ComObject -Value $plainAnchor
+        Release-ComObject -Value $managedAnchor
+    }
 }
 
 function Open-WordDocument {
@@ -879,6 +1114,16 @@ function Stop-OwnedWordProcess {
     }
 
     try {
+        if ($null -eq $Identity.PSObject.Properties["WindowHandle"] -or
+            [long]$Identity.WindowHandle -le 0 -or
+            -not [DrawioPptWordWindowProcessResolver]::IsWindow(
+                [IntPtr][long]$Identity.WindowHandle) -or
+            [DrawioPptWordWindowProcessResolver]::GetProcessId(
+                [long]$Identity.WindowHandle) -ne
+                [int]$Identity.ProcessId) {
+            throw "Refusing forced cleanup because the captured Word PID, start time, and HWND identity is no longer exact."
+        }
+
         Stop-Process -Id $Identity.ProcessId -Force -ErrorAction Stop
         if (-not $process.WaitForExit(5000)) {
             throw "The test-owned Word process did not exit after forced cleanup."
@@ -901,13 +1146,25 @@ function New-TypedStressDocument {
         [Parameter(Mandatory = $true)]
         [string]$ImagePath,
         [Parameter(Mandatory = $true)]
+        [string]$AuxiliaryImagePath,
+        [Parameter(Mandatory = $true)]
         [string]$DocumentPath,
         [Parameter(Mandatory = $true)]
         [string]$DrawioXml,
         [Parameter(Mandatory = $true)]
         [string]$CoreAssemblyPath,
         [Parameter(Mandatory = $true)]
-        [string]$WordAddInAssemblyPath
+        [string]$WordAddInAssemblyPath,
+        [Parameter(Mandatory = $true)]
+        [int]$MinimumBodyParagraphs,
+        [Parameter(Mandatory = $true)]
+        [int]$MinimumBodyCharacters,
+        [Parameter(Mandatory = $true)]
+        [int]$MinimumPageCount,
+        [Parameter(Mandatory = $true)]
+        [int]$MinimumTableCount,
+        [Parameter(Mandatory = $true)]
+        [int]$MinimumAuxiliaryPictureCount
     )
 
     $wordInteropPath = (
@@ -935,6 +1192,8 @@ function New-TypedStressDocument {
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using DrawioPpt.Core.Models;
 using DrawioPpt.Core.Services;
@@ -1131,6 +1390,22 @@ public static class DrawioPptWordUiStressDocumentBuilder
         }
     }
 
+    private static bool IsExactOwnedWindow(
+        uint processId,
+        long windowHandle)
+    {
+        if (processId == 0 || windowHandle == 0)
+        {
+            return false;
+        }
+
+        uint windowProcessId;
+        GetWindowThreadProcessId(
+            new IntPtr(windowHandle),
+            out windowProcessId);
+        return windowProcessId == processId;
+    }
+
     private static void CaptureSoleWordProcess(
         out uint processId,
         out long processStartTimeUtcTicks)
@@ -1161,7 +1436,8 @@ public static class DrawioPptWordUiStressDocumentBuilder
 
     private static void StopOwnedProcessIfNeeded(
         uint processId,
-        long processStartTimeUtcTicks)
+        long processStartTimeUtcTicks,
+        long windowHandle)
     {
         Stopwatch watch = Stopwatch.StartNew();
         while (watch.Elapsed.TotalSeconds < 15 &&
@@ -1173,6 +1449,12 @@ public static class DrawioPptWordUiStressDocumentBuilder
         if (!IsOwnedProcessRunning(processId, processStartTimeUtcTicks))
         {
             return;
+        }
+
+        if (!IsExactOwnedWindow(processId, windowHandle))
+        {
+            throw new InvalidOperationException(
+                "Refusing forced cleanup because the document-builder PID, start time, and HWND identity is no longer exact.");
         }
 
         using (Process process = Process.GetProcessById((int)processId))
@@ -1240,10 +1522,317 @@ public static class DrawioPptWordUiStressDocumentBuilder
         }
     }
 
+    private static void BuildRichBody(
+        Word.Application application,
+        Word.Document document,
+        string auxiliaryImagePath,
+        int minimumBodyParagraphs,
+        int minimumBodyCharacters,
+        int minimumPageCount,
+        int minimumTableCount,
+        int minimumAuxiliaryPictureCount)
+    {
+        int paragraphTarget = Math.Max(100, minimumBodyParagraphs);
+        int pageTarget = Math.Max(8, minimumPageCount);
+        int paragraphCharacters = Math.Max(
+            140,
+            (minimumBodyCharacters / paragraphTarget) + 40);
+        int paragraphsPerPage = Math.Max(
+            1,
+            (int)Math.Ceiling(
+                paragraphTarget / (double)pageTarget));
+        Word.Selection selection = null;
+        try
+        {
+            selection = application.Selection;
+            selection.SetRange(0, 0);
+            for (int index = 0; index < paragraphTarget; index++)
+            {
+                StringBuilder paragraph = new StringBuilder();
+                paragraph.Append("DrawioPpt rich Word acceptance paragraph ");
+                paragraph.Append((index + 1).ToString("D3"));
+                paragraph.Append(
+                    ". This document intentionally contains normal business narrative, controls, evidence, responsibilities, review notes, and implementation details. ");
+                while (paragraph.Length < paragraphCharacters)
+                {
+                    paragraph.Append(
+                        "The paragraph remains independent from the managed diagram metadata and represents ordinary Word content. ");
+                }
+
+                selection.TypeText(paragraph.ToString());
+                selection.TypeParagraph();
+                if ((index + 1) % paragraphsPerPage == 0 &&
+                    (index + 1) < paragraphTarget)
+                {
+                    selection.InsertBreak(
+                        Word.WdBreakType.wdPageBreak);
+                }
+            }
+        }
+        finally
+        {
+            ReleaseComObject(selection);
+        }
+
+        for (int tableIndex = 0;
+            tableIndex < Math.Max(2, minimumTableCount);
+            tableIndex++)
+        {
+            Word.Range tableAnchor = null;
+            Word.Range afterTable = null;
+            Word.Tables tables = null;
+            Word.Table table = null;
+            try
+            {
+                tableAnchor = document.Content;
+                tableAnchor.Collapse(
+                    Word.WdCollapseDirection.wdCollapseEnd);
+                tables = document.Tables;
+                table = tables.Add(tableAnchor, 4, 4);
+                for (int row = 1; row <= 4; row++)
+                {
+                    for (int column = 1; column <= 4; column++)
+                    {
+                        Word.Cell cell = null;
+                        Word.Range cellRange = null;
+                        try
+                        {
+                            cell = table.Cell(row, column);
+                            cellRange = cell.Range;
+                            cellRange.Text =
+                                "T" + (tableIndex + 1).ToString() +
+                                "-R" + row.ToString() +
+                                "-C" + column.ToString();
+                        }
+                        finally
+                        {
+                            ReleaseComObject(cellRange);
+                            ReleaseComObject(cell);
+                        }
+                    }
+                }
+
+                afterTable = table.Range;
+                afterTable.Collapse(
+                    Word.WdCollapseDirection.wdCollapseEnd);
+                afterTable.InsertParagraphAfter();
+            }
+            finally
+            {
+                ReleaseComObject(afterTable);
+                ReleaseComObject(table);
+                ReleaseComObject(tables);
+                ReleaseComObject(tableAnchor);
+            }
+        }
+
+        for (int pictureIndex = 0;
+            pictureIndex < Math.Max(3, minimumAuxiliaryPictureCount);
+            pictureIndex++)
+        {
+            Word.Range anchor = null;
+            Word.InlineShapes inlineShapes = null;
+            Word.InlineShape picture = null;
+            object linkToFile = false;
+            object saveWithDocument = true;
+            try
+            {
+                int paragraphIndex = Math.Min(
+                    document.Paragraphs.Count,
+                    5 + (pictureIndex * 12));
+                Word.Paragraph paragraph =
+                    document.Paragraphs[paragraphIndex];
+                try
+                {
+                    anchor = paragraph.Range.Duplicate;
+                }
+                finally
+                {
+                    ReleaseComObject(paragraph);
+                }
+
+                anchor.Collapse(
+                    Word.WdCollapseDirection.wdCollapseStart);
+                inlineShapes = document.InlineShapes;
+                picture = inlineShapes.AddPicture(
+                    auxiliaryImagePath,
+                    ref linkToFile,
+                    ref saveWithDocument,
+                    anchor);
+                picture.Title =
+                    "Auxiliary Picture " +
+                    (pictureIndex + 1).ToString();
+                picture.AlternativeText =
+                    "Ordinary auxiliary picture for rich-content acceptance.";
+                picture.LockAspectRatio =
+                    Office.MsoTriState.msoFalse;
+                picture.Width = 72f;
+                picture.Height = 36f;
+            }
+            finally
+            {
+                ReleaseComObject(picture);
+                ReleaseComObject(inlineShapes);
+                ReleaseComObject(anchor);
+            }
+        }
+
+        Word.Sections sections = null;
+        Word.Section section = null;
+        Word.HeadersFooters headers = null;
+        Word.HeadersFooters footers = null;
+        Word.HeaderFooter header = null;
+        Word.HeaderFooter footer = null;
+        Word.Range headerRange = null;
+        Word.Range footerRange = null;
+        try
+        {
+            sections = document.Sections;
+            section = sections[1];
+            headers = section.Headers;
+            footers = section.Footers;
+            header = headers[
+                Word.WdHeaderFooterIndex.wdHeaderFooterPrimary];
+            footer = footers[
+                Word.WdHeaderFooterIndex.wdHeaderFooterPrimary];
+            headerRange = header.Range;
+            footerRange = footer.Range;
+            headerRange.Text =
+                "DrawioPpt Word rich-content performance acceptance";
+            footerRange.Text =
+                "Confidential test content - page ";
+        }
+        finally
+        {
+            ReleaseComObject(footerRange);
+            ReleaseComObject(headerRange);
+            ReleaseComObject(footer);
+            ReleaseComObject(header);
+            ReleaseComObject(footers);
+            ReleaseComObject(headers);
+            ReleaseComObject(section);
+            ReleaseComObject(sections);
+        }
+    }
+
+    private static string ComputeSha256(string value)
+    {
+        using (SHA256 sha256 = SHA256.Create())
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
+            byte[] hash = sha256.ComputeHash(bytes);
+            StringBuilder result = new StringBuilder(hash.Length * 2);
+            foreach (byte item in hash)
+            {
+                result.Append(item.ToString("X2"));
+            }
+
+            return result.ToString();
+        }
+    }
+
+    public static string Inspect(Word.Document document)
+    {
+        Word.Range bodyRange = null;
+        Word.Paragraphs paragraphs = null;
+        Word.Tables tables = null;
+        Word.InlineShapes inlineShapes = null;
+        Word.Sections sections = null;
+        Word.Section section = null;
+        Word.HeadersFooters headers = null;
+        Word.HeadersFooters footers = null;
+        Word.HeaderFooter header = null;
+        Word.HeaderFooter footer = null;
+        Word.Range headerRange = null;
+        Word.Range footerRange = null;
+        try
+        {
+            document.Repaginate();
+            bodyRange = document.Content;
+            string bodyText = bodyRange.Text ?? string.Empty;
+            paragraphs = document.Paragraphs;
+            tables = document.Tables;
+            inlineShapes = document.InlineShapes;
+            int auxiliaryPictures = 0;
+            for (int index = 1; index <= inlineShapes.Count; index++)
+            {
+                Word.InlineShape candidate = null;
+                try
+                {
+                    candidate = inlineShapes[index];
+                    string title = candidate.Title ?? string.Empty;
+                    if (title.StartsWith(
+                        "Auxiliary Picture ",
+                        StringComparison.Ordinal))
+                    {
+                        auxiliaryPictures++;
+                    }
+                }
+                finally
+                {
+                    ReleaseComObject(candidate);
+                }
+            }
+
+            sections = document.Sections;
+            section = sections[1];
+            headers = section.Headers;
+            footers = section.Footers;
+            header = headers[
+                Word.WdHeaderFooterIndex.wdHeaderFooterPrimary];
+            footer = footers[
+                Word.WdHeaderFooterIndex.wdHeaderFooterPrimary];
+            headerRange = header.Range;
+            footerRange = footer.Range;
+            bool headerPresent =
+                !string.IsNullOrWhiteSpace(
+                    (headerRange.Text ?? string.Empty)
+                        .Trim('\r', '\a', ' '));
+            bool footerPresent =
+                !string.IsNullOrWhiteSpace(
+                    (footerRange.Text ?? string.Empty)
+                        .Trim('\r', '\a', ' '));
+            int pageCount = document.ComputeStatistics(
+                Word.WdStatistic.wdStatisticPages,
+                false);
+
+            return
+                paragraphs.Count.ToString() + "|" +
+                bodyText.Length.ToString() + "|" +
+                pageCount.ToString() + "|" +
+                tables.Count.ToString() + "|" +
+                auxiliaryPictures.ToString() + "|" +
+                headerPresent.ToString() + "|" +
+                footerPresent.ToString() + "|" +
+                ComputeSha256(bodyText);
+        }
+        finally
+        {
+            ReleaseComObject(footerRange);
+            ReleaseComObject(headerRange);
+            ReleaseComObject(footer);
+            ReleaseComObject(header);
+            ReleaseComObject(footers);
+            ReleaseComObject(headers);
+            ReleaseComObject(section);
+            ReleaseComObject(sections);
+            ReleaseComObject(inlineShapes);
+            ReleaseComObject(tables);
+            ReleaseComObject(paragraphs);
+            ReleaseComObject(bodyRange);
+        }
+    }
+
     public static string Build(
         string imagePath,
+        string auxiliaryImagePath,
         string documentPath,
-        string drawioXml)
+        string drawioXml,
+        int minimumBodyParagraphs,
+        int minimumBodyCharacters,
+        int minimumPageCount,
+        int minimumTableCount,
+        int minimumAuxiliaryPictureCount)
     {
         Word.Application application = null;
         Word.Documents documents = null;
@@ -1253,6 +1842,7 @@ public static class DrawioPptWordUiStressDocumentBuilder
         Word.Shape plain = null;
         uint processId = 0;
         long processStartTimeUtcTicks = 0;
+        long windowHandle = 0;
         try
         {
             application = new Word.Application();
@@ -1270,7 +1860,7 @@ public static class DrawioPptWordUiStressDocumentBuilder
             {
                 dynamic activeWindow = application.ActiveWindow;
                 activeWindowObject = activeWindow;
-                long windowHandle = (long)activeWindow.Hwnd;
+                windowHandle = (long)activeWindow.Hwnd;
                 uint activeWindowProcessId;
                 GetWindowThreadProcessId(
                     new IntPtr(windowHandle),
@@ -1300,6 +1890,15 @@ public static class DrawioPptWordUiStressDocumentBuilder
             ReleaseComObject(pageSetup);
             pageSetup = null;
 
+            BuildRichBody(
+                application,
+                document,
+                auxiliaryImagePath,
+                minimumBodyParagraphs,
+                minimumBodyCharacters,
+                minimumPageCount,
+                minimumTableCount,
+                minimumAuxiliaryPictureCount);
             managed = AddPicture(
                 document,
                 imagePath,
@@ -1353,6 +1952,7 @@ public static class DrawioPptWordUiStressDocumentBuilder
             }
 
             document.SaveAs2(documentPath);
+            string contentInspection = Inspect(document);
             document.Close(Word.WdSaveOptions.wdSaveChanges);
             ReleaseComObject(document);
             document = null;
@@ -1363,9 +1963,11 @@ public static class DrawioPptWordUiStressDocumentBuilder
             return
                 processId.ToString() + "|" +
                 processStartTimeUtcTicks.ToString() + "|" +
+                windowHandle.ToString() + "|" +
                 partId + "|" +
                 alternativeText.Length.ToString() + "|" +
-                envelope.DiagramId;
+                envelope.DiagramId + "|" +
+                contentInspection;
         }
         finally
         {
@@ -1407,7 +2009,8 @@ public static class DrawioPptWordUiStressDocumentBuilder
             GC.WaitForPendingFinalizers();
             StopOwnedProcessIfNeeded(
                 processId,
-                processStartTimeUtcTicks);
+                processStartTimeUtcTicks,
+                windowHandle);
         }
     }
 }
@@ -1431,34 +2034,122 @@ public static class DrawioPptWordUiStressDocumentBuilder
 
     $buildText = [DrawioPptWordUiStressDocumentBuilder]::Build(
         $ImagePath,
+        $AuxiliaryImagePath,
         $DocumentPath,
-        $DrawioXml)
+        $DrawioXml,
+        $MinimumBodyParagraphs,
+        $MinimumBodyCharacters,
+        $MinimumPageCount,
+        $MinimumTableCount,
+        $MinimumAuxiliaryPictureCount)
     $parts = $buildText -split "\|"
-    if ($parts.Count -ne 5) {
+    if ($parts.Count -ne 14) {
         throw "Unexpected typed document builder result: $buildText"
     }
 
     return [pscustomobject]@{
         ProcessId = [int]$parts[0]
         ProcessStartTimeUtcTicks = [long]$parts[1]
-        CustomXmlPartId = $parts[2]
-        AlternativeTextChars = [int]$parts[3]
-        DiagramId = $parts[4]
+        WindowHandle = [long]$parts[2]
+        CustomXmlPartId = $parts[3]
+        AlternativeTextChars = [int]$parts[4]
+        DiagramId = $parts[5]
+        BodyParagraphs = [int]$parts[6]
+        BodyCharacters = [int]$parts[7]
+        PageCount = [int]$parts[8]
+        TableCount = [int]$parts[9]
+        AuxiliaryPictureCount = [int]$parts[10]
+        HeaderPresent = [bool]::Parse($parts[11])
+        FooterPresent = [bool]::Parse($parts[12])
+        BodySha256 = $parts[13]
+    }
+}
+
+function Get-TypedDocumentContent {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Document
+    )
+
+    $inspection = [DrawioPptWordUiStressDocumentBuilder]::Inspect(
+        $Document)
+    $parts = $inspection -split "\|"
+    if ($parts.Count -ne 8) {
+        throw "Unexpected typed document inspection result: $inspection"
+    }
+
+    return [pscustomobject]@{
+        BodyParagraphs = [int]$parts[0]
+        BodyCharacters = [int]$parts[1]
+        PageCount = [int]$parts[2]
+        TableCount = [int]$parts[3]
+        AuxiliaryPictureCount = [int]$parts[4]
+        HeaderPresent = [bool]::Parse($parts[5])
+        FooterPresent = [bool]::Parse($parts[6])
+        BodySha256 = $parts[7]
     }
 }
 
 $testRoot = Join-Path (
     Join-Path $env:TEMP "DrawioPpt") (
-    "word-ui-thread-stress-" + [Guid]::NewGuid().ToString("N"))
-New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
-$svgPath = Join-Path $testRoot "complex-vector.svg"
+    "word-real-pointer-" + [Guid]::NewGuid().ToString("N"))
+try {
+    New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
+$sourceCopyPath = Join-Path $testRoot "source.drawio"
+$svgPath = Join-Path $testRoot "source.svg"
+$auxiliarySvgPath = Join-Path $testRoot "auxiliary.svg"
 $documentPath = Join-Path $testRoot "word-ui-thread-stress.docx"
-$complexSvg = New-ComplexSvg
-$drawioXml = New-ComplexDrawioXml
 [System.IO.File]::WriteAllText(
-    $svgPath,
-    $complexSvg,
+    $auxiliarySvgPath,
+    (New-AuxiliarySvg),
     (New-Object System.Text.UTF8Encoding($false)))
+$sourceMode = "Synthetic"
+$sourceReportPath = "<SYNTHETIC_DRAWIO_SOURCE>"
+$originalSourcePath = $null
+$originalSourceSha256 = $null
+if ([string]::IsNullOrWhiteSpace($DrawioSourcePath)) {
+    $drawioXml = New-ComplexDrawioXml
+    [System.IO.File]::WriteAllText(
+        $sourceCopyPath,
+        $drawioXml,
+        (New-Object System.Text.UTF8Encoding($false)))
+    [System.IO.File]::WriteAllText(
+        $svgPath,
+        (New-ComplexSvg),
+        (New-Object System.Text.UTF8Encoding($false)))
+}
+else {
+    if (-not (Test-Path -LiteralPath $DrawioSourcePath -PathType Leaf)) {
+        throw "Draw.io source file was not found: $DrawioSourcePath"
+    }
+
+    $sourceMode = "UserProvided"
+    $sourceReportPath = "<USER_DRAWIO_SOURCE>"
+    $originalSourcePath =
+        (Resolve-Path -LiteralPath $DrawioSourcePath).Path
+    $originalSourceSha256 =
+        Get-Sha256 -Path $originalSourcePath
+    $drawioXml =
+        [System.IO.File]::ReadAllText($originalSourcePath)
+    [void](Get-DrawioSourceStatistics `
+        -Path $originalSourcePath `
+        -XmlText $drawioXml)
+    Copy-Item `
+        -LiteralPath $originalSourcePath `
+        -Destination $sourceCopyPath
+    if ((Get-Sha256 -Path $sourceCopyPath) -ne
+        $originalSourceSha256) {
+        throw "The copied Draw.io source SHA256 differs from the original."
+    }
+
+    Export-DrawioSourceSvg `
+        -SourcePath $sourceCopyPath `
+        -SvgPath $svgPath
+}
+
+$sourceStatistics = Get-DrawioSourceStatistics `
+    -Path $sourceCopyPath `
+    -XmlText $drawioXml
 
 $application = $null
 $document = $null
@@ -1475,21 +2166,47 @@ $ownedIdentities =
     New-Object System.Collections.Generic.List[object]
 $report = $null
 
-try {
     Write-Host "Stage=BuildDocument"
     $buildResult = New-TypedStressDocument `
         -ImagePath $svgPath `
+        -AuxiliaryImagePath $auxiliarySvgPath `
         -DocumentPath $documentPath `
         -DrawioXml $drawioXml `
         -CoreAssemblyPath $coreAssemblyPath `
-        -WordAddInAssemblyPath $wordAddInAssemblyPath
+        -WordAddInAssemblyPath $wordAddInAssemblyPath `
+        -MinimumBodyParagraphs $MinimumBodyParagraphs `
+        -MinimumBodyCharacters $MinimumBodyCharacters `
+        -MinimumPageCount $MinimumPageCount `
+        -MinimumTableCount $MinimumTableCount `
+        -MinimumAuxiliaryPictureCount $MinimumAuxiliaryPictureCount
     $builderIdentity = [pscustomobject]@{
         ProcessId = $buildResult.ProcessId
         StartTimeUtcTicks = $buildResult.ProcessStartTimeUtcTicks
+        WindowHandle = $buildResult.WindowHandle
     }
     $ownedIdentities.Add($builderIdentity)
     if (-not (Wait-WordProcessExit -Identity $builderIdentity)) {
         throw "The typed document-builder Word process did not exit."
+    }
+    $buildDocumentContentPassed =
+        $buildResult.BodyParagraphs -ge $MinimumBodyParagraphs -and
+        $buildResult.BodyCharacters -ge $MinimumBodyCharacters -and
+        $buildResult.PageCount -ge $MinimumPageCount -and
+        $buildResult.TableCount -ge $MinimumTableCount -and
+        $buildResult.AuxiliaryPictureCount -ge
+            $MinimumAuxiliaryPictureCount -and
+        $buildResult.HeaderPresent -and
+        $buildResult.FooterPresent
+    Write-Host "BuildBodyParagraphs=$($buildResult.BodyParagraphs)"
+    Write-Host "BuildBodyCharacters=$($buildResult.BodyCharacters)"
+    Write-Host "BuildPageCount=$($buildResult.PageCount)"
+    Write-Host "BuildTableCount=$($buildResult.TableCount)"
+    Write-Host "BuildAuxiliaryPictureCount=$($buildResult.AuxiliaryPictureCount)"
+    Write-Host "BuildHeaderPresent=$($buildResult.HeaderPresent)"
+    Write-Host "BuildFooterPresent=$($buildResult.FooterPresent)"
+    Write-Host "BuildBodySha256=$($buildResult.BodySha256)"
+    if (-not $buildDocumentContentPassed) {
+        throw "The typed Word document did not meet the requested rich-content minimums."
     }
 
     Write-Host "Stage=StartVisibleWord"
@@ -1515,6 +2232,16 @@ try {
         -Name "Plain Complex Same Visual"
     if ($null -eq $managedShape -or $null -eq $plainShape) {
         throw "The stress-test pictures were not found in the generated document."
+    }
+    $shapeComparisonSemantics =
+        Get-ShapeComparisonSemantics `
+            -ManagedShape $managedShape `
+            -PlainShape $plainShape
+    Write-Host "ComparisonSameSize=$($shapeComparisonSemantics.SameSize)"
+    Write-Host "ComparisonSameAnchorSemantics=$($shapeComparisonSemantics.SameAnchorSemantics)"
+    Write-Host "ComparisonSameWrap=$($shapeComparisonSemantics.SameWrap)"
+    if (-not $shapeComparisonSemantics.Passed) {
+        throw "Managed and plain comparison pictures do not have identical size, anchor semantics, and wrapping."
     }
     $serializer = New-Object DrawioPpt.Core.Services.DiagramEnvelopeSerializer
     $measurementWordAddIn = Get-WordComAddIn `
@@ -1664,6 +2391,44 @@ try {
     Assert-WordProcessIdentityMatch `
         -Expected $reopenIdentity `
         -Actual $reopenWindowIdentity
+    $reopenedDocumentContent =
+        Get-TypedDocumentContent -Document $document
+    $reopenedDocumentContentPassed =
+        $reopenedDocumentContent.BodyParagraphs -ge
+            $MinimumBodyParagraphs -and
+        $reopenedDocumentContent.BodyCharacters -ge
+            $MinimumBodyCharacters -and
+        $reopenedDocumentContent.PageCount -ge
+            $MinimumPageCount -and
+        $reopenedDocumentContent.TableCount -ge
+            $MinimumTableCount -and
+        $reopenedDocumentContent.AuxiliaryPictureCount -ge
+            $MinimumAuxiliaryPictureCount -and
+        $reopenedDocumentContent.HeaderPresent -and
+        $reopenedDocumentContent.FooterPresent
+    $documentContentStable =
+        $reopenedDocumentContent.BodyParagraphs -eq
+            $buildResult.BodyParagraphs -and
+        $reopenedDocumentContent.BodyCharacters -eq
+            $buildResult.BodyCharacters -and
+        $reopenedDocumentContent.PageCount -eq
+            $buildResult.PageCount -and
+        $reopenedDocumentContent.TableCount -eq
+            $buildResult.TableCount -and
+        $reopenedDocumentContent.AuxiliaryPictureCount -eq
+            $buildResult.AuxiliaryPictureCount -and
+        $reopenedDocumentContent.HeaderPresent -eq
+            $buildResult.HeaderPresent -and
+        $reopenedDocumentContent.FooterPresent -eq
+            $buildResult.FooterPresent -and
+        [string]::Equals(
+            $reopenedDocumentContent.BodySha256,
+            $buildResult.BodySha256,
+            [StringComparison]::Ordinal)
+    if (-not $reopenedDocumentContentPassed -or
+        -not $documentContentStable) {
+        throw "Rich Word document content changed or fell below its minimums after save and reopen."
+    }
     $reopenedManaged = Get-ShapeByName `
         -Document $document `
         -Name "Managed Complex v1.0.8"
@@ -1724,6 +2489,9 @@ try {
     else {
         0
     }
+    $p95DeltaMs = [Math]::Round(
+        $managedResult.P95Ms - $plainResult.P95Ms,
+        3)
     $selectionP95Ratio =
         if ($plainResult.SelectionP95Ms -gt 0) {
             [Math]::Round(
@@ -1746,6 +2514,10 @@ try {
     else {
         0
     }
+    $resizeP95DeltaMs = [Math]::Round(
+        $managedResult.ResizeP95Ms -
+            $plainResult.ResizeP95Ms,
+        3)
     $round1P95Ratio = if ($round1Plain.P95Ms -gt 0) {
         [Math]::Round(
             $round1Managed.P95Ms / $round1Plain.P95Ms,
@@ -1754,6 +2526,9 @@ try {
     else {
         0
     }
+    $round1P95DeltaMs = [Math]::Round(
+        $round1Managed.P95Ms - $round1Plain.P95Ms,
+        3)
     $round2P95Ratio = if ($round2Plain.P95Ms -gt 0) {
         [Math]::Round(
             $round2Managed.P95Ms / $round2Plain.P95Ms,
@@ -1762,6 +2537,9 @@ try {
     else {
         0
     }
+    $round2P95DeltaMs = [Math]::Round(
+        $round2Managed.P95Ms - $round2Plain.P95Ms,
+        3)
     $round1SelectionP95Ratio =
         if ($round1Plain.SelectionP95Ms -gt 0) {
             [Math]::Round(
@@ -1769,9 +2547,13 @@ try {
                     $round1Plain.SelectionP95Ms,
                 3)
         }
-        else {
-            0
-        }
+    else {
+        0
+    }
+    $round1ResizeP95DeltaMs = [Math]::Round(
+        $round1Managed.ResizeP95Ms -
+            $round1Plain.ResizeP95Ms,
+        3)
     $round2SelectionP95Ratio =
         if ($round2Plain.SelectionP95Ms -gt 0) {
             [Math]::Round(
@@ -1807,10 +2589,16 @@ try {
                     $round2Plain.ResizeP95Ms,
                 3)
         }
-        else {
-            0
-        }
+    else {
+        0
+    }
+    $round2ResizeP95DeltaMs = [Math]::Round(
+        $round2Managed.ResizeP95Ms -
+            $round2Plain.ResizeP95Ms,
+        3)
     $roundP95Ratios = @($round1P95Ratio, $round2P95Ratio)
+    $roundP95DeltasMs =
+        @($round1P95DeltaMs, $round2P95DeltaMs)
     $roundSelectionP95Ratios =
         @(
             $round1SelectionP95Ratio,
@@ -1821,6 +2609,8 @@ try {
             $round2SelectionP95DeltaMs)
     $roundResizeP95Ratios =
         @($round1ResizeP95Ratio, $round2ResizeP95Ratio)
+    $roundResizeP95DeltasMs =
+        @($round1ResizeP95DeltaMs, $round2ResizeP95DeltaMs)
     $allSetFailures =
         ($allRoundResults |
             Measure-Object -Property SetFailures -Sum).Sum
@@ -1835,11 +2625,9 @@ try {
             Measure-Object -Property UnresponsiveSamples -Sum).Sum
     $selectionComparisonPassed =
         $selectionP95Ratio -gt 0 -and
-        (
-            $selectionP95Ratio -le $MaximumP95Ratio -or
-            $selectionP95DeltaMs -le
-                $MaximumSelectionP95DeltaMs
-        ) -and
+        $selectionP95Ratio -le $MaximumP95Ratio -and
+        $selectionP95DeltaMs -le
+            $MaximumSelectionP95DeltaMs -and
         @(
             for ($selectionRoundIndex = 0;
                 $selectionRoundIndex -lt
@@ -1848,14 +2636,12 @@ try {
                 if (
                     $roundSelectionP95Ratios[
                         $selectionRoundIndex] -le 0 -or
-                    (
-                        $roundSelectionP95Ratios[
-                            $selectionRoundIndex] -gt
-                                $MaximumPerRoundP95Ratio -and
+                    $roundSelectionP95Ratios[
+                        $selectionRoundIndex] -gt
+                            $MaximumPerRoundP95Ratio -or
                         $roundSelectionP95DeltasMs[
                             $selectionRoundIndex] -gt
                                 $MaximumSelectionP95DeltaMs
-                    )
                 ) {
                     $false
                 }
@@ -1863,18 +2649,33 @@ try {
     $comparisonPassed =
         $p95Ratio -gt 0 -and
         $p95Ratio -le $MaximumP95Ratio -and
+        $p95DeltaMs -le $MaximumP95DeltaMs -and
         $selectionComparisonPassed -and
         $resizeP95Ratio -gt 0 -and
         $resizeP95Ratio -le $MaximumP95Ratio -and
-        @($roundP95Ratios |
-            Where-Object {
-                $_ -le 0 -or
-                $_ -gt $MaximumPerRoundP95Ratio
+        $resizeP95DeltaMs -le $MaximumP95DeltaMs -and
+        @(for ($roundIndex = 0;
+                $roundIndex -lt $roundP95Ratios.Count;
+                $roundIndex++) {
+                if ($roundP95Ratios[$roundIndex] -le 0 -or
+                    $roundP95Ratios[$roundIndex] -gt
+                        $MaximumPerRoundP95Ratio -or
+                    $roundP95DeltasMs[$roundIndex] -gt
+                        $MaximumP95DeltaMs) {
+                    $false
+                }
             }).Count -eq 0 -and
-        @($roundResizeP95Ratios |
-            Where-Object {
-                $_ -le 0 -or
-                $_ -gt $MaximumPerRoundP95Ratio
+        @(for ($resizeRoundIndex = 0;
+                $resizeRoundIndex -lt
+                    $roundResizeP95Ratios.Count;
+                $resizeRoundIndex++) {
+                if ($roundResizeP95Ratios[$resizeRoundIndex] -le 0 -or
+                    $roundResizeP95Ratios[$resizeRoundIndex] -gt
+                        $MaximumPerRoundP95Ratio -or
+                    $roundResizeP95DeltasMs[$resizeRoundIndex] -gt
+                        $MaximumP95DeltaMs) {
+                    $false
+                }
             }).Count -eq 0 -and
         $allSetFailures -eq 0 -and
         $allSelectionFailures -eq 0 -and
@@ -1902,17 +2703,38 @@ try {
         $comparisonPassed
     $storagePassed =
         $reopenPersistencePassed -and $storedPayloadPassed
+    $copiedSourceSha256 = Get-Sha256 -Path $sourceCopyPath
+    $copiedSourceUnchanged =
+        [string]::Equals(
+            $copiedSourceSha256,
+            $sourceStatistics.Sha256,
+            [StringComparison]::Ordinal)
+    $originalSourceUnchanged = $true
+    if ($sourceMode -eq "UserProvided") {
+        $originalSourceUnchanged =
+            [string]::Equals(
+                (Get-Sha256 -Path $originalSourcePath),
+                $originalSourceSha256,
+                [StringComparison]::Ordinal)
+    }
+    $sourcePassed =
+        $copiedSourceUnchanged -and
+        $originalSourceUnchanged
+    $documentContentPassed =
+        $buildDocumentContentPassed -and
+        $reopenedDocumentContentPassed -and
+        $documentContentStable
 
     $report = [ordered]@{
-        ReportVersion = 8
+        ReportVersion = 9
         TestedVersion = "v1.0.8"
         ExecutedUtc = [DateTime]::UtcNow.ToString("o")
         InstallRoot = $installRootResolved
         TestDocument = $documentPath
         TestWordProcessIdentity =
-            "$($activeIdentity.ProcessId):$($activeIdentity.StartTimeUtcTicks)"
+            "$($activeIdentity.ProcessId):$($activeIdentity.StartTimeUtcTicks):$($activeIdentity.WindowHandle)"
         ReopenWordProcessIdentity =
-            "$($reopenIdentity.ProcessId):$($reopenIdentity.StartTimeUtcTicks)"
+            "$($reopenIdentity.ProcessId):$($reopenIdentity.StartTimeUtcTicks):$($reopenIdentity.WindowHandle)"
         DurationSecondsPerPicturePerRound = $DurationSeconds
         WarmupSecondsPerPicturePerRound = $WarmupSeconds
         ResizeOperationsPerPicturePerRound =
@@ -1926,6 +2748,7 @@ try {
             "Round2:ManagedThenPlain")
         MaximumP95Ratio = $MaximumP95Ratio
         MaximumPerRoundP95Ratio = $MaximumPerRoundP95Ratio
+        MaximumP95DeltaMs = $MaximumP95DeltaMs
         MaximumSelectionP95DeltaMs =
             $MaximumSelectionP95DeltaMs
         MaximumAbsoluteSelectionP95Ms =
@@ -1934,7 +2757,67 @@ try {
         MaximumAbsoluteResizeP95Ms =
             $MaximumAbsoluteResizeP95Ms
         MinimumOperationsPerRound = $MinimumOperationsPerRound
-        SvgElementCount = 120
+        Source = [ordered]@{
+            Mode = $sourceMode
+            Path = $sourceReportPath
+            CopiedPath = $sourceCopyPath
+            SvgPath = $svgPath
+            Chars = $sourceStatistics.Chars
+            Bytes = $sourceStatistics.Bytes
+            Sha256 = $sourceStatistics.Sha256
+            DiagramCount = $sourceStatistics.DiagramCount
+            MxCellCount = $sourceStatistics.MxCellCount
+            VertexCount = $sourceStatistics.VertexCount
+            EdgeCount = $sourceStatistics.EdgeCount
+            CopiedSourceSha256 = $copiedSourceSha256
+            CopiedSourceUnchanged = $copiedSourceUnchanged
+            OriginalSourceUnchanged = $originalSourceUnchanged
+            Passed = $sourcePassed
+        }
+        DocumentContent = [ordered]@{
+            MinimumBodyParagraphs = $MinimumBodyParagraphs
+            MinimumBodyCharacters = $MinimumBodyCharacters
+            MinimumPageCount = $MinimumPageCount
+            MinimumTableCount = $MinimumTableCount
+            MinimumAuxiliaryPictureCount =
+                $MinimumAuxiliaryPictureCount
+            Build = [ordered]@{
+                BodyParagraphs = $buildResult.BodyParagraphs
+                BodyCharacters = $buildResult.BodyCharacters
+                PageCount = $buildResult.PageCount
+                TableCount = $buildResult.TableCount
+                AuxiliaryPictureCount =
+                    $buildResult.AuxiliaryPictureCount
+                HeaderPresent = $buildResult.HeaderPresent
+                FooterPresent = $buildResult.FooterPresent
+                BodySha256 = $buildResult.BodySha256
+            }
+            Reopened = [ordered]@{
+                BodyParagraphs =
+                    $reopenedDocumentContent.BodyParagraphs
+                BodyCharacters =
+                    $reopenedDocumentContent.BodyCharacters
+                PageCount = $reopenedDocumentContent.PageCount
+                TableCount = $reopenedDocumentContent.TableCount
+                AuxiliaryPictureCount =
+                    $reopenedDocumentContent.AuxiliaryPictureCount
+                HeaderPresent =
+                    $reopenedDocumentContent.HeaderPresent
+                FooterPresent =
+                    $reopenedDocumentContent.FooterPresent
+                BodySha256 =
+                    $reopenedDocumentContent.BodySha256
+            }
+            StableAfterReopen = $documentContentStable
+            Passed = $documentContentPassed
+        }
+        ComparisonPictureSemantics = [ordered]@{
+            SameSize = $shapeComparisonSemantics.SameSize
+            SameAnchorSemantics =
+                $shapeComparisonSemantics.SameAnchorSemantics
+            SameWrap = $shapeComparisonSemantics.SameWrap
+            Passed = $shapeComparisonSemantics.Passed
+        }
         DrawioXmlChars = $drawioXml.Length
         AlternativeTextChars = $referenceSerialized.Length
         Rounds = @(
@@ -1948,8 +2831,12 @@ try {
                 ManagedPlainSelectionP95DeltaMs =
                     $round1SelectionP95DeltaMs
                 ManagedPlainP95Ratio = $round1P95Ratio
+                ManagedPlainP95DeltaMs =
+                    $round1P95DeltaMs
                 ManagedPlainResizeP95Ratio =
                     $round1ResizeP95Ratio
+                ManagedPlainResizeP95DeltaMs =
+                    $round1ResizeP95DeltaMs
             },
             [ordered]@{
                 Round = 2
@@ -1961,8 +2848,12 @@ try {
                 ManagedPlainSelectionP95DeltaMs =
                     $round2SelectionP95DeltaMs
                 ManagedPlainP95Ratio = $round2P95Ratio
+                ManagedPlainP95DeltaMs =
+                    $round2P95DeltaMs
                 ManagedPlainResizeP95Ratio =
                     $round2ResizeP95Ratio
+                ManagedPlainResizeP95DeltaMs =
+                    $round2ResizeP95DeltaMs
             })
         Plain = $plainResult
         Managed = $managedResult
@@ -1971,7 +2862,10 @@ try {
         ManagedPlainSelectionP95DeltaMs =
             $selectionP95DeltaMs
         ManagedPlainP95Ratio = $p95Ratio
+        ManagedPlainP95DeltaMs = $p95DeltaMs
         ManagedPlainResizeP95Ratio = $resizeP95Ratio
+        ManagedPlainResizeP95DeltaMs =
+            $resizeP95DeltaMs
         SelectionComparisonPassed =
             $selectionComparisonPassed
         ComparisonPassed = $comparisonPassed
@@ -2037,6 +2931,9 @@ try {
         $report.SelectionChangeEventsPassed -and
         $report.StoragePassed -and
         $report.WordAddInConnect -and
+        $report.Source.Passed -and
+        $report.DocumentContent.Passed -and
+        $report.ComparisonPictureSemantics.Passed -and
         -not $report.CleanupResidualWinWord
 
     $reportJson = $report | ConvertTo-Json -Depth 8
@@ -2052,7 +2949,9 @@ try {
     Write-Host "ManagedPlainSelectionP95Ratio=$selectionP95Ratio"
     Write-Host "ManagedPlainSelectionP95DeltaMs=$selectionP95DeltaMs"
     Write-Host "ManagedPlainP95Ratio=$p95Ratio"
+    Write-Host "ManagedPlainP95DeltaMs=$p95DeltaMs"
     Write-Host "ManagedPlainResizeP95Ratio=$resizeP95Ratio"
+    Write-Host "ManagedPlainResizeP95DeltaMs=$resizeP95DeltaMs"
     Write-Host "ComparisonPassed=$($report.ComparisonPassed)"
     Write-Host "AbsoluteLatencyGatePassed=$($report.AbsoluteLatencyGatePassed)"
     Write-Host "MinimumSamplesPassed=$($report.MinimumSamplesPassed)"
@@ -2063,6 +2962,26 @@ try {
     Write-Host "NoAdditionalMetadataPathDifferenceObserved=$($report.NoAdditionalMetadataPathDifferenceObserved)"
     Write-Host "ReopenPersistencePassed=$($report.ReopenPersistencePassed)"
     Write-Host "StoredPayloadPassed=$($report.StoredPayloadPassed)"
+    Write-Host "SourcePassed=$($report.Source.Passed)"
+    Write-Host "SourceMode=$($report.Source.Mode)"
+    Write-Host "SourceSha256=$($report.Source.Sha256)"
+    Write-Host "DrawioXmlChars=$($report.Source.Chars)"
+    Write-Host "DrawioXmlBytes=$($report.Source.Bytes)"
+    Write-Host "DiagramCount=$($report.Source.DiagramCount)"
+    Write-Host "MxCellCount=$($report.Source.MxCellCount)"
+    Write-Host "VertexCount=$($report.Source.VertexCount)"
+    Write-Host "EdgeCount=$($report.Source.EdgeCount)"
+    Write-Host "ReopenedBodyParagraphs=$($report.DocumentContent.Reopened.BodyParagraphs)"
+    Write-Host "ReopenedBodyCharacters=$($report.DocumentContent.Reopened.BodyCharacters)"
+    Write-Host "ReopenedPageCount=$($report.DocumentContent.Reopened.PageCount)"
+    Write-Host "ReopenedTableCount=$($report.DocumentContent.Reopened.TableCount)"
+    Write-Host "ReopenedAuxiliaryPictureCount=$($report.DocumentContent.Reopened.AuxiliaryPictureCount)"
+    Write-Host "ReopenedHeaderPresent=$($report.DocumentContent.Reopened.HeaderPresent)"
+    Write-Host "ReopenedFooterPresent=$($report.DocumentContent.Reopened.FooterPresent)"
+    Write-Host "ReopenedBodySha256=$($report.DocumentContent.Reopened.BodySha256)"
+    Write-Host "DocumentContentStable=$($report.DocumentContent.StableAfterReopen)"
+    Write-Host "DocumentContentPassed=$($report.DocumentContent.Passed)"
+    Write-Host "ComparisonPictureSemanticsPassed=$($report.ComparisonPictureSemantics.Passed)"
     Write-Host "WordAddInConnect=$($report.WordAddInConnect)"
     Write-Host "PointerInputCovered=False"
     Write-Host "CleanupResidualWinWord=$($report.CleanupResidualWinWord)"
@@ -2116,5 +3035,28 @@ finally {
                 -TimeoutSeconds 2)) {
             Stop-OwnedWordProcess -Identity $identity
         }
+    }
+
+    if ($sourceMode -eq "UserProvided" -and
+        -not [string]::IsNullOrWhiteSpace($originalSourcePath) -and
+        -not [string]::IsNullOrWhiteSpace($originalSourceSha256)) {
+        $originalSourceSha256After =
+            Get-Sha256 -Path $originalSourcePath
+        Write-Host "OriginalSourceSha256After=$originalSourceSha256After"
+        if (-not [string]::Equals(
+                $originalSourceSha256After,
+                $originalSourceSha256,
+                [StringComparison]::Ordinal)) {
+            throw "The original Draw.io source changed during the test."
+        }
+    }
+
+    if ($KeepArtifacts) {
+        Write-Host "TestRoot=$testRoot"
+        Write-Host "DocumentPath=$documentPath"
+        Write-Host "SvgPath=$svgPath"
+    }
+    else {
+        Remove-OwnedTestRoot -Path $testRoot
     }
 }
