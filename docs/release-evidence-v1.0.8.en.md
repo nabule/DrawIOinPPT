@@ -8,6 +8,7 @@
 - Release directory: `artifacts\releases\v1.0.8\package`
 - Release archive: `artifacts\releases\v1.0.8\DrawioPpt-v1.0.8.zip`
 - Standard local install root: `%LOCALAPPDATA%\Greensoft\DrawioPpt`
+- Version info file: `BuildInfo.txt`, with `BuildId` / `GitShortHash` also recorded in `PACKAGE.txt`
 - New installed-package regressions: `word-svg-aspect-ratio-e2e.ps1`, `word-preview-image-provider-e2e.ps1`, and `powerpoint-svg-aspect-ratio-e2e.ps1`
 
 v1.0.8 has been published as a GitHub Release: <https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>.
@@ -18,6 +19,7 @@ v1.0.8 has been published as a GitHub Release: <https://github.com/nabule/DrawIO
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Configuration Release -Platform x64
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-selection-sync-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\webview2-user-data-folder-test.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\version-display-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-cleanup-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-complex-metadata-e2e.ps1 -Configuration Release -SkipBuild
@@ -34,6 +36,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread
 ## Final Verification Results
 
 - The `Release|x64` build passed with 0 warnings and 0 errors.
+- `version-display-safety-test.ps1` passed, covering `BuildInfo` lookup, Word/PPT Ribbon version labels, the shared settings-window version label, build/package generation of `BuildInfo.txt`, `BuildId` / `GitShortHash` in `PACKAGE.txt`, and installer output.
 - Full functional Office E2E against the final package reported `12/12 PASS`: `ReleasePackage`, `InstallRelease`, `InstalledOfficeAddInsVerify`, `PowerPointAddInLoad`, `InstalledUrlSmoke`, `InstalledWordUrlHostE2E`, `InstalledWordComplexMetadataE2E`, `InstalledWordSvgAspectE2E`, `InstalledWordPreviewProviderE2E`, `InstalledPowerPointSvgAspectE2E`, `PowerPointUrlE2E`, and `DesktopExporter` all passed.
 - The full-E2E summary and log copy are content-identical, with SHA256 `7D5AC38245C29AF08B04C24414480E1024E270210657EC0AFB97D0ABF52CF73C`. The transcript SHA256 is `0E629301AEE84FE71733B0FD956747201E99EADE70A2B3FE4E1DDBDBC55E4932`.
 - The pre-compression internal Markdown-link gate reported `PackageMarkdownMissingLinkCount=0`.

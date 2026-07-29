@@ -10,6 +10,7 @@
 - PowerPoint continues to insert the original SVG directly. It uses proportional `contain` sizing within the slide bounds, centers the shape, and does not rewrite the `viewBox` or introduce internal blank padding to fill a box.
 - Word Re-edit and Refresh retain picture width and recalculate height and position from the source ratio. Complete Draw.io XML remains in `Document.CustomXMLParts`; picture `AlternativeText` normally carries only a lightweight reference.
 - If `CustomXMLParts.Upsert` fails, the picture fallback retains the full envelope. Legacy documents with a full envelope only in picture `AlternativeText` migrate it into document-level primary storage on first read.
+- The Word and PowerPoint Ribbon info areas now show the build version; the shared settings window footer shows the same BuildId. The release package generates `BuildInfo.txt`, records `BuildId` and `GitShortHash` in `PACKAGE.txt`, and prints the installed BuildId after installation.
 
 ## Compatibility Tradeoff
 
@@ -20,6 +21,7 @@ The Word PNG is a display artifact, not primary storage. The normal path require
 ## Current Validation Results
 
 - The `Release|x64` build passed with 0 warnings and 0 errors.
+- The version-display safety test passed, confirming `BuildInfo`, Word/PPT Ribbon labels, the settings window, build scripts, package manifest, and installation output all carry BuildId / Git short hash information.
 - The Word zero-passive-selection path, WebView2 user-data-folder contract, URL-host safety contract, and full-E2E cleanup safety contract passed.
 - The latest `word-preview-image-provider-e2e.ps1` covers the normal 1240px aspect-preserving PNG, a 1240×620 lightweight PNG placeholder for its 2:1 failure sample, and immediate temporary-source, preview, and fallback-directory cleanup. The implementation still includes bounded retry, deferred, and startup cleanup for temporary XML, but this script does not claim coverage for those paths without fault injection.
 - The latest `word-svg-aspect-ratio-e2e.ps1` passed in real Word: a 2:1 PNG remains 2:1 after create and replacement; the vertical case reports `VerticalRatio=0.25` and `VerticalContained=True`; a failed replacement reports `FailedReplacementPreservedOriginal=True`, proving the original is not deleted before the new picture succeeds.

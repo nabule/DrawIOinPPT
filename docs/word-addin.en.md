@@ -19,7 +19,7 @@ The new project is `src/DrawioPpt.WordAddIn/`, an independent Word COM Add-in ho
 
 - Desktop draw.io launch and SVG export.
 - URL-mode `WebView2 + diagrams.net embed` editor.
-- Settings UI, logging, and user notifications.
+- Settings UI, logging, user notifications, and the version label in the settings footer.
 - SVG export and sanitization, 1240px PNG preview generation, and draw.io `content` metadata embedding.
 
 Word-specific code handles:
@@ -115,6 +115,7 @@ To uninstall, close PowerPoint and Word first, then run:
 If an upgrade reports that a file such as `WebView2Loader.dll` is still in use, an old WebView2 child process has usually not exited yet. Close Office, the add-in settings window, and any URL editor window; if the file remains locked, reboot and rerun the installer. The installer does not terminate those processes automatically, to avoid affecting unrelated WebView2 applications.
 
 After installation, Word shows the `Draw.io` Ribbon; the existing PowerPoint add-in remains available in PowerPoint.
+The Word and PowerPoint Ribbon info areas both show the current BuildId, formatted as `v1.0.8+<git-short-hash>`. The settings window footer shows the same value, which helps confirm whether Office loaded the DLLs from the current release package.
 
 ## 5. Developer Build and Registration
 
@@ -144,6 +145,7 @@ After developer registration, Word shows the `Draw.io` Ribbon:
 - `Bind`: bring a normal picture under Draw.io management.
 - `Clear Binding`: remove metadata while keeping the visible picture.
 - `Settings`: reuse the existing editor settings.
+- Info-area version: shows the current BuildId, for example `v1.0.8+0704dce`.
 
 Word does not expose Auto Open, so selection and dragging remain free of add-in work. PowerPoint auto-open behavior is unchanged.
 

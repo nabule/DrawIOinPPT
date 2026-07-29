@@ -107,6 +107,11 @@ namespace DrawioPpt.WordAddIn.Ribbon
             return _host == null ? "模式：初始化中" : _host.GetEditorModeSummary();
         }
 
+        public string GetVersionSummary(IRibbonControl control)
+        {
+            return _host == null ? "版本：初始化中" : _host.GetVersionSummary();
+        }
+
         public string GetSelectionDetailSummary(IRibbonControl control)
         {
             return _host == null ? "状态：初始化中" : _host.GetSelectionDetailSummary();

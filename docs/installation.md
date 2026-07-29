@@ -27,6 +27,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 4. 等待脚本提示安装成功
 5. 打开 PowerPoint 或 Word，确认功能区里出现 `Draw.io`
 
+安装成功输出会包含 `BuildId`，格式为 `v1.0.8+<git-short-hash>`。同一值也会写入发布包根目录和安装目录中的 `BuildInfo.txt` / `PACKAGE.txt`，便于核对当前安装到底来自哪个提交。
+
 发布包内的核心安装文件包括：
 
 - `install.cmd`
@@ -36,6 +38,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 - `scripts\register-office-addins.ps1`
 - `scripts\unregister-office-addins.ps1`
 - `scripts\verify-office-install.ps1`
+- `BuildInfo.txt`
+- `PACKAGE.txt`
 - `scripts\register-addin.ps1`
 - `scripts\unregister-addin.ps1`
 - `scripts\register-word-addin.ps1`
@@ -72,6 +76,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 - `src\DrawioPpt.Core\bin\x64\Debug\DrawioPpt.Core.dll`
 - `src\DrawioPpt.PowerPointAddIn\bin\x64\Debug\DrawioPpt.PowerPointAddIn.dll`
 - `src\DrawioPpt.WordAddIn\bin\x64\Debug\DrawioPpt.WordAddIn.dll`
+
+构建脚本会同时在三个输出目录写入 `BuildInfo.txt`。插件运行时优先从该文件读取 `BuildId`，因此仓库开发注册和发布包安装都能在设置窗口与功能区信息区看到相同的版本号和 Git short hash。
 
 ## 5. 注册插件
 
@@ -154,9 +160,10 @@ powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\
 
 1. 插件能正常加载
 2. 设置窗口能打开
-3. `Desktop` 模式可探测本地 `draw.io.exe`
-4. `Url` 模式的 `Test URL` 能通过
-5. 能创建一个新图形并成功回写
+3. 设置窗口底部和功能区信息区能看到 `版本：v1.0.8+<git-short-hash>`
+4. `Desktop` 模式可探测本地 `draw.io.exe`
+5. `Url` 模式的 `Test URL` 能通过
+6. 能创建一个新图形并成功回写
 
 如果你需要完整自动化验收，可以运行：
 

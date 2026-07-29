@@ -25,6 +25,7 @@ namespace DrawioPpt.WordAddIn.Ribbon
           <labelControl id='Greensoft.DrawioWord.Status' getLabel='GetSelectionStatus' />
           <labelControl id='Greensoft.DrawioWord.Detail' getLabel='GetSelectionDetailSummary' />
           <labelControl id='Greensoft.DrawioWord.Mode' getLabel='GetEditorModeSummary' />
+          <labelControl id='Greensoft.DrawioWord.Version' getLabel='GetVersionSummary' />
         </group>
       </tab>
     </tabs>

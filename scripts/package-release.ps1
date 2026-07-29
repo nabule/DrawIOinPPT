@@ -9,6 +9,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $buildScript = Join-Path $PSScriptRoot "build.ps1"
+$buildInfoScript = Join-Path $PSScriptRoot "write-build-info.ps1"
 $releaseBase = [System.IO.Path]::GetFullPath(
     (Join-Path $repoRoot "artifacts\\releases"))
 if ($Version -notmatch '^v[0-9A-Za-z](?:[0-9A-Za-z._-]*[0-9A-Za-z])?$') {
@@ -247,7 +248,7 @@ function Assert-PortableZip {
 }
 
 if (-not $SkipBuild) {
-    & powershell.exe -ExecutionPolicy Bypass -File $buildScript -Configuration $Configuration -Platform $Platform
+    & powershell.exe -ExecutionPolicy Bypass -File $buildScript -Configuration $Configuration -Platform $Platform -Version $Version
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
@@ -265,6 +266,35 @@ if (-not (Test-Path $coreBinRoot)) {
     throw "Core output folder not found: $coreBinRoot"
 }
 
+if (-not (Test-Path $buildInfoScript)) {
+    throw "Build info script not found: $buildInfoScript"
+}
+
+$buildInfoOutputRoots = @($addInBinRoot, $wordAddInBinRoot, $coreBinRoot)
+& $buildInfoScript -Version $Version -OutputRoots $buildInfoOutputRoots
+
+$buildInfoPath = Join-Path $addInBinRoot "BuildInfo.txt"
+if (-not (Test-Path -LiteralPath $buildInfoPath)) {
+    throw "BuildInfo.txt was not generated: $buildInfoPath"
+}
+
+$buildInfoValues = @{}
+foreach ($line in Get-Content -LiteralPath $buildInfoPath) {
+    if ($line -match '^\s*([^:=]+)\s*[:=]\s*(.*)\s*$') {
+        $buildInfoValues[$Matches[1].Trim()] = $Matches[2].Trim()
+    }
+}
+
+$buildId = $buildInfoValues["BuildId"]
+$gitShortHash = $buildInfoValues["GitShortHash"]
+if ([string]::IsNullOrWhiteSpace($buildId)) {
+    $buildId = $Version
+}
+
+if ([string]::IsNullOrWhiteSpace($gitShortHash)) {
+    $gitShortHash = "unknown"
+}
+
 if (Test-Path $releaseRoot) {
     Remove-Item -LiteralPath $releaseRoot -Recurse -Force
 }
@@ -279,6 +309,8 @@ New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot "bin\\runtimes
 Copy-Item (Join-Path $addInBinRoot "DrawioPpt.PowerPointAddIn.dll") (Join-Path $packageRoot "bin") -Force
 Copy-Item (Join-Path $wordAddInBinRoot "DrawioPpt.WordAddIn.dll") (Join-Path $packageRoot "bin") -Force
 Copy-Item (Join-Path $coreBinRoot "DrawioPpt.Core.dll") (Join-Path $packageRoot "bin") -Force
+Copy-Item $buildInfoPath $packageRoot -Force
+Copy-Item $buildInfoPath (Join-Path $packageRoot "bin") -Force
 Copy-Item (Join-Path $addInBinRoot "Microsoft.Web.WebView2.Core.dll") (Join-Path $packageRoot "bin") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $addInBinRoot "Microsoft.Web.WebView2.WinForms.dll") (Join-Path $packageRoot "bin") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $addInBinRoot "runtimes\\win-x64\\native\\WebView2Loader.dll") (Join-Path $packageRoot "bin\\runtimes\\win-x64\\native") -Force -ErrorAction SilentlyContinue
@@ -326,6 +358,8 @@ Copy-Item (Join-Path $repoRoot "scripts\\word-preview-image-provider-e2e.ps1") (
 Copy-Item (Join-Path $repoRoot "scripts\\powerpoint-svg-aspect-ratio-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\webview2-user-data-folder-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\version-display-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\write-build-info.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\uninstall-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\url-editor-smoke.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -344,6 +378,8 @@ $manifestPath = Join-Path $packageRoot "PACKAGE.txt"
 @"
 Package: DrawioPpt
 Version: $Version
+BuildId: $buildId
+GitShortHash: $gitShortHash
 Configuration: $Configuration
 Platform: $Platform
 BuiltAt: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
@@ -352,9 +388,11 @@ Contents:
 - README.md
 - README.en.md
 - PACKAGE.txt
+- BuildInfo.txt
 - bin\DrawioPpt.PowerPointAddIn.dll
 - bin\DrawioPpt.WordAddIn.dll
 - bin\DrawioPpt.Core.dll
+- bin\BuildInfo.txt
 - bin\Microsoft.Web.WebView2.Core.dll (if available)
 - bin\Microsoft.Web.WebView2.WinForms.dll (if available)
 - bin\runtimes\win-x64\native\WebView2Loader.dll (if available)
@@ -379,6 +417,8 @@ Contents:
 - scripts\powerpoint-svg-aspect-ratio-e2e.ps1
 - scripts\webview2-user-data-folder-test.ps1
 - scripts\word-url-addin-host-e2e-safety-test.ps1
+- scripts\version-display-safety-test.ps1
+- scripts\write-build-info.ps1
 - scripts\install-release.ps1
 - scripts\uninstall-release.ps1
 - scripts\url-editor-smoke.ps1

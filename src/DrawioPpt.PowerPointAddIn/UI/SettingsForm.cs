@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using DrawioPpt.Core;
 using DrawioPpt.Core.Models;
 using DrawioPpt.PowerPointAddIn.Services;
 
@@ -18,6 +19,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
         private readonly CheckBox _diagramInfoDialogCheckBox;
         private readonly CheckBox _keepSidecarCheckBox;
         private readonly TextBox _sidecarFolderTextBox;
+        private readonly Label _versionLabel;
         private readonly Button _browseButton;
         private readonly Button _detectButton;
         private readonly Button _testUrlButton;
@@ -114,6 +116,9 @@ namespace DrawioPpt.PowerPointAddIn.UI
             bottomButtonsPanel.Controls.Add(_cancelButton);
             bottomButtonsPanel.Controls.Add(_okButton);
 
+            _versionLabel = CreateLabel("版本：" + BuildInfo.DisplayVersion, 16, 354);
+            _versionLabel.Width = 440;
+
             this.Controls.Add(modeLabel);
             this.Controls.Add(_editorModeComboBox);
             this.Controls.Add(desktopLabel);
@@ -129,6 +134,7 @@ namespace DrawioPpt.PowerPointAddIn.UI
             this.Controls.Add(_keepSidecarCheckBox);
             this.Controls.Add(sidecarLabel);
             this.Controls.Add(_sidecarFolderTextBox);
+            this.Controls.Add(_versionLabel);
             this.Controls.Add(bottomButtonsPanel);
 
             this.AcceptButton = _okButton;

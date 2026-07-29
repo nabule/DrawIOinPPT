@@ -8,6 +8,7 @@
 - 发布目录：`artifacts\releases\v1.0.8\package`
 - 发布压缩包：`artifacts\releases\v1.0.8\DrawioPpt-v1.0.8.zip`
 - 标准本地安装根：`%LOCALAPPDATA%\Greensoft\DrawioPpt`
+- 版本信息文件：`BuildInfo.txt`，并在 `PACKAGE.txt` 中记录 `BuildId` / `GitShortHash`
 - 新增安装包回归：`word-svg-aspect-ratio-e2e.ps1`、`word-preview-image-provider-e2e.ps1`、`powerpoint-svg-aspect-ratio-e2e.ps1`
 
 v1.0.8 已作为 GitHub Release 公开发布：<https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>。
@@ -18,6 +19,7 @@ v1.0.8 已作为 GitHub Release 公开发布：<https://github.com/nabule/DrawIO
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Configuration Release -Platform x64
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-selection-sync-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\webview2-user-data-folder-test.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\version-display-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-cleanup-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-complex-metadata-e2e.ps1 -Configuration Release -SkipBuild
@@ -34,6 +36,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread
 ## 最终验证结果
 
 - `Release|x64` 构建通过：0 warnings，0 errors。
+- `version-display-safety-test.ps1` 通过，覆盖 `BuildInfo` 读取、Word/PPT Ribbon 版本标签、共享设置窗口版本标签、构建/打包生成 `BuildInfo.txt`、`PACKAGE.txt` 中的 `BuildId` / `GitShortHash` 以及安装脚本输出。
 - 最终发布包的完整 Office 功能 E2E 为 `12/12 PASS`：`ReleasePackage`、`InstallRelease`、`InstalledOfficeAddInsVerify`、`PowerPointAddInLoad`、`InstalledUrlSmoke`、`InstalledWordUrlHostE2E`、`InstalledWordComplexMetadataE2E`、`InstalledWordSvgAspectE2E`、`InstalledWordPreviewProviderE2E`、`InstalledPowerPointSvgAspectE2E`、`PowerPointUrlE2E`、`DesktopExporter` 全部为 PASS。
 - full E2E 汇总报告与日志副本内容一致，SHA256 为 `7D5AC38245C29AF08B04C24414480E1024E270210657EC0AFB97D0ABF52CF73C`；transcript SHA256 为 `0E629301AEE84FE71733B0FD956747201E99EADE70A2B3FE4E1DDBDBC55E4932`。
 - 压缩阶段的包内 Markdown 链接门槛输出 `PackageMarkdownMissingLinkCount=0`。

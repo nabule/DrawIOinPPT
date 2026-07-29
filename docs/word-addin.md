@@ -19,7 +19,7 @@ Word 版插件的目标是把当前 PowerPoint 插件的 Draw.io 工作流带到
 
 - 桌面 draw.io 启动与导出。
 - URL 模式 `WebView2 + diagrams.net embed` 编辑器。
-- 设置窗口、日志、用户提示。
+- 设置窗口、日志、用户提示，以及设置窗口底部的版本号显示。
 - SVG 导出与 sanitize、1240px PNG 预览生成、draw.io `content` 元数据补写。
 
 Word 专属代码负责：
@@ -115,6 +115,7 @@ B09116FB0D6140E39CFDA0568957897BD697CB5B7DAE257F7B1438E9B1A6DB9D
 如果升级安装时提示旧目录中 `WebView2Loader.dll` 一类文件被占用，通常是旧的 WebView2 子进程还没有退出。先关闭 Office、插件设置窗口和 URL 编辑窗口；如果仍被占用，重启系统后再次执行安装脚本。安装脚本不会自动结束这些进程，避免影响其它 WebView2 应用。
 
 安装完成后打开 Word，会出现 `Draw.io` 功能区；打开 PowerPoint 时原有 PowerPoint 插件也会继续可用。
+Word 和 PowerPoint 功能区的信息区都会显示当前 BuildId，格式为 `v1.0.8+<git-short-hash>`；设置窗口底部也显示同一个值，便于确认当前加载的 DLL 是否来自本次发布包。
 
 ## 5. 开发构建与注册
 
@@ -144,6 +145,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-word-addin.ps1
 - `绑定`：把一个普通图片纳入 Draw.io 管理。
 - `清除绑定`：移除绑定元数据，保留图片显示。
 - `设置`：复用现有编辑器设置。
+- 信息区版本号：显示当前 BuildId，例如 `v1.0.8+0704dce`。
 
 Word 不提供“自动打开”入口；这是为了保证选择和拖动过程中没有插件处理。PowerPoint 的自动打开行为不受影响。
 

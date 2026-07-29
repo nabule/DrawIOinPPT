@@ -27,6 +27,8 @@ If you received a release package such as `DrawioPpt-v1.0.8.zip`, the recommende
 4. Wait for the script to report success.
 5. Open PowerPoint or Word and confirm that the `Draw.io` tab appears on the Ribbon.
 
+Successful installation output includes `BuildId` in the form `v1.0.8+<git-short-hash>`. The same value is written to `BuildInfo.txt` / `PACKAGE.txt` in the package root and installed root, so you can identify the exact commit behind the installed add-in.
+
 Core installation files included in the release package:
 
 - `install.cmd`
@@ -36,6 +38,8 @@ Core installation files included in the release package:
 - `scripts\register-office-addins.ps1`
 - `scripts\unregister-office-addins.ps1`
 - `scripts\verify-office-install.ps1`
+- `BuildInfo.txt`
+- `PACKAGE.txt`
 - `scripts\register-addin.ps1`
 - `scripts\unregister-addin.ps1`
 - `scripts\register-word-addin.ps1`
@@ -72,6 +76,8 @@ Default outputs:
 - `src\DrawioPpt.Core\bin\x64\Debug\DrawioPpt.Core.dll`
 - `src\DrawioPpt.PowerPointAddIn\bin\x64\Debug\DrawioPpt.PowerPointAddIn.dll`
 - `src\DrawioPpt.WordAddIn\bin\x64\Debug\DrawioPpt.WordAddIn.dll`
+
+The build script also writes `BuildInfo.txt` into all three output directories. At runtime the add-ins read this file first, so repository-based registration and release-package installation both show the same version and Git short hash in the settings window and Ribbon information area.
 
 ## 5. Register the Add-In
 
@@ -154,9 +160,10 @@ Use this order to confirm that installation succeeded:
 
 1. The add-in loads correctly.
 2. The settings window opens.
-3. `Desktop` mode can detect a local `draw.io.exe`.
-4. `Test URL` succeeds in `Url` mode.
-5. You can create a new diagram and write it back successfully.
+3. The settings window footer and Ribbon information area show `版本：v1.0.8+<git-short-hash>`.
+4. `Desktop` mode can detect a local `draw.io.exe`.
+5. `Test URL` succeeds in `Url` mode.
+6. You can create a new diagram and write it back successfully.
 
 If you want to run the full automated acceptance flow:
 

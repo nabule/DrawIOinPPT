@@ -26,6 +26,7 @@ namespace DrawioPpt.PowerPointAddIn.Ribbon
           <labelControl id='Greensoft.DrawioPpt.Status' getLabel='GetSelectionStatus' />
           <labelControl id='Greensoft.DrawioPpt.Detail' getLabel='GetSelectionDetailSummary' />
           <labelControl id='Greensoft.DrawioPpt.Mode' getLabel='GetEditorModeSummary' />
+          <labelControl id='Greensoft.DrawioPpt.Version' getLabel='GetVersionSummary' />
         </group>
       </tab>
     </tabs>

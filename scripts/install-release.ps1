@@ -42,6 +42,35 @@ function Remove-ExistingInstallRoot {
     }
 }
 
+function Read-BuildInfoValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $candidatePaths = @(
+        (Join-Path $Root "BuildInfo.txt"),
+        (Join-Path $Root "PACKAGE.txt"),
+        (Join-Path $Root "bin\\BuildInfo.txt")
+    )
+
+    foreach ($candidatePath in $candidatePaths) {
+        if (-not (Test-Path -LiteralPath $candidatePath)) {
+            continue
+        }
+
+        foreach ($line in Get-Content -LiteralPath $candidatePath) {
+            if ($line -match ('^\s*' + [regex]::Escape($Name) + '\s*[:=]\s*(.*)\s*$')) {
+                return $Matches[1].Trim()
+            }
+        }
+    }
+
+    return ""
+}
+
 if (-not (Test-Path (Join-Path $sourceBin "DrawioPpt.PowerPointAddIn.dll"))) {
     throw "Release package root not found. Expected: $sourceBin\\DrawioPpt.PowerPointAddIn.dll"
 }
@@ -89,3 +118,7 @@ Write-Host "DrawioPpt installed successfully."
 Write-Host "  InstallRoot: $targetRoot"
 Write-Host "  PowerPoint:  $targetAssemblyPath"
 Write-Host "  Word:        $targetWordAssemblyPath"
+$installedBuildId = Read-BuildInfoValue -Root $targetRoot -Name "BuildId"
+if (-not [string]::IsNullOrWhiteSpace($installedBuildId)) {
+    Write-Host "  BuildId:     $installedBuildId"
+}

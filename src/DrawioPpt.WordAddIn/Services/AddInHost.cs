@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
+using DrawioPpt.Core;
 using DrawioPpt.Core.Contracts;
 using DrawioPpt.Core.Models;
 using DrawioPpt.Core.Services;
@@ -315,6 +316,11 @@ namespace DrawioPpt.WordAddIn.Services
             PluginSettings settings = _settings ?? new PluginSettings();
             string modeText = settings.EditorMode == EditorMode.Url ? "URL 模式" : "桌面模式";
             return "模式：" + modeText;
+        }
+
+        public string GetVersionSummary()
+        {
+            return "版本：" + BuildInfo.DisplayVersion;
         }
 
         public string GetEditButtonLabel()

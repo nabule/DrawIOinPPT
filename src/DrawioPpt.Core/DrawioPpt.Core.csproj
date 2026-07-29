@@ -43,6 +43,7 @@
     <Compile Include="Models\DiagramEnvelope.cs" />
     <Compile Include="Models\EditorMode.cs" />
     <Compile Include="Models\PluginSettings.cs" />
+    <Compile Include="BuildInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\CompressionUtility.cs" />
     <Compile Include="Services\DiagramEnvelopeSerializer.cs" />

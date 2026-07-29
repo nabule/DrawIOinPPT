@@ -38,6 +38,7 @@ The current version can already do the following:
 - Backfill draw.io `content` metadata into exported SVG
 - Write logs to help diagnose URL-mode and write-back failures
 - Group the Ribbon into `Create / Current Shape / Workflow / Info`
+- Show the current build version in the Ribbon info area and settings window, using `v1.0.8+<git-short-hash>` so the loaded build is easy to identify
 - Relocate sidecar `.drawio` files automatically after save-as, path changes, or moving the deck to another machine
 
 Complex diagrams in Word use this storage model:
@@ -100,6 +101,9 @@ The right side of the Ribbon also shows status information, such as:
 - Whether the selected shape is a normal shape or a recognized Draw.io shape
 - Whether the current editor mode is desktop or URL
 - Whether the main edit button is acting as `Edit` or `Re-edit`
+- The current add-in BuildId, for example `v1.0.8+0704dce`
+
+The settings window footer shows the same BuildId. Word and PowerPoint share that settings window, so both add-ins can verify the loaded build there.
 
 ## 5. Settings Explained
 

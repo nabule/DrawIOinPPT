@@ -90,6 +90,11 @@ namespace DrawioPpt.PowerPointAddIn.Ribbon
             return _host.GetEditorModeSummary();
         }
 
+        public string GetVersionSummary(IRibbonControl control)
+        {
+            return _host.GetVersionSummary();
+        }
+
         public string GetEditButtonLabel(IRibbonControl control)
         {
             return _host.GetEditButtonLabel();
