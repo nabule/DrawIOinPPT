@@ -101,6 +101,8 @@
     "UnconditionalFallbackCannotSatisfyWriteContract": true,
     "SetVariableCannotSatisfyWriteContract": true,
     "UnaryWriteCannotSatisfyWriteContract": true,
+    "SetVariableAliasCannotSatisfyWriteContract": true,
+    "ForEachCannotSatisfyWriteContract": true,
     "SourceAspectWriteContractPassed": true,
     "ExceptionalTemporaryFileCleanupVerified": true,
     "AlphaThreshold": 8,

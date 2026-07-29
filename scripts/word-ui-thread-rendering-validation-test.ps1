@@ -199,8 +199,13 @@ function Test-SourceAspectWriteContract {
                     [Management.Automation.Language.CommandAst] -or
                     $node.GetCommandName() -notin @(
                         "Set-Variable",
+                        "set",
+                        "sv",
                         "Clear-Variable",
-                        "Remove-Variable")) {
+                        "clear",
+                        "clv",
+                        "Remove-Variable",
+                        "rv")) {
                     return $false
                 }
 
@@ -210,6 +215,17 @@ function Test-SourceAspectWriteContract {
                             [Management.Automation.Language.StringConstantExpressionAst] -and
                         $_.Value -eq "sourceDisplayAspectRatio"
                     }).Count -gt 0
+            },
+            $true))
+    $forEachWrites = @($ScriptAst.FindAll(
+            {
+                param($node)
+                $node -is
+                    [Management.Automation.Language.ForEachStatementAst] -and
+                $node.Variable -is
+                    [Management.Automation.Language.VariableExpressionAst] -and
+                $node.Variable.VariablePath.UserPath -eq
+                    "sourceDisplayAspectRatio"
             },
             $true))
     $unaryWrites = @($ScriptAst.FindAll(
@@ -234,6 +250,7 @@ function Test-SourceAspectWriteContract {
         $syntheticFallbackAssignments.Count -ne 1 -or
         $commandWrites.Count -ne 0 -or
         $unaryWrites.Count -ne 0 -or
+        $forEachWrites.Count -ne 0 -or
         @($assignments |
             Where-Object {
                 $_.Operator -ne
@@ -942,6 +959,70 @@ finally {}
         $unaryMutationErrors.Count -eq 0 -and
         -not (Test-SourceAspectWriteContract `
             -ScriptAst $unaryMutationAst)
+    $setVariableAliasTokens = $null
+    $setVariableAliasErrors = $null
+    $setVariableAliasAst =
+        [Management.Automation.Language.Parser]::ParseInput(
+            @'
+try {
+    $sourceDisplayAspectRatio = 0
+    if ($sourceMode -eq "UserProvided" -or
+        $PictureRenderFormat -in @("Png", "Jpeg", "Placeholder")) {
+        $sourceDisplayAspectRatio =
+            Get-IndependentSourceDisplayAspectRatio `
+                -SourcePath $sourceCopyPath `
+                -TestRoot $testRoot
+    }
+    sv sourceDisplayAspectRatio 1.0
+    if ($sourceDisplayAspectRatio -le 0) {
+        $sourceDisplayAspectRatio = 1200.0 / 800.0
+    }
+    $renderingContract = Test-RenderedImageContract `
+        -RenderedImageStatistics $renderedImageStatistics `
+        -SourceAspectRatio $sourceDisplayAspectRatio `
+        -RequestedPixelWidth $PreviewPixelWidth `
+        -BlankPaddingStatistics $blankPaddingStatistics
+}
+finally {}
+'@,
+            [ref]$setVariableAliasTokens,
+            [ref]$setVariableAliasErrors)
+    $setVariableAliasCannotSatisfyWriteContract =
+        $setVariableAliasErrors.Count -eq 0 -and
+        -not (Test-SourceAspectWriteContract `
+            -ScriptAst $setVariableAliasAst)
+    $forEachMutationTokens = $null
+    $forEachMutationErrors = $null
+    $forEachMutationAst =
+        [Management.Automation.Language.Parser]::ParseInput(
+            @'
+try {
+    $sourceDisplayAspectRatio = 0
+    if ($sourceMode -eq "UserProvided" -or
+        $PictureRenderFormat -in @("Png", "Jpeg", "Placeholder")) {
+        $sourceDisplayAspectRatio =
+            Get-IndependentSourceDisplayAspectRatio `
+                -SourcePath $sourceCopyPath `
+                -TestRoot $testRoot
+    }
+    foreach ($sourceDisplayAspectRatio in @(1.0)) {}
+    if ($sourceDisplayAspectRatio -le 0) {
+        $sourceDisplayAspectRatio = 1200.0 / 800.0
+    }
+    $renderingContract = Test-RenderedImageContract `
+        -RenderedImageStatistics $renderedImageStatistics `
+        -SourceAspectRatio $sourceDisplayAspectRatio `
+        -RequestedPixelWidth $PreviewPixelWidth `
+        -BlankPaddingStatistics $blankPaddingStatistics
+}
+finally {}
+'@,
+            [ref]$forEachMutationTokens,
+            [ref]$forEachMutationErrors)
+    $forEachCannotSatisfyWriteContract =
+        $forEachMutationErrors.Count -eq 0 -and
+        -not (Test-SourceAspectWriteContract `
+            -ScriptAst $forEachMutationAst)
     $sourceAspectWriteContractPassed =
         Test-SourceAspectWriteContract -ScriptAst $ast
     $usesIndependentSvgProbe =
@@ -967,6 +1048,8 @@ finally {}
         $unconditionalFallbackCannotSatisfyWriteContract -and
         $setVariableCannotSatisfyWriteContract -and
         $unaryWriteCannotSatisfyWriteContract -and
+        $setVariableAliasCannotSatisfyWriteContract -and
+        $forEachCannotSatisfyWriteContract -and
         $sourceAspectWriteContractPassed
     $avoidsRenderedSelfComparison =
         @($sourceAspectAssignments |
@@ -1015,6 +1098,8 @@ finally {}
     Write-Host "UnconditionalFallbackCannotSatisfyWriteContract=$unconditionalFallbackCannotSatisfyWriteContract"
     Write-Host "SetVariableCannotSatisfyWriteContract=$setVariableCannotSatisfyWriteContract"
     Write-Host "UnaryWriteCannotSatisfyWriteContract=$unaryWriteCannotSatisfyWriteContract"
+    Write-Host "SetVariableAliasCannotSatisfyWriteContract=$setVariableAliasCannotSatisfyWriteContract"
+    Write-Host "ForEachCannotSatisfyWriteContract=$forEachCannotSatisfyWriteContract"
     Write-Host "SourceAspectWriteContractPassed=$sourceAspectWriteContractPassed"
     Write-Host "AvoidsRenderedSelfComparison=$avoidsRenderedSelfComparison"
     Write-Host "CorrectImagePassed=$correctImagePassed"
