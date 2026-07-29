@@ -9,7 +9,35 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $buildScript = Join-Path $PSScriptRoot "build.ps1"
-$releaseRoot = Join-Path $repoRoot ("artifacts\\releases\\" + $Version)
+$releaseBase = [System.IO.Path]::GetFullPath(
+    (Join-Path $repoRoot "artifacts\\releases"))
+if ($Version -notmatch '^v[0-9A-Za-z](?:[0-9A-Za-z._-]*[0-9A-Za-z])?$') {
+    throw "Version must be a single safe release name such as v1.0.8."
+}
+
+$releaseRoot = [System.IO.Path]::GetFullPath(
+    (Join-Path $releaseBase $Version))
+$releaseBasePrefix = $releaseBase.TrimEnd(
+    [System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar) +
+    [System.IO.Path]::DirectorySeparatorChar
+if (-not $releaseRoot.StartsWith(
+        $releaseBasePrefix,
+        [System.StringComparison]::OrdinalIgnoreCase) -or
+    -not [string]::Equals(
+        (Split-Path -Parent $releaseRoot),
+        $releaseBase,
+        [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Release root must be an immediate child of artifacts\\releases: $releaseRoot"
+}
+
+if (-not [string]::Equals(
+        (Split-Path -Leaf $releaseRoot),
+        $Version,
+        [System.StringComparison]::Ordinal)) {
+    throw "Version changes under Windows path normalization and is unsafe: $Version"
+}
+
 $packageRoot = Join-Path $releaseRoot "package"
 $zipPath = Join-Path $releaseRoot ("DrawioPpt-" + $Version + ".zip")
 $releaseNotesName = "release-notes-" + $Version + ".md"
@@ -76,6 +104,146 @@ function Assert-PackageMarkdownLinks {
     if ($missingLinks.Count -gt 0) {
         throw "Release package contains $($missingLinks.Count) unresolved local Markdown link(s)."
     }
+}
+
+function New-PortableZip {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceRoot,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationPath
+    )
+
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    $sourceRootFullPath = [System.IO.Path]::GetFullPath($SourceRoot)
+    $sourcePrefix = $sourceRootFullPath.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    $destinationFullPath = [System.IO.Path]::GetFullPath($DestinationPath)
+
+    if (Test-Path -LiteralPath $destinationFullPath) {
+        Remove-Item -LiteralPath $destinationFullPath -Force
+    }
+
+    $archiveStream = [System.IO.File]::Open(
+        $destinationFullPath,
+        [System.IO.FileMode]::CreateNew,
+        [System.IO.FileAccess]::ReadWrite,
+        [System.IO.FileShare]::None)
+    $archive = $null
+    try {
+        $archive = [System.IO.Compression.ZipArchive]::new(
+            $archiveStream,
+            [System.IO.Compression.ZipArchiveMode]::Create,
+            $false)
+        foreach ($file in Get-ChildItem -LiteralPath $sourceRootFullPath -Recurse -File | Sort-Object FullName) {
+            $entryName = $file.FullName.Substring($sourcePrefix.Length).Replace(
+                [System.IO.Path]::DirectorySeparatorChar,
+                [System.IO.Path]::AltDirectorySeparatorChar)
+            $entry = $archive.CreateEntry(
+                $entryName,
+                [System.IO.Compression.CompressionLevel]::Optimal)
+            $entryStream = $null
+            $sourceStream = $null
+            try {
+                $entryStream = $entry.Open()
+                $sourceStream = [System.IO.File]::OpenRead($file.FullName)
+                $sourceStream.CopyTo($entryStream)
+            }
+            finally {
+                if ($sourceStream -ne $null) {
+                    $sourceStream.Dispose()
+                }
+                if ($entryStream -ne $null) {
+                    $entryStream.Dispose()
+                }
+            }
+        }
+    }
+    finally {
+        if ($archive -ne $null) {
+            $archive.Dispose()
+        }
+        $archiveStream.Dispose()
+    }
+}
+
+function Assert-PortableZip {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceRoot,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ZipPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$VerificationRoot
+    )
+
+    $sourceRootFullPath = [System.IO.Path]::GetFullPath($SourceRoot)
+    $zipFullPath = [System.IO.Path]::GetFullPath($ZipPath)
+    $verificationFullPath = [System.IO.Path]::GetFullPath($VerificationRoot)
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($zipFullPath)
+    try {
+        $fileEntries = @($archive.Entries | Where-Object { -not [string]::IsNullOrEmpty($_.Name) })
+        $invalidEntries = @($fileEntries | Where-Object {
+                $_.FullName.Contains("\") -or
+                $_.FullName.StartsWith("/") -or
+                $_.FullName -match '(^|/)\.\.(/|$)'
+            })
+        if ($invalidEntries.Count -gt 0) {
+            throw "Portable ZIP contains invalid entry names: $($invalidEntries.FullName -join ', ')"
+        }
+
+        $sourceFiles = @(Get-ChildItem -LiteralPath $sourceRootFullPath -Recurse -File)
+        if ($fileEntries.Count -ne $sourceFiles.Count) {
+            throw "Portable ZIP entry count $($fileEntries.Count) does not match package file count $($sourceFiles.Count)."
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+
+    if (Test-Path -LiteralPath $verificationFullPath) {
+        Remove-Item -LiteralPath $verificationFullPath -Recurse -Force
+    }
+
+    try {
+        [System.IO.Compression.ZipFile]::ExtractToDirectory(
+            $zipFullPath,
+            $verificationFullPath)
+        $sourcePrefix = $sourceRootFullPath.TrimEnd(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+        foreach ($sourceFile in Get-ChildItem -LiteralPath $sourceRootFullPath -Recurse -File) {
+            $relativePath = $sourceFile.FullName.Substring($sourcePrefix.Length)
+            $extractedPath = Join-Path $verificationFullPath $relativePath
+            if (-not (Test-Path -LiteralPath $extractedPath)) {
+                throw "Portable ZIP extraction is missing: $relativePath"
+            }
+
+            $sourceHash = (Get-FileHash -LiteralPath $sourceFile.FullName -Algorithm SHA256).Hash
+            $extractedHash = (Get-FileHash -LiteralPath $extractedPath -Algorithm SHA256).Hash
+            if (-not [string]::Equals(
+                    $sourceHash,
+                    $extractedHash,
+                    [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "Portable ZIP extracted hash mismatch: $relativePath"
+            }
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $verificationFullPath) {
+            Remove-Item -LiteralPath $verificationFullPath -Recurse -Force
+        }
+    }
+
+    Write-Host "PortableZipEntryCount=$($sourceFiles.Count)"
+    Write-Host "PortableZipForwardSlashEntries=True"
+    Write-Host "PortableZipExtractedHashesMatch=True"
 }
 
 if (-not $SkipBuild) {
@@ -152,6 +320,9 @@ Copy-Item (Join-Path $repoRoot "scripts\\word-url-e2e.ps1") (Join-Path $packageR
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-complex-metadata-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-ui-thread-stress-acceptance.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\word-svg-aspect-ratio-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\word-preview-image-provider-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\powerpoint-svg-aspect-ratio-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\webview2-user-data-folder-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -201,6 +372,9 @@ Contents:
 - scripts\word-url-addin-host-e2e.ps1
 - scripts\word-complex-metadata-e2e.ps1
 - scripts\word-ui-thread-stress-acceptance.ps1
+- scripts\word-svg-aspect-ratio-e2e.ps1
+- scripts\word-preview-image-provider-e2e.ps1
+- scripts\powerpoint-svg-aspect-ratio-e2e.ps1
 - scripts\webview2-user-data-folder-test.ps1
 - scripts\word-url-addin-host-e2e-safety-test.ps1
 - scripts\install-release.ps1
@@ -233,7 +407,11 @@ Contents:
 
 Assert-PackageMarkdownLinks -PackageRoot $packageRoot
 
-Compress-Archive -Path (Join-Path $packageRoot "*") -DestinationPath $zipPath -Force
+New-PortableZip -SourceRoot $packageRoot -DestinationPath $zipPath
+Assert-PortableZip `
+    -SourceRoot $packageRoot `
+    -ZipPath $zipPath `
+    -VerificationRoot (Join-Path $releaseRoot ".zip-verification")
 
 Write-Host "Release package created:"
 Write-Host "  Folder: $packageRoot"

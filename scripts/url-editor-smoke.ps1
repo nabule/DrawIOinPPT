@@ -7,6 +7,8 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $buildScript = Join-Path $PSScriptRoot "build.ps1"
 $tempRoot = Join-Path $env:TEMP ("DrawioPpt\\url-editor-smoke-" + [Guid]::NewGuid().ToString("N"))
+$tempParent = [IO.Path]::GetFullPath(
+    (Join-Path $env:TEMP "DrawioPpt"))
 $mockHtmlPath = Join-Path $tempRoot "mock-editor.html"
 $smokeSourcePath = Join-Path $tempRoot "url-editor-smoke.cs"
 $smokeExePath = Join-Path $tempRoot "url-editor-smoke.exe"
@@ -46,6 +48,8 @@ if (-not (Test-Path $cscPath)) {
 }
 
 New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
+$testExitCode = 1
+try {
 
 @'
 <!DOCTYPE html>
@@ -111,10 +115,10 @@ public sealed class MockEditorServer : IDisposable
 
     public void StartWithRetry(int preferredPort)
     {
+        int candidatePort = preferredPort;
         Exception lastError = null;
         for (int attempt = 0; attempt < 20; attempt++)
         {
-            int candidatePort = preferredPort + attempt;
             HttpListener listener = new HttpListener();
             listener.Prefixes.Add("http://127.0.0.1:" + candidatePort + "/");
             listener.Prefixes.Add("http://localhost:" + candidatePort + "/");
@@ -134,10 +138,25 @@ public sealed class MockEditorServer : IDisposable
             {
                 lastError = ex;
                 listener.Close();
+                candidatePort = GetAvailableLoopbackPort();
             }
         }
 
         throw new InvalidOperationException("Unable to bind a mock-editor HTTP port.", lastError);
+    }
+
+    private static int GetAvailableLoopbackPort()
+    {
+        System.Net.Sockets.TcpListener listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+        try
+        {
+            listener.Start();
+            return ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        }
+        finally
+        {
+            listener.Stop();
+        }
     }
 
     public void AssertReachable()
@@ -321,18 +340,36 @@ $compileArguments = @(
 
 & $cscPath @compileArguments
 
-$testExitCode = 1
+Push-Location $tempRoot
 try {
-    Push-Location $tempRoot
-    try {
-        & $smokeExePath
-        $testExitCode = $LASTEXITCODE
-    }
-    finally {
-        Pop-Location
-    }
+    & $smokeExePath
+    $testExitCode = $LASTEXITCODE
 }
 finally {
+    Pop-Location
+}
+}
+finally {
+    try {
+        if (Test-Path -LiteralPath $tempRoot) {
+            $resolvedTempRoot = (Resolve-Path -LiteralPath $tempRoot).Path
+            if (-not [string]::Equals(
+                    (Split-Path -Parent $resolvedTempRoot),
+                    $tempParent,
+                    [StringComparison]::OrdinalIgnoreCase) -or
+                -not (Split-Path -Leaf $resolvedTempRoot).StartsWith(
+                    "url-editor-smoke-",
+                    [StringComparison]::OrdinalIgnoreCase)) {
+                throw "拒绝清理不属于 URL 编辑器冒烟测试的目录：$resolvedTempRoot"
+            }
+
+            Remove-Item -LiteralPath $resolvedTempRoot -Recurse -Force
+        }
+    }
+    catch {
+        Write-Error ("URL 编辑器冒烟测试清理失败：" + $_.Exception.Message)
+        $testExitCode = 1
+    }
 }
 
 exit $testExitCode

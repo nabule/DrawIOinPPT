@@ -7,14 +7,48 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+if ($Version -notmatch '^v[0-9A-Za-z](?:[0-9A-Za-z._-]*[0-9A-Za-z])?$') {
+    throw "Version must be a single safe release name such as v1.0.8."
+}
+
 $buildScript = Join-Path $PSScriptRoot "build.ps1"
 $packageScript = Join-Path $PSScriptRoot "package-release.ps1"
-$releaseRoot = Join-Path $repoRoot ("artifacts\\releases\\" + $Version)
+$releaseBase = [IO.Path]::GetFullPath(
+    (Join-Path $repoRoot "artifacts\\releases"))
+$releaseRoot = [IO.Path]::GetFullPath(
+    (Join-Path $releaseBase $Version))
 $packageRoot = Join-Path $releaseRoot "package"
 $installRoot = Join-Path $env:TEMP ("DrawioPpt\\installed-" + [Guid]::NewGuid().ToString("N"))
-$reportRoot = Join-Path $repoRoot "artifacts\\test-reports"
-$reportPath = Join-Path $reportRoot ("full-e2e-" + $Version + ".md")
-$logRoot = Join-Path $repoRoot ("artifacts\\logs\\" + $Version)
+$reportRoot = [IO.Path]::GetFullPath(
+    (Join-Path $repoRoot "artifacts\\test-reports"))
+$reportPath = [IO.Path]::GetFullPath(
+    (Join-Path $reportRoot ("full-e2e-" + $Version + ".md")))
+$logBase = [IO.Path]::GetFullPath(
+    (Join-Path $repoRoot "artifacts\\logs"))
+$logRoot = [IO.Path]::GetFullPath(
+    (Join-Path $logBase $Version))
+if (-not [string]::Equals(
+        (Split-Path -Parent $releaseRoot),
+        $releaseBase,
+        [StringComparison]::OrdinalIgnoreCase) -or
+    -not [string]::Equals(
+        (Split-Path -Leaf $releaseRoot),
+        $Version,
+        [StringComparison]::Ordinal) -or
+    -not [string]::Equals(
+        (Split-Path -Parent $logRoot),
+        $logBase,
+        [StringComparison]::OrdinalIgnoreCase) -or
+    -not [string]::Equals(
+        (Split-Path -Leaf $logRoot),
+        $Version,
+        [StringComparison]::Ordinal) -or
+    -not [string]::Equals(
+        (Split-Path -Parent $reportPath),
+        $reportRoot,
+        [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Version-derived E2E paths escaped their intended artifact roots."
+}
 $settingsPath = Join-Path $env:APPDATA "Greensoft\\DrawioPpt\\settings.xml"
 $settingsBackupPath = Join-Path $env:TEMP ("DrawioPpt\\settings-backup-" + [Guid]::NewGuid().ToString("N") + ".xml")
 $pluginLogPath = Join-Path $env:APPDATA "Greensoft\\DrawioPpt\\Logs\\drawioppt.log"
@@ -318,13 +352,17 @@ function Get-FullE2EFailureDetails {
 
     $details = New-Object System.Collections.Generic.List[string]
     if ($null -ne $FatalError) {
-        $details.Add((Get-ErrorDetail $FatalError)) | Out-Null
+        $details.Add(
+            (ConvertTo-ReportSafeDetail (Get-ErrorDetail $FatalError))
+        ) | Out-Null
     }
 
     if ($null -ne $CleanupErrors) {
         foreach ($cleanupError in $CleanupErrors) {
             if (-not [string]::IsNullOrWhiteSpace([string]$cleanupError)) {
-                $details.Add([string]$cleanupError) | Out-Null
+                $details.Add(
+                    (ConvertTo-ReportSafeDetail ([string]$cleanupError))
+                ) | Out-Null
             }
         }
     }
@@ -355,10 +393,39 @@ function Add-Result {
     )
 
     $status = if ($Passed) { "PASS" } else { "FAIL" }
-    $script:results.Add("| $Name | $status | $Detail |") | Out-Null
+    $safeDetail = ConvertTo-ReportSafeDetail $Detail
+    $script:results.Add("| $Name | $status | $safeDetail |") | Out-Null
     if (-not $Passed) {
         throw "$Name failed: $Detail"
     }
+}
+
+function ConvertTo-ReportSafeDetail {
+    param([string]$Detail)
+
+    $safeDetail = [string]$Detail
+    $replacements = @(
+        @($installRoot, "<TEMP_INSTALL_ROOT>"),
+        @($repoRoot, "<REPO_ROOT>"),
+        @($env:USERPROFILE, "<USER_PROFILE>"),
+        @($env:TEMP, "<TEMP>"),
+        @($drawioExe, "<DRAWIO_DESKTOP>")
+    )
+
+    foreach ($replacement in $replacements) {
+        $source = [string]$replacement[0]
+        if (-not [string]::IsNullOrWhiteSpace($source)) {
+            $safeDetail = [regex]::Replace(
+                $safeDetail,
+                [regex]::Escape($source),
+                [string]$replacement[1],
+                [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        }
+    }
+
+    return $safeDetail.Replace("|", "\|").
+        Replace("`r", " ").
+        Replace("`n", " ")
 }
 
 function Backup-Settings {
@@ -983,6 +1050,18 @@ try {
     $installedWordComplexMetadataE2E = Join-Path $installRoot "scripts\\word-complex-metadata-e2e.ps1"
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installedWordComplexMetadataE2E -Configuration Release -AssemblyRoot (Join-Path $installRoot "bin") -ProcessIdentityPath $complexWordIdentityPath -SkipBuild
     Add-Result -Name "InstalledWordComplexMetadataE2E" -Passed ($LASTEXITCODE -eq 0) -Detail $installedWordComplexMetadataE2E
+
+    $installedWordSvgAspectE2E = Join-Path $installRoot "scripts\\word-svg-aspect-ratio-e2e.ps1"
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installedWordSvgAspectE2E -Configuration Release -AssemblyRoot (Join-Path $installRoot "bin") -SkipBuild
+    Add-Result -Name "InstalledWordSvgAspectE2E" -Passed ($LASTEXITCODE -eq 0) -Detail $installedWordSvgAspectE2E
+
+    $installedWordPreviewProviderE2E = Join-Path $installRoot "scripts\\word-preview-image-provider-e2e.ps1"
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installedWordPreviewProviderE2E -Configuration Release -AssemblyRoot (Join-Path $installRoot "bin") -SkipBuild
+    Add-Result -Name "InstalledWordPreviewProviderE2E" -Passed ($LASTEXITCODE -eq 0) -Detail $installedWordPreviewProviderE2E
+
+    $installedPowerPointSvgAspectE2E = Join-Path $installRoot "scripts\\powerpoint-svg-aspect-ratio-e2e.ps1"
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installedPowerPointSvgAspectE2E -Configuration Release -AssemblyRoot (Join-Path $installRoot "bin") -SkipBuild
+    Add-Result -Name "InstalledPowerPointSvgAspectE2E" -Passed ($LASTEXITCODE -eq 0) -Detail $installedPowerPointSvgAspectE2E
 
     $urlE2EExitCode = Compile-And-Run-PowerPointUrlE2E -InstalledRoot $installRoot
     Add-Result -Name "PowerPointUrlE2E" -Passed ($urlE2EExitCode -eq 0) -Detail "ExitCode=$urlE2EExitCode"

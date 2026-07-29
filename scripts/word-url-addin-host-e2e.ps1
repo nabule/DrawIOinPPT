@@ -148,19 +148,41 @@ function Stop-TestWordProcesses {
 
     foreach ($identity in $script:testWordProcessIdentities) {
         $process = Get-Process -Id $identity.ProcessId -ErrorAction SilentlyContinue
-        if ($process -and $process.StartTime.ToUniversalTime().Ticks -eq $identity.StartTicks) {
-            Stop-Process -Id $identity.ProcessId -Force -ErrorAction SilentlyContinue
+        if (-not $process) {
+            continue
+        }
+
+        $actualStartTicks = $process.StartTime.ToUniversalTime().Ticks
+        if ($process.ProcessName -ne "WINWORD" -or
+            $actualStartTicks -ne $identity.StartTicks) {
+            throw "测试 Word 进程身份已变化，拒绝终止 PID $($identity.ProcessId)。"
+        }
+
+        Stop-Process -Id $identity.ProcessId -Force -ErrorAction Stop
+        Wait-Process -Id $identity.ProcessId -Timeout 10 -ErrorAction SilentlyContinue
+        if (Get-Process -Id $identity.ProcessId -ErrorAction SilentlyContinue) {
+            throw "无法终止测试拥有的 WINWORD 进程：$($identity.ProcessId)"
         }
     }
 }
 
 function Remove-TestTempRoot {
     if (Test-Path -LiteralPath $tempRoot) {
-        if (-not $tempRoot.StartsWith($tempRootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "拒绝清理不属于真实 Word URL 加载项 E2E 的临时目录：$tempRoot"
+        $resolvedRoot = (Resolve-Path -LiteralPath $tempRoot).Path
+        $expectedParent = [IO.Path]::GetFullPath(
+            (Join-Path $env:TEMP "DrawioPpt"))
+        $leafName = Split-Path -Leaf $resolvedRoot
+        if (-not [string]::Equals(
+                (Split-Path -Parent $resolvedRoot),
+                $expectedParent,
+                [System.StringComparison]::OrdinalIgnoreCase) -or
+            -not $leafName.StartsWith(
+                "word-url-addin-host-e2e-",
+                [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "拒绝清理不属于真实 Word URL 加载项 E2E 的临时目录：$resolvedRoot"
         }
 
-        Remove-Item -LiteralPath $tempRoot -Recurse -Force
+        Remove-Item -LiteralPath $resolvedRoot -Recurse -Force
     }
 }
 
@@ -249,6 +271,7 @@ using DrawioPpt.Core.Models;
 using DrawioPpt.Core.Services;
 using DrawioPpt.WordAddIn;
 using DrawioPpt.WordAddIn.Services;
+using DrawioPpt.WordAddIn.Word;
 using Microsoft.Office.Core;
 using WordInterop = Microsoft.Office.Interop.Word;
 
@@ -277,7 +300,7 @@ public static class WordUrlAddInHostE2E
 
     private static DiagramEnvelope ReadStoredEnvelope(
         WordInterop.Document document,
-        WordInterop.InlineShape picture,
+        WordPictureReference picture,
         DiagramEnvelopeSerializer serializer)
     {
         if (document == null || picture == null || serializer == null)
@@ -302,6 +325,28 @@ public static class WordUrlAddInHostE2E
         return store.TryRead(document, reference.DiagramId, out storedEnvelope)
             ? storedEnvelope
             : null;
+    }
+
+    private static WordPictureReference GetSinglePicture(
+        WordInterop.Document document)
+    {
+        if (document == null)
+        {
+            return null;
+        }
+
+        if (document.Shapes.Count == 1)
+        {
+            return WordPictureReference.FromShape(document.Shapes[1]);
+        }
+
+        if (document.InlineShapes.Count == 1)
+        {
+            return WordPictureReference.FromInlineShape(
+                document.InlineShapes[1]);
+        }
+
+        return null;
     }
 
     private sealed class MockEditorServer : IDisposable
@@ -512,7 +557,10 @@ public static class WordUrlAddInHostE2E
             picture.Title = envelope.DiagramName;
             DiagramEnvelopeSerializer serializer = new DiagramEnvelopeSerializer();
             picture.AlternativeText = serializer.Serialize(envelope);
-            bool mainStoreMissingBeforeMigration = ReadStoredEnvelope(document, picture, serializer) == null;
+            bool mainStoreMissingBeforeMigration = ReadStoredEnvelope(
+                document,
+                WordPictureReference.FromInlineShape(picture),
+                serializer) == null;
             Console.WriteLine("PreparedDocumentMainStoreMissing=" + mainStoreMissingBeforeMigration);
             document.SaveAs2(documentPath);
             Console.WriteLine("PreparedManagedDocument=True");
@@ -576,7 +624,8 @@ public static class WordUrlAddInHostE2E
             bool connected = addIn.Connect;
             Console.WriteLine("WordAddInConnect=" + connected);
             Console.WriteLine("ActualHostProcess=WINWORD");
-            if (!connected || document.InlineShapes.Count < 1)
+            WordPictureReference selectedPicture = GetSinglePicture(document);
+            if (!connected || selectedPicture == null)
             {
                 return 1;
             }
@@ -593,15 +642,19 @@ public static class WordUrlAddInHostE2E
                 return 1;
             }
 
-            document.InlineShapes[1].Select();
+            selectedPicture.Select();
             automation.EditSelectedDiagram();
             Console.WriteLine("ExplicitEditCommandInvoked=True");
             Thread.Sleep(500);
             bool saved = false;
-            if (document.InlineShapes.Count >= 1)
+            WordPictureReference savedPicture = GetSinglePicture(document);
+            if (savedPicture != null)
             {
                 DiagramEnvelopeSerializer serializer = new DiagramEnvelopeSerializer();
-                DiagramEnvelope storedEnvelope = ReadStoredEnvelope(document, document.InlineShapes[1], serializer);
+                DiagramEnvelope storedEnvelope = ReadStoredEnvelope(
+                    document,
+                    savedPicture,
+                    serializer);
                 saved = storedEnvelope != null &&
                         !string.IsNullOrWhiteSpace(storedEnvelope.DrawioXml) &&
                         storedEnvelope.DrawioXml.IndexOf("Round2", StringComparison.OrdinalIgnoreCase) >= 0;

@@ -1,5 +1,6 @@
 param(
     [string]$Configuration = "Release",
+    [string]$AssemblyRoot = "",
     [string]$CoreAssemblyPath = "",
     [string]$DrawioExecutablePath = "C:\Program Files\draw.io\draw.io.exe",
     [switch]$SkipBuild
@@ -9,8 +10,6 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $buildScript = Join-Path $PSScriptRoot "build.ps1"
-$exporterSourcePath = Join-Path $repoRoot "src\DrawioPpt.PowerPointAddIn\Services\DesktopSvgExporter.cs"
-$providerSourcePath = Join-Path $repoRoot "src\DrawioPpt.WordAddIn\Services\WordPreviewImageProvider.cs"
 $tempParent = Join-Path $env:TEMP "DrawioPpt"
 $tempRootPrefix = Join-Path $tempParent "word-preview-provider-e2e-"
 $tempRoot = $tempRootPrefix + [Guid]::NewGuid().ToString("N")
@@ -37,8 +36,12 @@ function Remove-TestTempRoot {
     }
 
     $resolvedRoot = (Resolve-Path -LiteralPath $tempRoot).Path
-    if (-not $resolvedRoot.StartsWith(
-            $tempRootPrefix,
+    if (-not [string]::Equals(
+            (Split-Path -Parent $resolvedRoot),
+            [IO.Path]::GetFullPath($tempParent),
+            [StringComparison]::OrdinalIgnoreCase) -or
+        -not (Split-Path -Leaf $resolvedRoot).StartsWith(
+            "word-preview-provider-e2e-",
             [StringComparison]::OrdinalIgnoreCase)) {
         throw "Refusing to remove a path outside the Word preview-provider E2E root: $resolvedRoot"
     }
@@ -54,15 +57,8 @@ if (-not (Test-Path -LiteralPath $DrawioExecutablePath)) {
     throw "draw.io Desktop not found: $DrawioExecutablePath"
 }
 
-if (-not (Test-Path -LiteralPath $exporterSourcePath)) {
-    throw "DesktopSvgExporter source not found: $exporterSourcePath"
-}
-
-if (-not (Test-Path -LiteralPath $providerSourcePath)) {
-    throw "WordPreviewImageProvider source not found: $providerSourcePath"
-}
-
-if ((Get-DrawioProcesses).Count -gt 0) {
+$initialDrawioProcesses = Get-DrawioProcesses
+if ($initialDrawioProcesses.Count -gt 0) {
     throw "Close draw.io Desktop before running the Word preview-provider E2E."
 }
 
@@ -78,16 +74,31 @@ if (-not $SkipBuild) {
     }
 }
 
-if ([string]::IsNullOrWhiteSpace($CoreAssemblyPath)) {
-    $CoreAssemblyPath = Join-Path `
+if ([string]::IsNullOrWhiteSpace($AssemblyRoot)) {
+    $AssemblyRoot = Join-Path `
         $repoRoot `
-        ("src\DrawioPpt.Core\bin\x64\" +
-            $Configuration +
-            "\DrawioPpt.Core.dll")
+        ("src\DrawioPpt.WordAddIn\bin\x64\" +
+            $Configuration)
 }
 
-if (-not (Test-Path -LiteralPath $CoreAssemblyPath)) {
-    throw "DrawioPpt.Core.dll not found: $CoreAssemblyPath"
+$AssemblyRoot = [IO.Path]::GetFullPath($AssemblyRoot)
+if ([string]::IsNullOrWhiteSpace($CoreAssemblyPath)) {
+    $CoreAssemblyPath = Join-Path $AssemblyRoot "DrawioPpt.Core.dll"
+}
+
+$powerPointAssemblyPath = Join-Path `
+    $AssemblyRoot `
+    "DrawioPpt.PowerPointAddIn.dll"
+$wordAssemblyPath = Join-Path `
+    $AssemblyRoot `
+    "DrawioPpt.WordAddIn.dll"
+foreach ($requiredAssemblyPath in @(
+        $CoreAssemblyPath,
+        $powerPointAssemblyPath,
+        $wordAssemblyPath)) {
+    if (-not (Test-Path -LiteralPath $requiredAssemblyPath)) {
+        throw "Required preview-provider test assembly not found: $requiredAssemblyPath"
+    }
 }
 
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
@@ -140,6 +151,8 @@ public static class WordPreviewImageProviderE2E
         string fallbackHashBefore = GetSha256(fallbackSvgPath);
         string previewPath = null;
         string previewDirectory = null;
+        string fallbackPreviewPath = null;
+        string fallbackPreviewDirectory = null;
 
         try
         {
@@ -189,8 +202,17 @@ public static class WordPreviewImageProviderE2E
                     Path.GetTempPath(),
                     "DrawioPpt",
                     "word-preview"));
+            string expectedRootPrefix =
+                expectedRoot.TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar) +
+                Path.DirectorySeparatorChar;
             bool safeOutputPath =
                 Path.GetFullPath(previewPath).StartsWith(
+                    expectedRootPrefix,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
+                    Path.GetDirectoryName(previewDirectory),
                     expectedRoot,
                     StringComparison.OrdinalIgnoreCase) &&
                 previewDirectory.IndexOf(
@@ -202,25 +224,53 @@ public static class WordPreviewImageProviderE2E
                     "*.drawio",
                     SearchOption.TopDirectoryOnly).Length == 0;
 
-            string fallbackResult =
+            fallbackPreviewPath =
                 provider.GetPreviewImagePath(
                     envelope,
                     Path.Combine(
                         Path.GetTempPath(),
                         "missing-drawio.exe"),
                     fallbackSvgPath);
+            fallbackPreviewDirectory =
+                Path.GetDirectoryName(fallbackPreviewPath);
             string fallbackHashAfter =
                 GetSha256(fallbackSvgPath);
-            bool fallbackPassed =
+            int fallbackPixelWidth = 0;
+            int fallbackPixelHeight = 0;
+            if (File.Exists(fallbackPreviewPath) &&
                 string.Equals(
-                    fallbackResult,
-                    fallbackSvgPath,
-                    StringComparison.Ordinal) &&
+                    Path.GetExtension(fallbackPreviewPath),
+                    ".png",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                using (Image image =
+                    Image.FromFile(fallbackPreviewPath))
+                {
+                    fallbackPixelWidth = image.Width;
+                    fallbackPixelHeight = image.Height;
+                }
+            }
+
+            bool fallbackPassed =
+                File.Exists(fallbackPreviewPath) &&
+                HasPngSignature(fallbackPreviewPath) &&
+                fallbackPixelWidth == 620 &&
+                fallbackPixelHeight == 310 &&
                 string.Equals(
                     fallbackHashBefore,
                     fallbackHashAfter,
                     StringComparison.Ordinal) &&
                 File.Exists(fallbackSvgPath);
+            provider.CleanupPreviewImage(previewPath);
+            bool previewCleanupPassed =
+                !File.Exists(previewPath) &&
+                !Directory.Exists(previewDirectory);
+            provider.CleanupPreviewImage(
+                fallbackPreviewPath);
+            bool fallbackCleanupPassed =
+                !File.Exists(fallbackPreviewPath) &&
+                !Directory.Exists(
+                    fallbackPreviewDirectory);
 
             Console.WriteLine(
                 "PreviewPathUnderSafeRoot=" +
@@ -250,8 +300,14 @@ public static class WordPreviewImageProviderE2E
                 "TemporaryDrawioRemoved=" +
                 sourceRemoved);
             Console.WriteLine(
-                "FallbackSvgPassed=" +
+                "FallbackPlaceholderPngPassed=" +
                 fallbackPassed);
+            Console.WriteLine(
+                "FallbackCleanupPassed=" +
+                fallbackCleanupPassed);
+            Console.WriteLine(
+                "PreviewCleanupPassed=" +
+                previewCleanupPassed);
 
             return returnedPng &&
                 pngSignature &&
@@ -260,7 +316,9 @@ public static class WordPreviewImageProviderE2E
                 notForcedSquare &&
                 safeOutputPath &&
                 sourceRemoved &&
-                fallbackPassed
+                fallbackPassed &&
+                fallbackCleanupPassed &&
+                previewCleanupPassed
                 ? 0
                 : 1;
         }
@@ -273,11 +331,32 @@ public static class WordPreviewImageProviderE2E
                     "word-preview"));
             if (!string.IsNullOrWhiteSpace(previewDirectory) &&
                 Directory.Exists(previewDirectory) &&
-                Path.GetFullPath(previewDirectory).StartsWith(
+                string.Equals(
+                    Path.GetDirectoryName(
+                        Path.GetFullPath(previewDirectory)),
                     expectedRoot,
-                    StringComparison.OrdinalIgnoreCase))
+                    StringComparison.OrdinalIgnoreCase) &&
+                Path.GetFileName(previewDirectory).Length >= 33)
             {
                 Directory.Delete(previewDirectory, true);
+            }
+
+            if (!string.IsNullOrWhiteSpace(
+                    fallbackPreviewDirectory) &&
+                Directory.Exists(
+                    fallbackPreviewDirectory) &&
+                string.Equals(
+                    Path.GetDirectoryName(
+                        Path.GetFullPath(
+                            fallbackPreviewDirectory)),
+                    expectedRoot,
+                    StringComparison.OrdinalIgnoreCase) &&
+                Path.GetFileName(
+                    fallbackPreviewDirectory).Length >= 33)
+            {
+                Directory.Delete(
+                    fallbackPreviewDirectory,
+                    true);
             }
         }
     }
@@ -325,8 +404,8 @@ public static class WordPreviewImageProviderE2E
         "/out:$exePath",
         "/r:System.Drawing.dll",
         "/r:$CoreAssemblyPath",
-        $exporterSourcePath,
-        $providerSourcePath,
+        "/r:$powerPointAssemblyPath",
+        "/r:$wordAssemblyPath",
         $programPath)
     & $cscPath @compileArguments
     if ($LASTEXITCODE -ne 0) {
@@ -335,6 +414,14 @@ public static class WordPreviewImageProviderE2E
 
     Copy-Item `
         -LiteralPath $CoreAssemblyPath `
+        -Destination $tempRoot `
+        -Force
+    Copy-Item `
+        -LiteralPath $powerPointAssemblyPath `
+        -Destination $tempRoot `
+        -Force
+    Copy-Item `
+        -LiteralPath $wordAssemblyPath `
         -Destination $tempRoot `
         -Force
 
@@ -355,6 +442,7 @@ public static class WordPreviewImageProviderE2E
     }
 }
 finally {
+    $cleanupFailures = New-Object System.Collections.Generic.List[string]
     $deadline = [DateTime]::UtcNow.AddSeconds(10)
     do {
         $residualProcesses = Get-DrawioProcesses
@@ -369,10 +457,20 @@ finally {
     if ($residualProcesses.Count -gt 0) {
         $processIds =
             ($residualProcesses | ForEach-Object Id) -join ","
-        throw "Residual draw.io processes after preview E2E: $processIds"
+        $cleanupFailures.Add(
+            "Residual draw.io processes after preview E2E; no process was terminated because the test cannot prove ownership: $processIds")
     }
 
-    Remove-TestTempRoot
+    try {
+        Remove-TestTempRoot
+    }
+    catch {
+        $cleanupFailures.Add($_.Exception.Message)
+    }
+
+    if ($cleanupFailures.Count -gt 0) {
+        throw ($cleanupFailures -join [Environment]::NewLine)
+    }
 }
 
 Write-Output "WORD_PREVIEW_IMAGE_PROVIDER_E2E_PASS"
