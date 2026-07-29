@@ -9,7 +9,6 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $buildScript = Join-Path $PSScriptRoot "build.ps1"
 $packageScript = Join-Path $PSScriptRoot "package-release.ps1"
-$registerRepoScript = Join-Path $PSScriptRoot "register-office-addins.ps1"
 $releaseRoot = Join-Path $repoRoot ("artifacts\\releases\\" + $Version)
 $packageRoot = Join-Path $releaseRoot "package"
 $installRoot = Join-Path $env:TEMP ("DrawioPpt\\installed-" + [Guid]::NewGuid().ToString("N"))
@@ -27,6 +26,7 @@ $cleanupErrors = New-Object System.Collections.Generic.List[string]
 $drawioExe = "C:\\Program Files\\draw.io\\draw.io.exe"
 $fatalError = $null
 $transcriptStarted = $false
+$officeAddInRegistrationSnapshot = $null
 
 function Assert-NoRunningPowerPoint {
     $runningPowerPoint = Get-Process -Name POWERPNT -ErrorAction SilentlyContinue
@@ -53,8 +53,161 @@ function Get-AvailableLoopbackPort {
     }
 }
 
-function Stop-RunningPowerPointSilently {
-    Get-Process -Name POWERPNT -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+function Get-RegistryKeyTreeSnapshot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SubKey
+    )
+
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($SubKey, $false)
+    if ($null -eq $key) {
+        return [pscustomobject]@{
+            SubKey = $SubKey
+            Exists = $false
+            Values = @()
+            SubKeys = @()
+        }
+    }
+
+    try {
+        $values = @(
+            foreach ($valueName in $key.GetValueNames()) {
+                [pscustomobject]@{
+                    Name = $valueName
+                    Kind = $key.GetValueKind($valueName)
+                    Value = $key.GetValue(
+                        $valueName,
+                        $null,
+                        [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+                }
+            }
+        )
+        $subKeys = @(
+            foreach ($childName in $key.GetSubKeyNames()) {
+                Get-RegistryKeyTreeSnapshot -SubKey ($SubKey + "\" + $childName)
+            }
+        )
+
+        return [pscustomobject]@{
+            SubKey = $SubKey
+            Exists = $true
+            Values = $values
+            SubKeys = $subKeys
+        }
+    }
+    finally {
+        $key.Dispose()
+    }
+}
+
+function Restore-RegistryKeyTree {
+    param(
+        [Parameter(Mandatory = $true)]
+        [psobject]$Snapshot
+    )
+
+    [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree(
+        [string]$Snapshot.SubKey,
+        $false)
+    if (-not [bool]$Snapshot.Exists) {
+        return
+    }
+
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey([string]$Snapshot.SubKey)
+    try {
+        foreach ($valueSnapshot in @($Snapshot.Values)) {
+            $key.SetValue(
+                [string]$valueSnapshot.Name,
+                $valueSnapshot.Value,
+                [Microsoft.Win32.RegistryValueKind]$valueSnapshot.Kind)
+        }
+    }
+    finally {
+        $key.Dispose()
+    }
+
+    foreach ($subKeySnapshot in @($Snapshot.SubKeys)) {
+        Restore-RegistryKeyTree -Snapshot $subKeySnapshot
+    }
+}
+
+function Get-OfficeAddInRegistrationSubKeys {
+    return @(
+        "Software\Microsoft\Office\PowerPoint\Addins\Greensoft.DrawioPptAddIn",
+        "Software\Microsoft\Office\PowerPoint\Addins\DrawioPpt.PowerPointAddIn.Connect",
+        "Software\Classes\Greensoft.DrawioPptAddIn",
+        "Software\Classes\CLSID\{0B8996D8-D6B9-4D61-8E8C-6F2081BFEA31}",
+        "Software\Microsoft\Office\Word\Addins\Greensoft.DrawioWordAddIn",
+        "Software\Microsoft\Office\Word\Addins\DrawioPpt.WordAddIn.Connect",
+        "Software\Classes\Greensoft.DrawioWordAddIn",
+        "Software\Classes\CLSID\{F10C5C83-0D86-4C81-A0B8-7E8FE9D31D8D}"
+    )
+}
+
+function Get-OfficeAddInRegistrationSnapshot {
+    param(
+        [string[]]$SubKeys = @(Get-OfficeAddInRegistrationSubKeys)
+    )
+
+    return @(
+        foreach ($subKey in $SubKeys) {
+            Get-RegistryKeyTreeSnapshot -SubKey $subKey
+        }
+    )
+}
+
+function Restore-OfficeAddInRegistration {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [object[]]$Snapshots
+    )
+
+    $restoreErrors = New-Object System.Collections.Generic.List[string]
+    foreach ($snapshot in $Snapshots) {
+        try {
+            Restore-RegistryKeyTree -Snapshot $snapshot
+        }
+        catch {
+            $restoreErrors.Add("$($snapshot.SubKey): $($_.Exception.Message)") | Out-Null
+        }
+    }
+
+    if ($restoreErrors.Count -gt 0) {
+        throw "Office add-in registration restoration failed: $($restoreErrors -join '; ')"
+    }
+}
+
+function Assert-NoOfficeProcesses {
+    param(
+        [string[]]$ProcessNames = @("WINWORD", "POWERPNT"),
+        [int]$TimeoutSeconds = 10
+    )
+
+    $deadline = [DateTime]::UtcNow.AddSeconds([Math]::Max(0, $TimeoutSeconds))
+    $remainingProcesses = @()
+    do {
+        $remainingProcesses = @(
+            foreach ($processName in $ProcessNames | Sort-Object -Unique) {
+                Get-Process -Name $processName -ErrorAction SilentlyContinue
+            }
+        )
+        if ($remainingProcesses.Count -eq 0) {
+            return
+        }
+
+        if ([DateTime]::UtcNow -ge $deadline) {
+            break
+        }
+
+        Start-Sleep -Milliseconds 100
+    } while ($true)
+
+    $processDetails = @(
+        $remainingProcesses |
+            Sort-Object ProcessName, Id |
+            ForEach-Object { "$($_.ProcessName) PID=$($_.Id)" })
+    throw "完整 E2E 清理后仍有 Office 进程：$($processDetails -join ', ')"
 }
 
 function Stop-TestOwnedProcess {
@@ -758,6 +911,7 @@ try {
 
     Assert-NoRunningPowerPoint
     Assert-NoRunningWord
+    $officeAddInRegistrationSnapshot = @(Get-OfficeAddInRegistrationSnapshot)
 
     if (-not $SkipBuild) {
         & powershell.exe -ExecutionPolicy Bypass -File $buildScript -Configuration Release -Platform x64
@@ -786,15 +940,36 @@ try {
     & powershell.exe -ExecutionPolicy Bypass -File $verifyInstallScript -InstallRoot $installRoot
     Add-Result -Name "InstalledOfficeAddInsVerify" -Passed ($LASTEXITCODE -eq 0) -Detail $verifyInstallScript
 
+    $pp = $null
+    $comAddIns = $null
+    $addin = $null
     $pp = New-Object -ComObject PowerPoint.Application
     try {
-        $addin = $pp.COMAddIns.Item("Greensoft.DrawioPptAddIn")
+        $comAddIns = $pp.COMAddIns
+        $addin = $comAddIns.Item("Greensoft.DrawioPptAddIn")
         $addin.Connect = $true
         Add-Result -Name "PowerPointAddInLoad" -Passed ([bool]$addin.Connect) -Detail "Connect=$($addin.Connect)"
     }
     finally {
-        $pp.Quit() | Out-Null
-        [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($pp)
+        if ($null -ne $addin) {
+            [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($addin)
+            $addin = $null
+        }
+        if ($null -ne $comAddIns) {
+            [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($comAddIns)
+            $comAddIns = $null
+        }
+        try {
+            if ($null -ne $pp) {
+                $pp.Quit() | Out-Null
+            }
+        }
+        finally {
+            if ($null -ne $pp) {
+                [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($pp)
+                $pp = $null
+            }
+        }
     }
 
     $installedUrlSmoke = Join-Path $installRoot "scripts\\url-editor-smoke.ps1"
@@ -819,8 +994,6 @@ catch {
     $fatalError = $_
 }
 finally {
-    Stop-RunningPowerPointSilently
-
     try {
         Stop-TestOwnedProcess `
             -IdentityPath $complexWordIdentityPath `
@@ -844,14 +1017,13 @@ finally {
         }
     }
 
-    try {
-        Invoke-CheckedPowerShellScript `
-            -ScriptPath $registerRepoScript `
-            -Arguments @("-Configuration", "Release") `
-            -Description "RegisterRepositoryAddIns"
-    }
-    catch {
-        $cleanupErrors.Add("RegisterRepositoryAddIns: $(Get-ErrorDetail $_)") | Out-Null
+    if ($null -ne $officeAddInRegistrationSnapshot) {
+        try {
+            Restore-OfficeAddInRegistration -Snapshots $officeAddInRegistrationSnapshot
+        }
+        catch {
+            $cleanupErrors.Add("RestoreOfficeAddInRegistration: $(Get-ErrorDetail $_)") | Out-Null
+        }
     }
 
     try {
@@ -868,6 +1040,13 @@ finally {
     }
     catch {
         $cleanupErrors.Add("RemoveWordIdentity: $(Get-ErrorDetail $_)") | Out-Null
+    }
+
+    try {
+        Assert-NoOfficeProcesses -ProcessNames @("WINWORD", "POWERPNT") -TimeoutSeconds 10
+    }
+    catch {
+        $cleanupErrors.Add("OfficeProcessResidual: $(Get-ErrorDetail $_)") | Out-Null
     }
 }
 

@@ -5,7 +5,12 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $fullE2EPath = Join-Path $PSScriptRoot "full-e2e-test.ps1"
 $complexMetadataPath = Join-Path $PSScriptRoot "word-complex-metadata-e2e.ps1"
+$powerPointRegisterPath = Join-Path $PSScriptRoot "register-addin.ps1"
+$powerPointUnregisterPath = Join-Path $PSScriptRoot "unregister-addin.ps1"
+$wordRegisterPath = Join-Path $PSScriptRoot "register-word-addin.ps1"
+$wordUnregisterPath = Join-Path $PSScriptRoot "unregister-word-addin.ps1"
 $tempRoot = Join-Path $env:TEMP ("DrawioPpt\full-e2e-cleanup-safety-" + [Guid]::NewGuid().ToString("N"))
+$registryTestRoot = "Software\Greensoft\DrawioPptTests\full-e2e-cleanup-" + [Guid]::NewGuid().ToString("N")
 $dummyProcess = $null
 
 function Import-FunctionDefinition {
@@ -92,6 +97,209 @@ try {
     Import-FunctionDefinition -Ast $ast -Name "Get-ErrorDetail"
     Import-FunctionDefinition -Ast $ast -Name "Get-FullE2EFailureDetails"
     Import-FunctionDefinition -Ast $ast -Name "Add-FullE2EFailureResult"
+    Import-FunctionDefinition -Ast $ast -Name "Get-RegistryKeyTreeSnapshot"
+    Import-FunctionDefinition -Ast $ast -Name "Restore-RegistryKeyTree"
+    Import-FunctionDefinition -Ast $ast -Name "Get-OfficeAddInRegistrationSubKeys"
+    Import-FunctionDefinition -Ast $ast -Name "Get-OfficeAddInRegistrationSnapshot"
+    Import-FunctionDefinition -Ast $ast -Name "Restore-OfficeAddInRegistration"
+    Import-FunctionDefinition -Ast $ast -Name "Assert-NoOfficeProcesses"
+
+    $officeSnapshotCommand = Get-Command Get-OfficeAddInRegistrationSnapshot
+    if (-not $officeSnapshotCommand.Parameters.ContainsKey("SubKeys")) {
+        throw "Office registration snapshot wrapper must allow isolated subkeys to be injected for safety testing."
+    }
+
+    $expectedRegistrationSubKeys = @(
+        "Software\Microsoft\Office\PowerPoint\Addins\Greensoft.DrawioPptAddIn",
+        "Software\Microsoft\Office\PowerPoint\Addins\DrawioPpt.PowerPointAddIn.Connect",
+        "Software\Classes\Greensoft.DrawioPptAddIn",
+        "Software\Classes\CLSID\{0B8996D8-D6B9-4D61-8E8C-6F2081BFEA31}",
+        "Software\Microsoft\Office\Word\Addins\Greensoft.DrawioWordAddIn",
+        "Software\Microsoft\Office\Word\Addins\DrawioPpt.WordAddIn.Connect",
+        "Software\Classes\Greensoft.DrawioWordAddIn",
+        "Software\Classes\CLSID\{F10C5C83-0D86-4C81-A0B8-7E8FE9D31D8D}"
+    )
+    $actualRegistrationSubKeys = @(Get-OfficeAddInRegistrationSubKeys)
+    $registrationSubKeyDifferences = @(
+        Compare-Object `
+            -ReferenceObject ($expectedRegistrationSubKeys | Sort-Object) `
+            -DifferenceObject ($actualRegistrationSubKeys | Sort-Object))
+    if ($actualRegistrationSubKeys.Count -ne $expectedRegistrationSubKeys.Count -or
+        $registrationSubKeyDifferences.Count -ne 0) {
+        throw "Office add-in registration snapshot does not cover every registry tree mutated by install/uninstall."
+    }
+
+    $scriptDerivedRegistrationSubKeys = New-Object System.Collections.Generic.List[string]
+    foreach ($scriptSpecification in @(
+            [pscustomobject]@{
+                HostName = "PowerPoint"
+                Paths = @($powerPointRegisterPath, $powerPointUnregisterPath)
+            },
+            [pscustomobject]@{
+                HostName = "Word"
+                Paths = @($wordRegisterPath, $wordUnregisterPath)
+            })) {
+        foreach ($registrationScriptPath in $scriptSpecification.Paths) {
+            $registrationScriptSource = Get-Content -Raw -LiteralPath $registrationScriptPath
+            $removeTreeCallCount = ([regex]::Matches(
+                    $registrationScriptSource,
+                    'Remove-RegistryKeyTree\s+-SubKey')).Count
+            if ($removeTreeCallCount -ne 4) {
+                throw "$registrationScriptPath mutates $removeTreeCallCount registration roots; update the full E2E snapshot boundary."
+            }
+
+            $assignmentValues = @{}
+            foreach ($variableName in @("progId", "className", "clsid")) {
+                $assignmentMatch = [regex]::Match(
+                    $registrationScriptSource,
+                    '(?m)^\$' + $variableName + '\s*=\s*"([^"]+)"')
+                if (-not $assignmentMatch.Success) {
+                    throw "$registrationScriptPath does not expose a literal $variableName registration assignment."
+                }
+                $assignmentValues[$variableName] = $assignmentMatch.Groups[1].Value
+            }
+
+            $scriptDerivedRegistrationSubKeys.Add(
+                "Software\Microsoft\Office\$($scriptSpecification.HostName)\Addins\$($assignmentValues.progId)") | Out-Null
+            $scriptDerivedRegistrationSubKeys.Add(
+                "Software\Microsoft\Office\$($scriptSpecification.HostName)\Addins\$($assignmentValues.className)") | Out-Null
+            $scriptDerivedRegistrationSubKeys.Add(
+                "Software\Classes\$($assignmentValues.progId)") | Out-Null
+            $scriptDerivedRegistrationSubKeys.Add(
+                "Software\Classes\CLSID\$($assignmentValues.clsid)") | Out-Null
+        }
+    }
+
+    $scriptRegistrationSubKeyDifferences = @(
+        Compare-Object `
+            -ReferenceObject ($expectedRegistrationSubKeys | Sort-Object -Unique) `
+            -DifferenceObject ($scriptDerivedRegistrationSubKeys | Sort-Object -Unique))
+    if ($scriptRegistrationSubKeyDifferences.Count -ne 0) {
+        throw "Office add-in registration snapshot targets drifted from the register/unregister scripts."
+    }
+
+    $existingRegistrySubKey = "$registryTestRoot\Existing"
+    $missingRegistrySubKey = "$registryTestRoot\Missing"
+    $existingRegistryKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($existingRegistrySubKey)
+    try {
+        $existingRegistryKey.SetValue(
+            "",
+            "original-default",
+            [Microsoft.Win32.RegistryValueKind]::String)
+        $existingRegistryKey.SetValue(
+            "LoadBehavior",
+            3,
+            [Microsoft.Win32.RegistryValueKind]::DWord)
+    }
+    finally {
+        $existingRegistryKey.Dispose()
+    }
+
+    $existingChildKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey("$existingRegistrySubKey\Child")
+    try {
+        $existingChildKey.SetValue(
+            "Paths",
+            [string[]]@("alpha", "beta"),
+            [Microsoft.Win32.RegistryValueKind]::MultiString)
+    }
+    finally {
+        $existingChildKey.Dispose()
+    }
+
+    $officeRegistrationSnapshots = @(
+        Get-OfficeAddInRegistrationSnapshot `
+            -SubKeys @($existingRegistrySubKey, $missingRegistrySubKey))
+
+    [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree($existingRegistrySubKey, $false)
+    $mutatedExistingKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($existingRegistrySubKey)
+    try {
+        $mutatedExistingKey.SetValue("Unexpected", "mutation")
+    }
+    finally {
+        $mutatedExistingKey.Dispose()
+    }
+    $mutatedMissingKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($missingRegistrySubKey)
+    $mutatedMissingKey.Dispose()
+
+    Restore-OfficeAddInRegistration -Snapshots $officeRegistrationSnapshots
+
+    $restoredRegistryKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($existingRegistrySubKey)
+    try {
+        if ($null -eq $restoredRegistryKey -or
+            $restoredRegistryKey.GetValue("") -ne "original-default" -or
+            $restoredRegistryKey.GetValueKind("") -ne [Microsoft.Win32.RegistryValueKind]::String -or
+            $restoredRegistryKey.GetValueKind("LoadBehavior") -ne [Microsoft.Win32.RegistryValueKind]::DWord -or
+            [int]$restoredRegistryKey.GetValue("LoadBehavior") -ne 3 -or
+            $null -ne $restoredRegistryKey.GetValue("Unexpected")) {
+            throw "Existing registry state was not restored exactly."
+        }
+    }
+    finally {
+        if ($null -ne $restoredRegistryKey) {
+            $restoredRegistryKey.Dispose()
+        }
+    }
+
+    $restoredChildKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("$existingRegistrySubKey\Child")
+    try {
+        if ($null -eq $restoredChildKey) {
+            throw "Nested registry key was not restored."
+        }
+
+        $restoredPaths = @($restoredChildKey.GetValue("Paths"))
+        if ($restoredChildKey.GetValueKind("Paths") -ne [Microsoft.Win32.RegistryValueKind]::MultiString -or
+            $restoredPaths.Count -ne 2 -or
+            $restoredPaths[0] -ne "alpha" -or
+            $restoredPaths[1] -ne "beta") {
+            throw "Nested registry values were not restored exactly."
+        }
+    }
+    finally {
+        if ($null -ne $restoredChildKey) {
+            $restoredChildKey.Dispose()
+        }
+    }
+
+    $unexpectedMissingKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($missingRegistrySubKey)
+    if ($null -ne $unexpectedMissingKey) {
+        $unexpectedMissingKey.Dispose()
+        throw "A registry key that was absent before the test was not removed during restoration."
+    }
+
+    $continuedRegistrySubKey = "$registryTestRoot\ContinuedAfterFailure"
+    $continuedRegistrySnapshot = Get-RegistryKeyTreeSnapshot -SubKey $continuedRegistrySubKey
+    $continuedMutationKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($continuedRegistrySubKey)
+    $continuedMutationKey.Dispose()
+    $invalidRegistrySnapshot = [pscustomobject]@{
+        SubKey = "$registryTestRoot\Invalid"
+        Exists = $true
+        Values = @(
+            [pscustomobject]@{
+                Name = "InvalidBinary"
+                Kind = [Microsoft.Win32.RegistryValueKind]::Binary
+                Value = "not-binary-data"
+            }
+        )
+        SubKeys = @()
+    }
+    $aggregateRestoreFailure = $null
+    try {
+        Restore-OfficeAddInRegistration `
+            -Snapshots @($invalidRegistrySnapshot, $continuedRegistrySnapshot)
+    }
+    catch {
+        $aggregateRestoreFailure = $_
+    }
+
+    if ($null -eq $aggregateRestoreFailure -or
+        $aggregateRestoreFailure.Exception.Message -notlike ("*" + $invalidRegistrySnapshot.SubKey + "*")) {
+        throw "Registration restoration did not aggregate the failing registry root."
+    }
+    $continuedMutationAfterRestore = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($continuedRegistrySubKey)
+    if ($null -ne $continuedMutationAfterRestore) {
+        $continuedMutationAfterRestore.Dispose()
+        throw "A failing registry root prevented later registration roots from being restored."
+    }
 
     $complexSource = Get-Content -Raw -LiteralPath $complexMetadataPath
     if ($complexSource -notmatch '\[string\]\$ProcessIdentityPath' -or
@@ -115,6 +323,25 @@ try {
     $correctIdentityPath = Join-Path $tempRoot "correct-start.txt"
     Set-Content -LiteralPath $wrongIdentityPath -Value ("TestWordProcessIdentity={0}:{1}" -f $dummyProcess.Id, ($startTicks + 1)) -Encoding UTF8
     Set-Content -LiteralPath $correctIdentityPath -Value ("TestWordProcessIdentity={0}:{1}" -f $dummyProcess.Id, $startTicks) -Encoding UTF8
+
+    $residualProcessFailure = $null
+    try {
+        Assert-NoOfficeProcesses -ProcessNames @("powershell") -TimeoutSeconds 0
+    }
+    catch {
+        $residualProcessFailure = $_
+    }
+    if ($null -eq $residualProcessFailure -or
+        $residualProcessFailure.Exception.Message -notmatch [regex]::Escape("PID=$($dummyProcess.Id)")) {
+        throw "Office residual detection did not report the exact remaining process PID."
+    }
+    if ($dummyProcess.HasExited) {
+        throw "Office residual detection terminated a process instead of reporting it."
+    }
+
+    Assert-NoOfficeProcesses `
+        -ProcessNames @("DrawioPptProcessNameThatCannotExist") `
+        -TimeoutSeconds 0
 
     Stop-TestOwnedProcess `
         -IdentityPath $wrongIdentityPath `
@@ -160,13 +387,14 @@ try {
 
     $injectedCleanupErrors = New-Object System.Collections.Generic.List[string]
     $injectedCleanupErrors.Add("UninstallRelease: exit code 23") | Out-Null
-    $injectedCleanupErrors.Add("RegisterRepositoryAddIns: exit code 31") | Out-Null
+    $injectedCleanupErrors.Add("RestoreOfficeAddInRegistration: simulated restore failure") | Out-Null
+    $injectedCleanupErrors.Add("OfficeProcessResidual: WINWORD PID=12345") | Out-Null
     $injectedCleanupErrors.Add("RestoreSettings: simulated restore failure") | Out-Null
     $injectedDetails = @(
         Get-FullE2EFailureDetails `
             -FatalError ([InvalidOperationException]::new("MainFailure")) `
             -CleanupErrors $injectedCleanupErrors)
-    if ($injectedDetails.Count -ne 4) {
+    if ($injectedDetails.Count -ne 5) {
         throw "Failure aggregation did not preserve the main error and all cleanup errors."
     }
 
@@ -178,7 +406,8 @@ try {
     foreach ($expectedDetail in @(
         "MainFailure",
         "UninstallRelease: exit code 23",
-        "RegisterRepositoryAddIns: exit code 31",
+        "RestoreOfficeAddInRegistration: simulated restore failure",
+        "OfficeProcessResidual: WINWORD PID=12345",
         "RestoreSettings: simulated restore failure")) {
         if ($injectedLine -notlike ("*" + $expectedDetail + "*")) {
             throw "FatalError report row omitted: $expectedDetail"
@@ -194,7 +423,8 @@ try {
         '$results = New-Object System.Collections.Generic.List[string]',
         '$cleanupErrors = New-Object System.Collections.Generic.List[string]',
         '$cleanupErrors.Add("UninstallRelease: exit code 23") | Out-Null',
-        '$cleanupErrors.Add("RegisterRepositoryAddIns: exit code 31") | Out-Null',
+        '$cleanupErrors.Add("RestoreOfficeAddInRegistration: simulated restore failure") | Out-Null',
+        '$cleanupErrors.Add("OfficeProcessResidual: WINWORD PID=12345") | Out-Null',
         '$cleanupErrors.Add("RestoreSettings: simulated restore failure") | Out-Null',
         '$failureDetails = @(Get-FullE2EFailureDetails -FatalError ([InvalidOperationException]::new("MainFailure")) -CleanupErrors $cleanupErrors)',
         'Add-FullE2EFailureResult -Results $results -FailureDetails $failureDetails',
@@ -213,7 +443,8 @@ try {
     foreach ($expectedDetail in @(
         "MainFailure",
         "UninstallRelease: exit code 23",
-        "RegisterRepositoryAddIns: exit code 31",
+        "RestoreOfficeAddInRegistration: simulated restore failure",
+        "OfficeProcessResidual: WINWORD PID=12345",
         "RestoreSettings: simulated restore failure")) {
         if ($probeReport -notlike ("*" + $expectedDetail + "*")) {
             throw "Controlled final report omitted: $expectedDetail"
@@ -221,16 +452,55 @@ try {
     }
 
     $checkedInvocationCount = ([regex]::Matches($fullE2ESource, 'Invoke-CheckedPowerShellScript')).Count
-    if ($checkedInvocationCount -lt 3 -or
-        $fullE2ESource -notmatch 'UninstallRelease' -or
-        $fullE2ESource -notmatch 'RegisterRepositoryAddIns') {
-        throw "Full E2E does not route both uninstall and repository registration through checked cleanup commands."
+    if ($checkedInvocationCount -lt 2 -or
+        $fullE2ESource -notmatch 'UninstallRelease') {
+        throw "Full E2E does not route release uninstall through the checked cleanup command."
     }
 
     if ($fullE2ESource -notmatch '\$cleanupErrors\.Add\("UninstallRelease:' -or
-        $fullE2ESource -notmatch '\$cleanupErrors\.Add\("RegisterRepositoryAddIns:' -or
+        $fullE2ESource -notmatch '\$cleanupErrors\.Add\("RestoreOfficeAddInRegistration:' -or
+        $fullE2ESource -notmatch '\$cleanupErrors\.Add\("OfficeProcessResidual:' -or
+        $fullE2ESource -notmatch 'Restore-OfficeAddInRegistration\s+-Snapshots\s+\$officeAddInRegistrationSnapshot' -or
+        $fullE2ESource -notmatch 'Assert-NoOfficeProcesses\s+-ProcessNames\s+@\("WINWORD",\s*"POWERPNT"\)' -or
+        $fullE2ESource -notmatch 'ReleaseComObject\(\$addin\)' -or
+        $fullE2ESource -notmatch 'ReleaseComObject\(\$comAddIns\)' -or
+        $fullE2ESource -match 'RegisterRepositoryAddIns|Stop-RunningPowerPointSilently' -or
         $fullE2ESource -notmatch '(?s)if \(\$failureDetails\.Count -gt 0\).*?Write-Error.*?exit 1') {
-        throw "Cleanup command failures do not propagate to the final full E2E exit code."
+        throw "Registration restoration or Office residual failures do not propagate to the final full E2E exit code."
+    }
+
+    $snapshotAcquisition = '$officeAddInRegistrationSnapshot = @(Get-OfficeAddInRegistrationSnapshot)'
+    $installInvocation = '$installScript = Join-Path $packageRoot "scripts\\install-release.ps1"'
+    $snapshotAcquisitionIndex = $fullE2ESource.IndexOf(
+        $snapshotAcquisition,
+        [System.StringComparison]::Ordinal)
+    $installInvocationIndex = $fullE2ESource.IndexOf(
+        $installInvocation,
+        [System.StringComparison]::Ordinal)
+    if ($snapshotAcquisitionIndex -lt 0 -or
+        $installInvocationIndex -lt 0 -or
+        $snapshotAcquisitionIndex -ge $installInvocationIndex) {
+        throw "Office registration must be captured before the temporary release installation changes it."
+    }
+
+    $mainTryStatement = $ast.Find(
+        {
+            param($node)
+            $node -is [System.Management.Automation.Language.TryStatementAst] -and
+                $null -ne $node.Finally -and
+                $node.Body.Extent.Text.IndexOf(
+                    $installInvocation,
+                    [System.StringComparison]::Ordinal) -ge 0
+        },
+        $true)
+    if ($null -eq $mainTryStatement) {
+        throw "Full E2E main try/finally statement was not found."
+    }
+
+    $mainFinallySource = $mainTryStatement.Finally.Extent.Text
+    if ($mainFinallySource -notmatch 'Restore-OfficeAddInRegistration\s+-Snapshots\s+\$officeAddInRegistrationSnapshot' -or
+        $mainFinallySource -notmatch 'Assert-NoOfficeProcesses\s+-ProcessNames\s+@\("WINWORD",\s*"POWERPNT"\)') {
+        throw "Registration restoration and the Office residual gate must run from the main finally block."
     }
 
     Write-Output "FULL_E2E_CLEANUP_SAFETY_TEST_PASS"
@@ -240,6 +510,8 @@ finally {
         Stop-Process -Id $dummyProcess.Id -Force -ErrorAction SilentlyContinue
         $dummyProcess.WaitForExit(5000) | Out-Null
     }
+
+    [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree($registryTestRoot, $false)
 
     if (Test-Path -LiteralPath $tempRoot) {
         Remove-Item -LiteralPath $tempRoot -Recurse -Force
