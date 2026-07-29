@@ -320,6 +320,7 @@ Copy-Item (Join-Path $repoRoot "scripts\\word-url-e2e.ps1") (Join-Path $packageR
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-complex-metadata-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-ui-thread-stress-acceptance.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\word-ui-thread-rendering-validation-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-svg-aspect-ratio-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-preview-image-provider-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\powerpoint-svg-aspect-ratio-e2e.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -372,6 +373,7 @@ Contents:
 - scripts\word-url-addin-host-e2e.ps1
 - scripts\word-complex-metadata-e2e.ps1
 - scripts\word-ui-thread-stress-acceptance.ps1
+- scripts\word-ui-thread-rendering-validation-test.ps1
 - scripts\word-svg-aspect-ratio-e2e.ps1
 - scripts\word-preview-image-provider-e2e.ps1
 - scripts\powerpoint-svg-aspect-ratio-e2e.ps1

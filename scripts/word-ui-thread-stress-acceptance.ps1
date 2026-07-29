@@ -442,6 +442,35 @@ function Export-DrawioSourceImage {
     }
 }
 
+function Get-IndependentSourceDisplayAspectRatio {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourcePath,
+        [Parameter(Mandatory = $true)]
+        [string]$TestRoot
+    )
+
+    $ratioProbePath = Join-Path `
+        $TestRoot `
+        "source-ratio-probe.svg"
+    try {
+        Export-DrawioSourceImage `
+            -SourcePath $SourcePath `
+            -Format "Svg" `
+            -OutputPath $ratioProbePath
+        $ratioProbeStatistics =
+            Get-RenderedImageStatistics `
+                -Format "Svg" `
+                -Path $ratioProbePath
+        return $ratioProbeStatistics.AspectRatio
+    }
+    finally {
+        if (Test-Path -LiteralPath $ratioProbePath) {
+            Remove-Item -LiteralPath $ratioProbePath -Force
+        }
+    }
+}
+
 function Get-RenderedImageStatistics {
     param(
         [Parameter(Mandatory = $true)]
@@ -534,6 +563,211 @@ function Get-RenderedImageStatistics {
             $pixelWidth / $pixelHeight,
             6)
         Bytes = (Get-Item -LiteralPath $Path).Length
+    }
+}
+
+function Test-RasterBlankLine {
+    param(
+        [Parameter(Mandatory = $true)]
+        [Drawing.Bitmap]$Bitmap,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("Row", "Column")]
+        [string]$Orientation,
+        [Parameter(Mandatory = $true)]
+        [int]$Index
+    )
+
+    $sampleCount = if ($Orientation -eq "Row") {
+        $Bitmap.Width
+    }
+    else {
+        $Bitmap.Height
+    }
+    $transparentLikePixels = 0
+    for ($sampleIndex = 0;
+        $sampleIndex -lt $sampleCount;
+        $sampleIndex++) {
+        $color = if ($Orientation -eq "Row") {
+            $Bitmap.GetPixel($sampleIndex, $Index)
+        }
+        else {
+            $Bitmap.GetPixel($Index, $sampleIndex)
+        }
+        if ($color.A -le 8) {
+            $transparentLikePixels++
+        }
+    }
+
+    return $transparentLikePixels -eq $sampleCount
+}
+
+function Get-RasterBlankPaddingStatistics {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    Add-Type -AssemblyName System.Drawing
+    $bitmap = $null
+    try {
+        $bitmap = [Drawing.Bitmap]::FromFile($Path)
+        $edgeHasTransparentPixel = $false
+        for ($x = 0;
+            $x -lt $bitmap.Width -and
+                -not $edgeHasTransparentPixel;
+            $x++) {
+            $edgeHasTransparentPixel =
+                $bitmap.GetPixel($x, 0).A -le 8 -or
+                $bitmap.GetPixel($x, $bitmap.Height - 1).A -le 8
+        }
+        for ($y = 0;
+            $y -lt $bitmap.Height -and
+                -not $edgeHasTransparentPixel;
+            $y++) {
+            $edgeHasTransparentPixel =
+                $bitmap.GetPixel(0, $y).A -le 8 -or
+                $bitmap.GetPixel($bitmap.Width - 1, $y).A -le 8
+        }
+        if (-not $edgeHasTransparentPixel) {
+            return [pscustomobject]@{
+                DetectionSupported = $false
+                DetectionStatus = "UnsupportedOpaqueRaster"
+                Top = $null
+                Bottom = $null
+                Left = $null
+                Right = $null
+                RasterizationFringePixels = 2
+                BorderPixels = $null
+                Passed = $null
+            }
+        }
+
+        $maximumRows = [Math]::Floor($bitmap.Height / 2)
+        $maximumColumns = [Math]::Floor($bitmap.Width / 2)
+        $top = 0
+        while ($top -lt $maximumRows -and
+            (Test-RasterBlankLine `
+                -Bitmap $bitmap `
+                -Orientation "Row" `
+                -Index $top)) {
+            $top++
+        }
+
+        $bottom = 0
+        while ($bottom -lt $maximumRows -and
+            (Test-RasterBlankLine `
+                -Bitmap $bitmap `
+                -Orientation "Row" `
+                -Index ($bitmap.Height - 1 - $bottom))) {
+            $bottom++
+        }
+
+        $left = 0
+        while ($left -lt $maximumColumns -and
+            (Test-RasterBlankLine `
+                -Bitmap $bitmap `
+                -Orientation "Column" `
+                -Index $left)) {
+            $left++
+        }
+
+        $right = 0
+        while ($right -lt $maximumColumns -and
+            (Test-RasterBlankLine `
+                -Bitmap $bitmap `
+                -Orientation "Column" `
+                -Index ($bitmap.Width - 1 - $right))) {
+            $right++
+        }
+
+        $rasterizationFringePixels = 2
+        $topPadding = [Math]::Max(
+            0,
+            $top - $rasterizationFringePixels)
+        $bottomPadding = [Math]::Max(
+            0,
+            $bottom - $rasterizationFringePixels)
+        $leftPadding = [Math]::Max(
+            0,
+            $left - $rasterizationFringePixels)
+        $rightPadding = [Math]::Max(
+            0,
+            $right - $rasterizationFringePixels)
+        $borderPixels = [Math]::Max(
+            [Math]::Max($topPadding, $bottomPadding),
+            [Math]::Max($leftPadding, $rightPadding))
+        return [pscustomobject]@{
+            DetectionSupported = $true
+            DetectionStatus = "TransparentAlpha"
+            Top = $topPadding
+            Bottom = $bottomPadding
+            Left = $leftPadding
+            Right = $rightPadding
+            RasterizationFringePixels =
+                $rasterizationFringePixels
+            BorderPixels = $borderPixels
+            Passed = $borderPixels -eq 0
+        }
+    }
+    finally {
+        if ($null -ne $bitmap) {
+            $bitmap.Dispose()
+        }
+    }
+}
+
+function Test-RenderedImageContract {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$RenderedImageStatistics,
+        [Parameter(Mandatory = $true)]
+        [double]$SourceAspectRatio,
+        [int]$RequestedPixelWidth = 0,
+        [Parameter(Mandatory = $true)]
+        [object]$BlankPaddingStatistics
+    )
+
+    if ($SourceAspectRatio -le 0) {
+        throw "Source display aspect ratio must be greater than zero."
+    }
+
+    $pixelWidthPassed =
+        $RenderedImageStatistics.Format -notin @("Png", "Jpeg") -or
+        $RequestedPixelWidth -le 0 -or
+        $RenderedImageStatistics.PixelWidth -eq
+            $RequestedPixelWidth
+    $aspectRatioError = [Math]::Abs(
+        $RenderedImageStatistics.AspectRatio -
+            $SourceAspectRatio)
+    $preservesAspectRatio = $aspectRatioError -le 0.001
+    $blankPaddingDetectionSupported =
+        [bool]$BlankPaddingStatistics.DetectionSupported
+    $borderPaddingPassed =
+        if ($blankPaddingDetectionSupported) {
+            [bool]$BlankPaddingStatistics.Passed
+        }
+        else {
+            $null
+        }
+    $blankPaddingContractPassed =
+        -not $blankPaddingDetectionSupported -or
+        $borderPaddingPassed
+    return [pscustomobject]@{
+        PixelWidthPassed = $pixelWidthPassed
+        AspectRatioError = $aspectRatioError
+        PreservesAspectRatio = $preservesAspectRatio
+        BlankPaddingDetectionSupported =
+            $blankPaddingDetectionSupported
+        BlankPaddingDetectionStatus =
+            [string]$BlankPaddingStatistics.DetectionStatus
+        BorderPixels = $BlankPaddingStatistics.BorderPixels
+        BorderPaddingPassed = $borderPaddingPassed
+        BlankPaddingContractPassed =
+            $blankPaddingContractPassed
+        Passed =
+            $pixelWidthPassed -and
+            $preservesAspectRatio -and
+            $blankPaddingContractPassed
     }
 }
 
@@ -2459,25 +2693,18 @@ else {
 }
 
 $sourceDisplayAspectRatio = 0
-if ($PictureRenderFormat -eq "Placeholder") {
-    $ratioProbePath = Join-Path `
-        $testRoot `
-        "source-ratio-probe.png"
-    Export-DrawioSourceImage `
-        -SourcePath $sourceCopyPath `
-        -Format "Png" `
-        -OutputPath $ratioProbePath `
-        -PreviewPixelWidth 620
-    $ratioProbeStatistics =
-        Get-RenderedImageStatistics `
-            -Format "Png" `
-            -Path $ratioProbePath
+if ($sourceMode -eq "UserProvided" -or
+    $PictureRenderFormat -in @("Png", "Jpeg", "Placeholder")) {
     $sourceDisplayAspectRatio =
-        $ratioProbeStatistics.AspectRatio
+        Get-IndependentSourceDisplayAspectRatio `
+            -SourcePath $sourceCopyPath `
+            -TestRoot $testRoot
+}
+
+if ($PictureRenderFormat -eq "Placeholder") {
     New-SolidPlaceholderImage `
         -Path $picturePath `
         -SourceAspectRatio $sourceDisplayAspectRatio
-    Remove-Item -LiteralPath $ratioProbePath -Force
 }
 elseif ($sourceMode -eq "UserProvided" -or
     $PictureRenderFormat -in @("Png", "Jpeg")) {
@@ -2490,21 +2717,42 @@ elseif ($sourceMode -eq "UserProvided" -or
 $renderedImageStatistics = Get-RenderedImageStatistics `
     -Format $PictureRenderFormat `
     -Path $picturePath
-$renderingPixelWidthPassed =
-    $PictureRenderFormat -notin @("Png", "Jpeg") -or
-    $PreviewPixelWidth -le 0 -or
-    $renderedImageStatistics.PixelWidth -eq $PreviewPixelWidth
 if ($sourceDisplayAspectRatio -le 0) {
-    $sourceDisplayAspectRatio =
-        $renderedImageStatistics.AspectRatio
+    if ($sourceMode -ne "Synthetic" -or
+        $PictureRenderFormat -ne "Svg") {
+        throw "An independent source display aspect ratio was not resolved."
+    }
+
+    $sourceDisplayAspectRatio = 1200.0 / 800.0
 }
-$renderingAspectRatioError = [Math]::Abs(
-    $renderedImageStatistics.AspectRatio -
-        $sourceDisplayAspectRatio)
+$blankPaddingStatistics =
+    if ($PictureRenderFormat -in @("Png", "Jpeg")) {
+        Get-RasterBlankPaddingStatistics -Path $picturePath
+    }
+    else {
+        [pscustomobject]@{
+            DetectionSupported = $false
+            DetectionStatus = "NotApplicableVector"
+            BorderPixels = $null
+            Passed = $null
+        }
+    }
+$renderingContract = Test-RenderedImageContract `
+    -RenderedImageStatistics $renderedImageStatistics `
+    -SourceAspectRatio $sourceDisplayAspectRatio `
+    -RequestedPixelWidth $PreviewPixelWidth `
+    -BlankPaddingStatistics $blankPaddingStatistics
+$renderingPixelWidthPassed =
+    $renderingContract.PixelWidthPassed
+$renderingAspectRatioError =
+    $renderingContract.AspectRatioError
 $renderingAspectRatioPassed =
-    $renderingAspectRatioError -le 0.001
+    $renderingContract.PreservesAspectRatio
 if (-not $renderingAspectRatioPassed) {
     throw "Rendered image aspect ratio differs from the source aspect ratio."
+}
+if ($renderingContract.BorderPaddingPassed -eq $false) {
+    throw "Rendered image contains blank border padding."
 }
 $sourceStatistics = Get-DrawioSourceStatistics `
     -Path $sourceCopyPath `
@@ -3106,8 +3354,7 @@ $report = $null
     $sourcePassed =
         $copiedSourceUnchanged -and
         $originalSourceUnchanged -and
-        $renderingPixelWidthPassed -and
-        $renderingAspectRatioPassed
+        $renderingContract.Passed
     $documentContentPassed =
         $buildDocumentContentPassed -and
         $reopenedDocumentContentPassed -and
@@ -3170,14 +3417,18 @@ $report = $null
                         $renderingAspectRatioError,
                         6)
                 Bytes = $renderedImageStatistics.Bytes
-                BorderPixels = 0
+                BorderPixels = $renderingContract.BorderPixels
+                BlankPaddingDetectionSupported =
+                    $renderingContract.BlankPaddingDetectionSupported
+                BlankPaddingDetectionStatus =
+                    $renderingContract.BlankPaddingDetectionStatus
                 PixelWidthPassed =
                     $renderingPixelWidthPassed
                 PreservesAspectRatio =
                     $renderingAspectRatioPassed
-                Passed =
-                    $renderingPixelWidthPassed -and
-                    $renderingAspectRatioPassed
+                BorderPaddingPassed =
+                    $renderingContract.BorderPaddingPassed
+                Passed = $renderingContract.Passed
             }
             Chars = $sourceStatistics.Chars
             Bytes = $sourceStatistics.Bytes
@@ -3410,7 +3661,10 @@ $report = $null
     Write-Host "RenderingSourceAspectRatio=$($report.Source.Rendering.SourceAspectRatio)"
     Write-Host "RenderingAspectRatioError=$($report.Source.Rendering.AspectRatioError)"
     Write-Host "RenderingPixelWidthPassed=$($report.Source.Rendering.PixelWidthPassed)"
+    Write-Host "BlankPaddingDetectionSupported=$($report.Source.Rendering.BlankPaddingDetectionSupported)"
+    Write-Host "BlankPaddingDetectionStatus=$($report.Source.Rendering.BlankPaddingDetectionStatus)"
     Write-Host "RenderedBorderPixels=$($report.Source.Rendering.BorderPixels)"
+    Write-Host "RenderedBorderPaddingPassed=$($report.Source.Rendering.BorderPaddingPassed)"
     Write-Host "SourceSha256=$($report.Source.Sha256)"
     Write-Host "DrawioXmlChars=$($report.Source.Chars)"
     Write-Host "DrawioXmlBytes=$($report.Source.Bytes)"
