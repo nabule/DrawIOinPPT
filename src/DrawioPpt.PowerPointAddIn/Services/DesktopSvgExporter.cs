@@ -6,6 +6,8 @@ namespace DrawioPpt.PowerPointAddIn.Services
 {
     public class DesktopSvgExporter
     {
+        private const int ProcessTimeoutMilliseconds = 60000;
+
         public bool TryExport(string editorExecutablePath, string drawioFilePath, string outputSvgPath)
         {
             if (string.IsNullOrWhiteSpace(editorExecutablePath) ||
@@ -41,23 +43,89 @@ namespace DrawioPpt.PowerPointAddIn.Services
             return false;
         }
 
-        private static bool RunProcess(string fileName, string arguments)
+        public bool TryExportPng(
+            string editorExecutablePath,
+            string drawioFilePath,
+            string outputPngPath,
+            int width)
         {
-            ProcessStartInfo startInfo = new ProcessStartInfo();
-            startInfo.FileName = fileName;
-            startInfo.Arguments = arguments;
-            startInfo.UseShellExecute = false;
-            startInfo.CreateNoWindow = true;
-
-            using (Process process = Process.Start(startInfo))
+            if (string.IsNullOrWhiteSpace(editorExecutablePath) ||
+                string.IsNullOrWhiteSpace(drawioFilePath) ||
+                string.IsNullOrWhiteSpace(outputPngPath) ||
+                width <= 0 ||
+                !File.Exists(editorExecutablePath) ||
+                !File.Exists(drawioFilePath))
             {
-                if (process == null)
+                return false;
+            }
+
+            try
+            {
+                string directory = Path.GetDirectoryName(outputPngPath);
+                if (!string.IsNullOrEmpty(directory) &&
+                    !Directory.Exists(directory))
                 {
-                    return false;
+                    Directory.CreateDirectory(directory);
                 }
 
-                process.WaitForExit(60000);
-                return process.ExitCode == 0;
+                if (File.Exists(outputPngPath))
+                {
+                    File.Delete(outputPngPath);
+                }
+
+                string arguments = string.Format(
+                    "--export --format png --page-index 1 --border 0 --width {0} --output {1} {2}",
+                    width,
+                    Quote(outputPngPath),
+                    Quote(drawioFilePath));
+                return RunProcess(editorExecutablePath, arguments) &&
+                    File.Exists(outputPngPath) &&
+                    new FileInfo(outputPngPath).Length > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool RunProcess(string fileName, string arguments)
+        {
+            try
+            {
+                ProcessStartInfo startInfo = new ProcessStartInfo();
+                startInfo.FileName = fileName;
+                startInfo.Arguments = arguments;
+                startInfo.UseShellExecute = false;
+                startInfo.CreateNoWindow = true;
+
+                using (Process process = Process.Start(startInfo))
+                {
+                    if (process == null)
+                    {
+                        return false;
+                    }
+
+                    if (!process.WaitForExit(
+                            ProcessTimeoutMilliseconds))
+                    {
+                        try
+                        {
+                            process.Kill();
+                            process.WaitForExit(5000);
+                        }
+                        catch
+                        {
+                        }
+
+                        return false;
+                    }
+
+                    return process.ExitCode == 0;
+                }
+            }
+            catch
+            {
+                return false;
             }
         }
 
