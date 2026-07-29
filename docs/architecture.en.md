@@ -6,8 +6,8 @@
 
 The goal of this project is to give Draw.io diagrams inside Office documents the following capabilities. PowerPoint Desktop is already covered, and this branch adds a Word Desktop host:
 
-- Display as SVG while preserving vector quality
-- Re-enter Draw.io editing after a PowerPoint shape or Word picture is selected
+- Insert the original SVG directly in PowerPoint for vector quality; use a 620px aspect-preserving PNG preview in Word to reduce native layout cost for complex SVG
+- Use the existing PowerPoint edit entry point; in Word, re-enter Draw.io only after selecting a picture and clicking an explicit command
 - Configure the editor as either a local desktop program or a web URL
 - Keep the original Draw.io XML moving with the `pptx` / `docx` file as much as possible
 
@@ -50,12 +50,12 @@ Responsibilities:
 
 - Word COM add-in entry point and registration
 - Ribbon command exposure
-- Selected-picture monitoring in Word
+- Live picture recognition triggered by explicit Word commands
 - Word `InlineShape` / floating `Shape` object model interaction
 - Word document-level `CustomXMLParts` storage and cleanup
 - External-editor launch and write-back orchestration
 
-The current Word host reuses public editor and SVG services from the PowerPoint assembly. These shared services can later be extracted into a dedicated `OfficeShared` project.
+The current Word host reuses public editor, SVG-export, and SVG-sanitization services from the PowerPoint assembly. These shared services can later be extracted into a dedicated `OfficeShared` project. Display strategy is host-specific: PowerPoint inserts the original SVG, scales it proportionally with `contain` inside the slide bounds, and centers it without rewriting the `viewBox` or padding the canvas. Word renders an aspect-preserving 620px-wide PNG from the Draw.io source, inserts it as a floating `Shape`, and fixes wrapping to `wdWrapFront`. If draw.io Desktop export fails, Word generates a lightweight 620×310 PNG placeholder instead of putting a complex SVG back into Word. Complete source remains in document metadata and is still editable after selection plus an explicit command.
 
 Word does not subscribe to `WindowSelectionChange`, and startup does not read the current selection, picture properties, or `AlternativeText`. Selecting, dragging, resizing, and repositioning therefore use Word's native path without add-in metadata detection, Ribbon-state invalidation, document scanning, or auto-open work. Word Ribbon commands remain enabled: the user selects a picture and then clicks Re-edit, Refresh, Bind, or Clear Binding, at which point the command reads and validates the live selection. Double-click remains an explicit editing action and may read the current picture.
 
@@ -129,8 +129,8 @@ The current implementation does not embed `.drawio` as an OLE object or `Embedde
 1. Click `New Diagram` on the Ribbon
 2. Launch the external draw.io editor
 3. The user saves the `.drawio` file
-4. The add-in exports SVG
-5. The PowerPoint add-in inserts the SVG into the current slide; the Word add-in inserts it at the current cursor position
+4. The add-in exports SVG; the normal Word path additionally renders a 620px aspect-preserving PNG from the Draw.io source
+5. PowerPoint inserts the original SVG with centered `contain` sizing; Word inserts the PNG at the cursor as a floating `wdWrapFront` picture
 6. The add-in writes the metadata envelope and document-level `CustomXMLParts`
 7. If `ShowDiagramInfoDialog` is enabled, it shows the diagram name, Diagram ID, editor mode, and `.drawio` working file path
 
@@ -142,7 +142,7 @@ The current implementation does not embed `.drawio` as an OLE object or `Embedde
 4. After that explicit action, the add-in identifies the object and reads the metadata envelope
 5. It opens the local editor or URL editor
 6. The user saves
-7. The add-in regenerates SVG and replaces the displayed content
+7. The add-in regenerates displayed content: PowerPoint still replaces with the original SVG, while Word regenerates the 620px aspect-preserving PNG and replaces the floating picture
 8. If `ShowDiagramInfoDialog` is enabled, it shows the current diagram information when entering the edit flow
 
 ### 5.3 WebView2 User Data Folder for the URL Editor
@@ -166,7 +166,7 @@ The following data is preserved:
 - rotation
 - z-order
 
-In Word, `InlineShape` is part of flowing document text and does not have the same fixed canvas and z-order model as PowerPoint. The current Word path prioritizes preserving picture size, insertion position, and floating-picture wrapping/relative position.
+On create, PowerPoint applies centered `contain` sizing to the original SVG within the slide bounds. On replacement it retains the existing width and corrects height from the SVG source ratio without expanding the SVG `viewBox`, so no internal blank space is introduced. Word uses a 620px aspect-preserving PNG for create, Re-edit, and Refresh; the picture is always converted to a floating `Shape` with `wdWrapFront`. Both horizontal and vertical diagrams use `contain` within the document bounds; the vertical regression ratio is `0.25`. Replacement is transactional: create and fully configure the new picture before deleting the original; if creation or configuration fails, remove the new object and preserve the original. Temporary preview XML deletion uses bounded retries and delays, failed directories receive deferred background cleanup, and provider startup also removes stale directories.
 
 If later validation shows that animations, hyperlinks, or complex formatting are lost too easily during replacement, the enhancement path is:
 

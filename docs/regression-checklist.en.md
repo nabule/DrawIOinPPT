@@ -6,10 +6,10 @@
 
 | Status | Item |
 | --- | --- |
-| PASS | Full Office E2E against the temporary release-package installation passed 9/9; this result covers only the isolated temporary installation. |
+| PASS | Full Office E2E against the temporary release-package installation passed 12/12; this result covers only the isolated temporary installation. |
 | PASS | Standard local installation at `%LOCALAPPDATA%\Greensoft\DrawioPpt`, DLL hashes, Office registration, and real COM loading. |
-| PASS | Installed Word UI-thread stress comparison: two crossed-order rounds with a four-second warmup and 12-second measurement per picture per round; managed/normal selection, position, and size P95 ratios were 0.778 / 0.948 / 0.920, with add-in connection, zero missing events across 135 target-Shape operations, absolute-latency, minimum-sample, save/reopen, and full source-XML recovery gates passing. Installed-build runtime reflection also confirmed no passive selection-metadata path. |
-| Pending manual confirmation | A 10-second real-pointer drag, resize, and reposition on each normal and managed picture, followed by a Re-edit button click. The current Codex interactive desktop is denied cursor access and cannot substitute for the user. |
+| Absolute gate failed | In the final 620px PNG / `Front` rich-document stress sample, normal/managed position P95 values were 556.177/574.474 ms, a delta of 18.297 ms, with 94/94 target selection events confirmed. Both failed the absolute 300 ms gate, as did the 17×24 solid-color PNG baseline. |
+| Pending manual confirmation | `PointerInputCovered=false`. Windows denied `GetCursorPos`, and the `SetIsBorderRequired` interface is unsupported, so automation cannot substitute for real-pointer drag, resize, reposition, and command-click acceptance. |
 
 ## 1. Build and Registration
 
@@ -57,13 +57,16 @@
 - After clearing shape binding, orphaned `CustomXMLPart` entries with no references are removed
 - Generated SVG includes draw.io `content` metadata
 
-## 6. SVG Replacement Fidelity
+## 6. Display-object Replacement Fidelity
 
 - Position is preserved after replacement
 - Size is preserved after replacement
 - Rotation is preserved after replacement
 - Shape name is preserved after replacement
 - Hyperlinks are preserved after replacement
+- `scripts\word-preview-image-provider-e2e.ps1` covers the normal 620px aspect-preserving PNG, the 620×310 aspect-preserving lightweight PNG placeholder on export failure, and temporary-XML retry/deferred/startup cleanup. It must not fall back to complex SVG.
+- `scripts\word-svg-aspect-ratio-e2e.ps1` passes in real Word: a 2:1 PNG remains 2:1 after insertion and replacement, both pictures are floating `wdWrapFront` shapes, `VerticalRatio=0.25`, `VerticalContained=True`, and `FailedReplacementPreservedOriginal=True` proves create-new-before-delete-old replacement.
+- `scripts\powerpoint-svg-aspect-ratio-e2e.ps1` passes in real PowerPoint: the original SVG is inserted directly, centered with proportional `contain` sizing, and replacement retains source ratio without expanding the `viewBox` or adding internal blank space.
 
 ## 7. Exceptions and Logging
 
@@ -96,11 +99,11 @@ Automated checks:
 - `scripts\word-url-e2e.ps1` strictly verifies URL-mode create, reopen, edit, and final write-back through `Document.CustomXMLParts`; the lightweight `AlternativeText` must not stand in for the full primary store.
 - `scripts\word-url-addin-host-e2e.ps1` strictly verifies actual-host write-back through the document-level primary store, with `WordAddInConnect=True` and `ActualWordUrlEditorSaved=True`.
 - Each Word automation script checks that no residual `WINWORD.EXE` remains; a residual process fails the check.
-- The installed visible-Word UI-thread stress comparison used a 120-element SVG and 254,606 characters of XML in two crossed-order rounds with a four-second warmup and 12-second measurement per picture per round. Normal/managed P95 values were 7.501/5.833 ms for selection, 388.910/368.568 ms for position, and 112.280/103.247 ms for size, with managed/normal ratios of 0.778, 0.948, and 0.920. The add-in was connected in the measured instance, 135 target-Shape events were classified with zero missing, installed-build runtime reflection reported `NoPassiveSelectionMetadataPath=True`, and every gate passed. This sample does not establish the cause of the absolute latency; see the [v1.0.8 Word UI-thread stress acceptance report](./word-ui-thread-stress-report-v1.0.8.en.md).
+- The installed visible-Word UI-thread stress comparison rendered the user-supplied complex source as a 620×876 PNG; normal and managed pictures were proportional floating `Front` pictures. Normal/managed position P95 values were 556.177/574.474 ms, a delta of 18.297 ms, with 94/94 target-Shape selection events confirmed and none missing. The absolute 300 ms gate failed, and a 17×24 solid-color PNG baseline failed it as well; `ComparisonPassed=false`, `AbsoluteLatencyGatePassed=false`, and `OverallPassed=false`. Installed-build runtime reflection independently confirms `NoPassiveSelectionMetadataPath=True`, but that source/runtime fact is not a performance or mouse-acceptance pass. See the [v1.0.8 Word UI-thread stress test report](./word-ui-thread-stress-report-v1.0.8.en.md).
 
 Pre-release manual acceptance:
 
 | Status | Check |
 | --- | --- |
-| Partially covered; pointer confirmation pending | The two-round UI-thread stress comparison on same-sized normal and managed pictures observed no additional difference above the threshold and passed the absolute-latency gates. The user should still drag, resize, and reposition each object with a real pointer for 10 continuous seconds each to confirm visual tracking. |
-| Automation passed; button confirmation pending | Save and reopen preserved position, size, and all 254,606 characters of source XML, and the real URL-host E2E completed Re-edit write-back. The user should still click Re-edit once to confirm the local interaction. |
+| Not covered by automation; pointer confirmation pending | `PointerInputCovered=false`; Windows denied or did not support the pointer interfaces, and the absolute 300 ms gate failed. The user must still drag, resize, and reposition each object with a real pointer for 10 continuous seconds each to confirm visual tracking. |
+| Automated explicit command passed; manual button confirmation pending | Save and reopen preserved position, size, and all 26,106 source-XML characters, and the real URL-host E2E completed write-back through select-then-explicit-Re-edit. This is not user-click acceptance; one local manual Re-edit click is still required. |

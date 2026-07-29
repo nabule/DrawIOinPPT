@@ -8,9 +8,9 @@
 - 发布目录：`artifacts\releases\v1.0.8\package`
 - 发布压缩包：`artifacts\releases\v1.0.8\DrawioPpt-v1.0.8.zip`
 - 标准本地安装根：`%LOCALAPPDATA%\Greensoft\DrawioPpt`
-- 新增已安装包回归：`scripts\word-complex-metadata-e2e.ps1`
+- 新增安装包回归：`word-svg-aspect-ratio-e2e.ps1`、`word-preview-image-provider-e2e.ps1`、`powerpoint-svg-aspect-ratio-e2e.ps1`
 
-v1.0.8 仍处于待公开发布状态；本仓库证据不表示 GitHub Release 已创建。
+v1.0.8 仍处于待公开发布状态；本证据不表示 GitHub Release 已创建。
 
 ## 发布门槛
 
@@ -24,42 +24,64 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-complex-m
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-selection-event-e2e.ps1 -Configuration Release -SkipBuild
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-e2e.ps1 -Configuration Release -SkipBuild
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e.ps1 -Configuration Release -SkipBuild
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-preview-image-provider-e2e.ps1 -Configuration Release -SkipBuild
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-svg-aspect-ratio-e2e.ps1 -Configuration Release -SkipBuild
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\powerpoint-svg-aspect-ratio-e2e.ps1 -Configuration Release -SkipBuild
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.8 -SkipBuild
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread-stress-acceptance.ps1 -InstallRoot "$env:LOCALAPPDATA\Greensoft\DrawioPpt" -DurationSeconds 12 -MaximumP95Ratio 1.25 -MaximumPerRoundP95Ratio 1.50 -MaximumSelectionP95DeltaMs 100 -MaximumAbsoluteSelectionP95Ms 2000 -MaximumAbsoluteP95Ms 2000 -MaximumAbsoluteResizeP95Ms 750 -MinimumOperationsPerRound 10 -WarmupSeconds 4 -ResizeOperationsPerRound 12 -SelectionSettleMilliseconds 75 -OutputPath ".\artifacts\test-reports\word-ui-thread-stress-v1.0.8.json"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread-stress-acceptance.ps1 -InstallRoot "$env:LOCALAPPDATA\Greensoft\DrawioPpt" -DrawioSourcePath "<USER_DRAWIO_SOURCE>" -PictureWrapMode Front -PictureRenderFormat Png -PreviewPixelWidth 620 -DurationSeconds 10 -MaximumP95Ratio 1.25 -MaximumPerRoundP95Ratio 1.25 -MaximumP95DeltaMs 50 -MaximumSelectionP95DeltaMs 50 -MaximumAbsoluteSelectionP95Ms 300 -MaximumAbsoluteP95Ms 300 -MaximumAbsoluteResizeP95Ms 300 -MinimumOperationsPerRound 10 -WarmupSeconds 4 -ResizeOperationsPerRound 12 -SelectionSettleMilliseconds 75 -OutputPath ".\artifacts\test-reports\word-ui-thread-stress-user-source-v1.0.8.json"
 ```
 
 ## 最终验证结果
 
 - `Release|x64` 构建通过：0 warnings，0 errors。
-- 所有源码和真实 Word 发布前门槛通过；详细关键值见 [v1.0.8 E2E 测试报告](./e2e-test-report-v1.0.8.md)。
-- 临时安装发布包的完整 Office E2E 为 9/9 通过：`ReleasePackage`、`InstallRelease`、`InstalledOfficeAddInsVerify`、`PowerPointAddInLoad`、`InstalledUrlSmoke`、`InstalledWordUrlHostE2E`、`InstalledWordComplexMetadataE2E`、`PowerPointUrlE2E`、`DesktopExporter` 全部为 PASS。
-- 发布包包含 `DrawioPpt.WordAddIn.dll` 和 `scripts\word-complex-metadata-e2e.ps1`，并显式包含中英文架构、回归清单、优化 backlog、v1.0.5 历史 E2E、本版本发布说明、E2E 报告和证据索引；`PACKAGE.txt` 同时列出 README 与清单本身。
-- 发布前压缩阶段的包内链接门槛输出 `PackageMarkdownMissingLinkCount=0`。
-- full E2E 按 PID 和启动时间精确识别测试拥有的 Word；主脚本 AST 只有尾部一个 `exit 1`，构建、打包、安装和编译失败全部抛出后进入统一 catch/finally。受控 probe 验证主错误与卸载、仓库重注册、设置恢复三项错误会完整聚合到 FatalError 行，最终统一返回 1。
-- 最终完整 E2E 的卸载临时包、还原仓库 Release 加载项注册和设置均成功，输出 `FullE2ECleanupSucceeded=True`，且没有 `WINWORD` / `POWERPNT` 残留。
-- 上一条“还原仓库注册”是临时安装 E2E 结束时的历史状态；随后执行的标准本地安装已把 Word / PowerPoint `CodeBase` 切换到 `%LOCALAPPDATA%\Greensoft\DrawioPpt\bin`，`LoadBehavior=3`，并通过真实 COM 加载检查。
-- 标准安装的三项 DLL 与发布包 SHA256 一致；复杂元数据、零被动选区路径与显式识别、实际 Word URL 宿主安装态回归均通过。真实宿主输出 `ExplicitEditAutomationAvailable=True`、`ExplicitEditCommandInvoked=True`，确认测试走的是“选中后显式重新编辑”，不是选区自动打开。
-- 安装态 Word UI 线程压力对照执行两轮交叉顺序测试，每张图片每轮预热 4 秒后测量 12 秒，并分别记录选择、位置和尺寸延迟。普通/受管合并 P95 为 7.501 / 5.833 ms、388.910 / 368.568 ms、112.280 / 103.247 ms，受管/普通比例为 0.778 / 0.948 / 0.920。比较、绝对延迟、最小样本、最终失败和无响应门槛均通过；测量实例加载项已连接，按目标 Shape 分类确认 135 次事件且缺失为 0，安装态运行时反射输出 `NoPassiveSelectionMetadataPath=True`；保存重开后轻量引用为 382 字符，主存储恢复 254,606 字符源 XML。本样本不证明绝对延迟来源。
+- 现有临时安装包快照的完整 Office 功能 E2E 为 `12/12 PASS`：`ReleasePackage`、`InstallRelease`、`InstalledOfficeAddInsVerify`、`PowerPointAddInLoad`、`InstalledUrlSmoke`、`InstalledWordUrlHostE2E`、`InstalledWordComplexMetadataE2E`、`InstalledWordSvgAspectE2E`、`InstalledWordPreviewProviderE2E`、`InstalledPowerPointSvgAspectE2E`、`PowerPointUrlE2E`、`DesktopExporter` 全部为 PASS。
+- full E2E 汇总报告与日志副本内容一致，SHA256 为 `BA3A00156E3ED56CC15C57EE175FD8E7A524D0B7662649E8A093CFCD81D4513F`；transcript SHA256 为 `F1FD957A318FD23809CD20E7D9722F11CCE34084169F1FD49E21BCCBE9489A7E`。
+- 压缩阶段的包内 Markdown 链接门槛输出 `PackageMarkdownMissingLinkCount=0`。
+- full E2E 只按 PID、启动时间和进程名识别测试拥有的 Office 进程，不终止用户预存进程。它在安装前快照 Word / PowerPoint 注册树，finally 精确恢复值、类型、子键和原本不存在状态；残留 `WINWORD` / `POWERPNT` PID 会写入 FatalError 并令 E2E 失败。
+- 最终临时包卸载、注册状态恢复和设置恢复成功，输出 `FullE2ECleanupSucceeded=True`，没有 Office 进程残留。
+- 最新源码 Word 正常展示为 620px 等比例 PNG 和 `wdWrapFront` 浮动图片；横向/纵向图均 `contain`。增强后的真实回归输出 `VerticalRatio=0.25`、`VerticalContained=True`、`FailedReplacementPreservedOriginal=True`，验证先建新图、成功后才删原图。导出失败生成 620×310 等比例轻量 PNG 占位预览，不回退复杂 SVG；临时 XML 使用重试、延迟和启动清理。先选中、再点击显式命令才读取选区并编辑。
+- PowerPoint 直接插入原始 SVG，在幻灯片边界内按源比例 `contain` 居中，不改写 `viewBox`，不制造图内留白。
 
-## 发布包 DLL SHA256
+## DLL SHA256 与 ZIP 记录边界
 
-| 文件 | SHA256 |
-| --- | --- |
-| `bin\DrawioPpt.Core.dll` | `5A7E8E57B485D39FCB4B46D23A3DBB0ACDCEBB212B48A0A39543E3C9F104C11E` |
-| `bin\DrawioPpt.PowerPointAddIn.dll` | `09E4BBE61B905BACA7B924868696A724A59EF37D3417F58E580AB7A01894733A` |
-| `bin\DrawioPpt.WordAddIn.dll` | `6587C12F23709E5102DE5DD13DBD647CDA45CBDFB778E5D82FA12FA70761219D` |
+以下哈希于 2026-07-29 在最新源码回归后重新只读计算。Core 与 PowerPoint 三方一致；Word 源码已更新，发布包和标准本地安装尚未同步。
 
-压缩包 SHA256 不写入会被再次打入压缩包的文档，避免自哈希循环；它在最终重打包后单独记录。
+| 文件 | 源码 Release | 发布包 | 标准本地安装 |
+| --- | --- | --- | --- |
+| `DrawioPpt.Core.dll` | `5A7E8E57B485D39FCB4B46D23A3DBB0ACDCEBB212B48A0A39543E3C9F104C11E` | `5A7E8E57B485D39FCB4B46D23A3DBB0ACDCEBB212B48A0A39543E3C9F104C11E` | `5A7E8E57B485D39FCB4B46D23A3DBB0ACDCEBB212B48A0A39543E3C9F104C11E` |
+| `DrawioPpt.PowerPointAddIn.dll` | `EB500C2575C929BDD6CAA7718A47A7671D604C468C77CF197497CEE1096F1F3E` | `EB500C2575C929BDD6CAA7718A47A7671D604C468C77CF197497CEE1096F1F3E` | `EB500C2575C929BDD6CAA7718A47A7671D604C468C77CF197497CEE1096F1F3E` |
+| `DrawioPpt.WordAddIn.dll` | `F5B68A12E0E7CBB54EEBE501239F45928EB4DFB685E8007AA57ABBE93615AD70` | `A888A38D2B45DC2126510A2B63669DA89812E4C7580E03EAC5DD02285045B5D9` | `A888A38D2B45DC2126510A2B63669DA89812E4C7580E03EAC5DD02285045B5D9` |
+
+相对位置：
+
+- 源码 Release：`src\<project>\bin\x64\Release\<dll>`
+- 发布包：`artifacts\releases\v1.0.8\package\bin\<dll>`
+- 标准本地安装：`%LOCALAPPDATA%\Greensoft\DrawioPpt\bin\<dll>`
+
+当前 ZIP 内仍携带文档收尾前的旧 v8 压力证据副本和 `A888…B5D9` Word DLL，不包含最新 `F5B6…AD70` Word 源码构建，也不能把旧证据作为当前 Word DLL 的压力通过记录。必须重打包、更新标准本地安装、重跑 full E2E 并复核包内内容及链接。
+
+ZIP SHA256 不写入会再次进入同一 ZIP 的本证据文档，避免自引用导致哈希必然变化；由发布脚本或包外交付摘要在最终打包完成后记录。
+
+## Word UI 线程压力证据
+
+- 原始结果：`artifacts\test-reports\word-ui-thread-stress-user-source-v1.0.8.json`，`ReportVersion=9`，SHA256 `82CBC3A18C43495B1C24154D6FE28981B7E282633C073592816AABC4BEB2EC54`。
+- 测试图片：620×876 PNG、保持源比例、零边框、`Front` 浮动布局；普通图与受管图尺寸、锚点和环绕语义一致。
+- 普通/受管位置 P95：`556.177/574.474 ms`；受管减普通：`18.297 ms`；目标选区事件 `94/94`，缺失 0。
+- 绝对位置 P95 门槛 `300 ms` 未通过；17×24 纯色 PNG 基线也未通过。
+- `SelectionComparisonPassed=false`、`ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`NoAdditionalMetadataPathDifferenceObserved=false`、`OverallPassed=false`。
+- `PointerInputCovered=false`；Windows `GetCursorPos` 访问被拒绝，`SetIsBorderRequired` 不受支持。本证据不声称鼠标拖动通过。
+- 发布用[脱敏机器可读摘要](./evidence/word-ui-thread-stress-v1.0.8.json)已移除用户名、绝对附件路径、临时 GUID 和进程身份。
 
 ## 报告与日志
 
 - `artifacts\test-reports\full-e2e-v1.0.8.md`
 - `artifacts\logs\v1.0.8\full-e2e-v1.0.8.report.md`
 - `artifacts\logs\v1.0.8\full-e2e-v1.0.8.transcript.log`
-- `artifacts\logs\v1.0.8\drawioppt-full-e2e.log`
-- [v1.0.8 Word UI 线程压力验收报告](./word-ui-thread-stress-report-v1.0.8.md)
-- [Word UI 线程压力路径规范化证据快照](./evidence/word-ui-thread-stress-v1.0.8.json)
+- `artifacts\test-reports\word-ui-thread-stress-user-source-v1.0.8.json`
+- [v1.0.8 E2E 测试报告](./e2e-test-report-v1.0.8.md)
+- [Word UI 线程压力测试报告](./word-ui-thread-stress-report-v1.0.8.md)
+- [Word UI 线程压力脱敏证据](./evidence/word-ui-thread-stress-v1.0.8.json)
 
-## 已知测试前提与边界
+## 已知边界
 
-真实 Office 测试开始前 Word 和 PowerPoint 必须关闭，且不能与其他 Office 自动化并行。标准目录本地安装和真实 Word UI 线程压力对照已完成；当前交互桌面因 Win32 error 5 无法注入指针动作，所以普通/受管图形各连续 10 秒的人工指针拖动、缩放、重定位和“重新编辑”按钮点击仍待用户确认。本证据不把自动化压力结果表述为人工鼠标验收。
+现有包快照的 `12/12 PASS` 不覆盖其后的 Word 源码增强、真实鼠标输入或独立压力门槛失败。公开发布前需重打包/重装并重跑 full E2E，用户仍需完成真实指针拖动、缩放、重定位和人工点击“重新编辑”；最终 ZIP 哈希在包外记录。

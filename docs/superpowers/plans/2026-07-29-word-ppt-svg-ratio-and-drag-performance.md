@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Word 与 PowerPoint 新建、重新编辑和刷新 Draw.io SVG 时保持源图比例且不产生画布留白，并使用用户提供的 Draw.io 源码在包含正文、表格和其他图片的真实 Word 文档中验证拖动与缩放无插件热路径卡顿。
+**Goal:** Word 与 PowerPoint 新建、重新编辑和刷新 Draw.io 图形时保持源图比例且不产生画布留白，并使用用户提供的 Draw.io 源码在包含正文、表格和其他图片的真实 Word 文档中验证拖动与缩放无插件热路径卡顿。
 
-**Architecture:** 两个 Office 宿主直接插入原始 SVG，宽度保持现有布局语义，高度由源 SVG 比例计算；替换时保持旧图片宽度和垂直中心。性能验收复用 Word 零被动选区架构，以用户附件导出的 SVG 和原始 XML构建非空白文档，执行 COM 延迟对照及真实 Windows 指针拖动/缩放。
+**Architecture:** PowerPoint 直接插入原始 SVG，并在默认宽高边界框内 contain；Word 从 Draw.io XML 导出 620px、零边框的等比例 PNG，插入为 `wdWrapFront` 浮动图，XML 仍存于文档主存储。替换时保持旧图片宽度和垂直中心。性能验收复用 Word 零被动选区架构，以用户附件构建非空白文档，执行 COM 延迟对照并尝试真实 Windows 指针拖动/缩放。
 
 **Tech Stack:** C# 7.3、.NET Framework 4.8、Microsoft Office Word/PowerPoint COM Interop、PowerShell 5.1、draw.io Desktop、Windows UI Automation、MSBuild。
 
@@ -22,7 +22,16 @@
 - `docs/architecture*.md`、`docs/word-addin*.md`、`docs/user-guide*.md`、`docs/regression-checklist*.md`：两端几何规则、操作和人工验收。
 - `docs/release-notes-v1.0.8*.md`、`docs/e2e-test-report-v1.0.8*.md`、`docs/release-evidence-v1.0.8*.md`、`docs/word-ui-thread-stress-report-v1.0.8*.md`：发布和实测证据。
 
-用户附件 `C:\Users\nabul\.codex\attachments\0c8710b5-e3fb-4c0f-9267-bcdeabcd411d\pasted-text.txt` 只在本机测试时读取，不复制、不暂存、不打包。
+用户附件 `<USER_DRAWIO_SOURCE>` 只在本机测试时读取，不复制、不暂存、不打包。
+
+## 实施结果（2026-07-29）
+
+- PowerPoint 原始 SVG 比例、默认边界 contain、替换几何和无尺寸回退均已通过真实 COM 回归。
+- Word 改为 620px 等比例 PNG 浮动预览、`wdWrapFront`，选中和拖动仍不触发插件元数据路径；预览临时文件在嵌入后清理。
+- 用户附件生成的富文档为 150 段、19,456 字符、8 页、2 表格、3 辅助图片并含页眉页脚；保存重开正文 SHA 一致。
+- 最终 620px 对照中普通图/受管图移动 P95 为 556.177/574.474ms，差值 18.297ms；94/94 选区事件确认，无插件附加热路径，但绝对 300ms 门槛未通过。17×24 纯色占位图也超过 600ms，证明该绝对值包含当前 Word/COM 富文档基线。
+- 真实指针工具能唯一识别 Word 窗口，但激活和截图分别被 Windows 以 `GetCursorPos` 访问拒绝、`SetIsBorderRequired` 不支持阻断；因此 `PointerInputCovered=false`，没有以 COM 冒充指针通过。
+- Release x64 构建通过，完整 Office E2E 为 12/12 PASS；便携 ZIP 55 文件、反斜杠条目 0、独立解压逐文件 SHA256 一致；标准本地目录已更新。
 
 ### Task 1: 完成 Word 源比例红绿灯
 
@@ -184,7 +193,7 @@ DrawioSourceSha256=AB6E4281F949B9F7F3B147B3DE271C3F9F3CA24D06593D9920BADFCD0F050
 - [ ] **Step 3: 执行两轮交叉顺序 COM 压力测试**
 
 ```powershell
-$attachment = 'C:\Users\nabul\.codex\attachments\0c8710b5-e3fb-4c0f-9267-bcdeabcd411d\pasted-text.txt'
+$attachment = '<USER_DRAWIO_SOURCE>'
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread-stress-acceptance.ps1 `
   -InstallRoot "$env:LOCALAPPDATA\Greensoft\DrawioPpt" `
   -DrawioSourcePath $attachment `
@@ -236,7 +245,7 @@ Add-Result -Name "InstalledPowerPointSvgAspectE2E" -Passed ($LASTEXITCODE -eq 0)
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.8 -SkipBuild
 ```
 
-Expected: `ReleasePackage`、安装/注册、URL smoke、真实 Word URL 宿主、复杂元数据、Word 比例、PowerPoint 比例、PowerPoint URL 回写和 draw.io Desktop 导出全部 PASS；无测试拥有的 Office 进程残留。
+Expected: `ReleasePackage`、安装/注册、URL smoke、真实 Word URL 宿主、复杂元数据、Word 比例、Word 预览提供器、PowerPoint 比例、PowerPoint URL 回写和 draw.io Desktop 导出全部 PASS；无测试拥有的 Office 进程残留。最终实测为 12/12 PASS。
 
 - [ ] **Step 4: 生成可移植 ZIP 并独立验证**
 
@@ -326,9 +335,9 @@ Get-Process WINWORD,POWERPNT -ErrorAction SilentlyContinue
 
 ## 完成标准
 
-- Word 和 PPT 新建、重新编辑、刷新均不扩展 SVG `viewBox`，不留白、不拉伸、不裁剪。
+- Word 使用等比例 PNG 浮动预览，PPT 使用原始 SVG contain；两端不留白、不拉伸、不裁剪。
 - 2:1 SVG 在两端新建和修复 400×400 旧图后均为 2:1；旧图宽度和浮动图垂直中心保持。
 - 用户 Draw.io 源码在包含正文、表格和其他图片的 Word 文档中完成移动、缩放、保存重开和显式编辑验收。
-- Word 拖动/缩放期间没有插件被动选区或元数据路径；COM 压力门槛和真实指针验收均据实记录。
+- Word 拖动/缩放期间没有插件被动选区或元数据路径；COM 压力门槛和被 Windows 权限阻断的真实指针验收均据实记录，不冒充通过。
 - Release x64 构建、完整 Office E2E、发布包、标准本地安装和已安装 DLL 回归全部通过。
 - 中英文架构、设计、使用说明、回归清单、发布说明和测试证据与实现一致。

@@ -1,63 +1,72 @@
-# v1.0.8 Word UI-thread Stress Acceptance Report
+# v1.0.8 Word UI-thread Stress Test Report
 
-[English](./word-ui-thread-stress-report-v1.0.8.en.md) | [中文](./word-ui-thread-stress-report-v1.0.8.md) | [Path-normalized evidence snapshot](./evidence/word-ui-thread-stress-v1.0.8.json)
+[English](./word-ui-thread-stress-report-v1.0.8.en.md) | [中文](./word-ui-thread-stress-report-v1.0.8.md) | [Sanitized machine-readable evidence](./evidence/word-ui-thread-stress-v1.0.8.json)
 
 ## Purpose and Boundary
 
-This test runs in real Word against the standard local installation. It applies the same UI-thread operation sequence at the same viewport position to a normal SVG picture and a managed Draw.io picture with identical visuals and dimensions. Each sample selects a neutral document range, allows 75 ms for message processing, then times the target-picture selection separately from the position or size update. The measured instance must have the add-in connected. The test's independent counter classifies events by Shape name and resets that Shape after warmup, confirming target-picture `WindowSelectionChange` events without allowing neutral-range events to satisfy the gate. Separate runtime reflection on the release DLL reports `NoPassiveSelectionMetadataPath=True`; the add-in itself does not subscribe to that event.
+This test runs in real Word against the standard local installation. It renders the same user-supplied complex Draw.io source as an aspect-preserving `620 px`-wide PNG, then creates a normal picture and a managed picture with matching visuals, dimensions, anchor semantics, and wrapping. Both are floating `Shape` objects with `Front` wrapping. The script applies the same selection, position, and size property updates on Word's visible STA UI thread to compare observable managed-metadata overhead.
 
-The test updates `Shape` properties on the visible Word STA UI thread through Word COM. It does not inject real mouse-pointer input, so it is not manual pointer-drag acceptance and cannot prove pixel-by-pixel tracking of a real pointer.
+The installed Word DLL measured in this run has SHA256 `A888A38D2B45DC2126510A2B63669DA89812E4C7580E03EAC5DD02285045B5D9`. At documentation close, the latest source Word DLL had changed to `F5B68A12E0E7CBB54EEBE501239F45928EB4DFB685E8007AA57ABBE93615AD70` and had not yet been reinstalled. This report therefore cannot replace a stress rerun after rebuilding and reinstalling the latest source.
+
+The test updates `Shape` properties through Word COM; it does not inject a real mouse pointer. `PointerInputCovered=false`. A separate attempt to use the Windows pointer interface was denied by the operating system with Win32 error 5. This report is therefore not mouse-drag acceptance and never represents the automated result as “real mouse passed.”
+
+The Word add-in does not subscribe to `WindowSelectionChange`. An independent counter verifies the target-picture events raised by Word. During normal use, the user selects a picture and then clicks Re-edit or another command; only that command reads the live selection and starts editing. Selection, dragging, or resizing alone never opens the editor.
 
 ## Reproducible Command
 
-Close all Word windows first:
+Close all Word windows first. `<USER_DRAWIO_SOURCE>` denotes a caller-supplied local file; the report and evidence do not retain its absolute attachment path:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread-stress-acceptance.ps1 `
   -InstallRoot "$env:LOCALAPPDATA\Greensoft\DrawioPpt" `
-  -DurationSeconds 12 `
+  -DrawioSourcePath "<USER_DRAWIO_SOURCE>" `
+  -PictureWrapMode Front `
+  -PictureRenderFormat Png `
+  -PreviewPixelWidth 620 `
+  -DurationSeconds 10 `
   -MaximumP95Ratio 1.25 `
-  -MaximumPerRoundP95Ratio 1.50 `
-  -MaximumSelectionP95DeltaMs 100 `
-  -MaximumAbsoluteSelectionP95Ms 2000 `
-  -MaximumAbsoluteP95Ms 2000 `
-  -MaximumAbsoluteResizeP95Ms 750 `
+  -MaximumPerRoundP95Ratio 1.25 `
+  -MaximumP95DeltaMs 50 `
+  -MaximumSelectionP95DeltaMs 50 `
+  -MaximumAbsoluteSelectionP95Ms 300 `
+  -MaximumAbsoluteP95Ms 300 `
+  -MaximumAbsoluteResizeP95Ms 300 `
   -MinimumOperationsPerRound 10 `
   -WarmupSeconds 4 `
   -ResizeOperationsPerRound 12 `
   -SelectionSettleMilliseconds 75 `
-  -OutputPath ".\artifacts\test-reports\word-ui-thread-stress-v1.0.8.json"
+  -OutputPath ".\artifacts\test-reports\word-ui-thread-stress-user-source-v1.0.8.json"
 ```
 
-The script generates 120 SVG elements and 1,200 Draw.io cells. It runs two rounds with crossed order: normal then managed in round 1, and managed then normal in round 2. Each picture receives a separate four-second warmup per round, at least 12 seconds of selection events and position updates, and 12 single-axis size updates. The pictures are shown separately at the same page position during measurement, reducing viewport, first-layout, overlap-rendering, and fixed-order bias.
+The script runs two crossed-order rounds—normal then managed, followed by managed then normal—in a document containing 150 body paragraphs, 19,456 body characters, eight pages, two tables, and three auxiliary pictures. The source contains 66 `mxCell` elements. The PNG is `620×876 px`; source and displayed aspect ratios are approximately `0.707763`, with no border pixels. The normal and managed pictures have the same size, anchor semantics, and `Front` wrapping.
 
 ## Results
 
-Execution date: 2026-07-28.
+Execution date: 2026-07-29.
 
 | Metric | Normal picture | Managed picture |
 | --- | ---: | ---: |
-| Combined duration over two rounds | 24.184 s | 24.516 s |
-| Timed selection events | 66 | 69 |
-| Mean selection-event latency | 3.594 ms | 3.368 ms |
-| Selection-event P95 | 7.501 ms | 5.833 ms |
-| Position updates | 42 | 45 |
-| Mean position-update latency | 311.822 ms | 287.630 ms |
-| Position-update P95 | 388.910 ms | 368.568 ms |
+| Combined duration over two rounds | 20.767 s | 20.920 s |
+| Selection operations | 48 | 46 |
+| Selection P95 | 38.657 ms | 34.615 ms |
+| Position updates | 24 | 22 |
+| Mean position-update latency | 389.270 ms | 443.003 ms |
+| Position-update P95 | 556.177 ms | 574.474 ms |
 | Final position-update failures | 0 | 0 |
-| Single-axis size updates | 24 | 24 |
-| Single-axis size-update P95 | 112.280 ms | 103.247 ms |
+| Size updates | 24 | 24 |
+| Size-update P95 | 61.801 ms | 99.776 ms |
 | Final size-update failures | 0 | 0 |
 | Word unresponsive samples | 0 | 0 |
 
-- Round 1 normal/managed position P95 values are `387.316/368.568 ms` with ratio `0.952`; round 2 values are `388.910/314.240 ms` with ratio `0.808`.
-- Combined managed/normal P95 ratios are `0.778` for selection events, `0.948` for position updates, and `0.920` for size updates, all below the `1.25` threshold. The highest per-round selection, position, and size ratios are `1.015`, `0.952`, and `1.151`, all below `1.50`. The combined selection delta is `-1.668 ms`.
-- The highest P95 values across the four groups are `8.766 ms` for selection, `388.910 ms` for position, and `129.184 ms` for size, below the absolute `2000 / 2000 / 750 ms` gates. Each position group contains at least `21` samples versus the required minimum of `10`.
-- The measured instance reports `MeasurementWordAddInConnect=True`. The test counter observed `414` total events and classified `135` target-Shape events for `135` target selection operations, with zero missing; therefore `SelectionChangeEventsPassed=True`. Installed-build runtime reflection also reports `NoPassiveSelectionMetadataPath=True`.
-- Draw.io XML: `254,606` characters; lightweight managed-picture `AlternativeText`: `382` characters.
-- Save and reopen preserved position and size, and `Document.CustomXMLParts` restored all `254,606` characters of source XML.
-- `SelectionComparisonPassed=True`, `ComparisonPassed=True`, `AbsoluteLatencyGatePassed=True`, `MinimumSamplesPassed=True`, `WordAddInConnect=True`, `CleanupResidualWinWord=False`, and `OverallPassed=True`.
+- The combined managed/normal position-P95 ratio is `1.033`, with a delta of `18.297 ms`.
+- Round 1 normal/managed position P95 values are `703.730/574.474 ms`, a `-129.256 ms` delta. Round 2 values are `551.664/601.743 ms`, a `50.079 ms` delta.
+- The independent counter confirmed all `94` expected target-picture selection events, with zero missing: `94/94` and `SelectionChangeEventsPassed=true`.
+- Save and reopen preserved aspect ratio, position, size, and all 26,106 source-XML characters in `Document.CustomXMLParts`; `WordAddInConnect=true`, and cleanup left no residual `WINWORD`.
+- The absolute position-P95 gate is `300 ms`, and both the normal and managed pictures failed it. A separate `17×24 px` solid-color PNG baseline also failed the same absolute gate. The absolute latency therefore cannot be attributed to Draw.io complexity or managed metadata, and the automated absolute-performance gate did not pass.
+- The machine result is `ComparisonPassed=false`, `AbsoluteLatencyGatePassed=false`, and `OverallPassed=false`. These stress gates are distinct from the functional full Office E2E result of `12/12 PASS`.
 
-This sample supports only the statement that no additional picture-metadata-path difference above the configured threshold was observed and that the absolute latency remained within this test's acceptance gates. It does not establish the cause of the absolute latency and does not replace a manual continuous 10-second pointer drag, resize, reposition, and Re-edit button click on each normal and managed picture.
+## Conclusion
 
-See the [path-normalized evidence snapshot](./evidence/word-ui-thread-stress-v1.0.8.json) for the complete machine-readable result. The snapshot changes only the user-directory prefixes in the real output to `%LOCALAPPDATA%` and `%TEMP%`; all other fields match that script run.
+The final 620px PNG sample records normal/managed position P95 values of `556.177/574.474 ms`, a delta of `18.297 ms`, and confirms `94/94` target selection events. These figures describe automated Word/COM property updates for the installed `A888…B5D9` DLL only. Because the absolute `300 ms` gate failed, `PointerInputCovered=false`, and Windows denied the pointer interface, this report does not claim that mouse dragging passed. The latest `F5B6…AD70` Word DLL still requires a rerun after reinstall; continuous real-pointer drag, resize, reposition, and a Re-edit command click remain separate manual acceptance items.
+
+See the [sanitized evidence](./evidence/word-ui-thread-stress-v1.0.8.json) for the release-facing machine-readable summary. User names, absolute attachment paths, temporary run GUIDs, and process identities have been removed while preserving the source report's key configuration, statistics, gate results, and pointer-coverage boundary.

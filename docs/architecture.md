@@ -6,8 +6,8 @@
 
 本项目的目标是让 Office 文档中的 Draw.io 图形具备以下能力。当前已覆盖 PowerPoint Desktop，并新增 Word Desktop 宿主：
 
-- 以 SVG 方式显示，保持矢量质量。
-- 在 PowerPoint 中选中图形、在 Word 中选中图片后，可以重新进入 Draw.io 编辑。
+- PowerPoint 直接插入原始 SVG，保持矢量质量；Word 使用 620px 等比例 PNG 预览，降低复杂 SVG 的原生布局开销。
+- PowerPoint 使用既有编辑入口；Word 必须先选中图片再点击显式命令，才重新进入 Draw.io 编辑。
 - 编辑器可配置为本地桌面程序或 Web URL。
 - 原始 Draw.io XML 尽量和 `pptx` / `docx` 文件一起移动。
 
@@ -50,12 +50,12 @@
 
 - Word COM Add-in 入口与注册
 - Ribbon 命令暴露
-- Word 选中图片监听
+- Word 显式命令触发的实时图片识别
 - Word `InlineShape` / 浮动 `Shape` 对象模型交互
 - Word 文档级 `CustomXMLParts` 存储与清理
 - 外部编辑器启动与回写编排
 
-当前 Word 宿主复用 PowerPoint 程序集中的公共编辑器和 SVG 服务，后续可以再把这些公共服务抽成独立 `OfficeShared` 项目。
+当前 Word 宿主复用 PowerPoint 程序集中的公共编辑器、SVG 导出与清理服务，后续可以再把这些公共服务抽成独立 `OfficeShared` 项目。展示策略按宿主区分：PowerPoint 直接插入原始 SVG，按幻灯片边界做 `contain` 等比缩放并居中，不改写 `viewBox`、不向画布补白；Word 从 Draw.io 源生成宽度 620px 的等比例 PNG，插入为浮动 `Shape`，环绕固定为 `wdWrapFront`。draw.io Desktop 导出失败时，Word 生成 620×310 的轻量 PNG 占位预览，不把复杂 SVG 放回 Word；完整图源仍在文档元数据中，用户选中后点击命令仍可编辑。
 
 Word 不订阅 `WindowSelectionChange`，启动时也不读取当前选区、图片属性或 `AlternativeText`。因此选中、拖动、缩放和重新定位完全走 Word 原生路径，插件不在该热路径中执行元数据识别、Ribbon 状态刷新、文档扫描或自动打开。Word 功能区按钮保持可点击；用户先选中图片，再点击“重新编辑”“刷新”“绑定”或“清除绑定”，命令才读取实时选区并校验元数据。双击属于用户显式编辑动作，仍可按需读取当前图片。
 
@@ -129,8 +129,8 @@ Word：
 1. 点击 Ribbon 的“新建图形”
 2. 启动外部 draw.io 编辑器
 3. 用户保存 `.drawio` 文件
-4. 插件导出 SVG
-5. PowerPoint 插件将 SVG 插入当前幻灯片；Word 插件将 SVG 插入当前光标位置
+4. 插件导出 SVG；Word 正常路径再从 Draw.io 源生成 620px 等比例 PNG 预览
+5. PowerPoint 插件把原始 SVG 按 `contain` 等比居中插入当前幻灯片；Word 插件把 PNG 作为 `wdWrapFront` 浮动图片插入当前光标位置
 6. 插件写入元数据包和文档级 `CustomXMLParts`
 7. 如果 `ShowDiagramInfoDialog` 开启，显示图形名称、Diagram ID、编辑模式和 `.drawio` 工作文件路径等信息
 
@@ -142,7 +142,7 @@ Word：
 4. 插件在显式操作发生后识别对象并读取元数据包
 5. 打开本地编辑器或 URL 编辑器
 6. 用户保存
-7. 插件重新生成 SVG 并替换展示内容
+7. 插件重新生成展示内容：PowerPoint 仍替换为原始 SVG；Word 重新生成 620px 等比例 PNG 并替换浮动图片
 8. 如果 `ShowDiagramInfoDialog` 开启，进入编辑流程时显示当前图形的信息弹窗
 
 ### 5.3 URL 编辑器的 WebView2 用户数据目录
@@ -166,7 +166,7 @@ URL 模式在创建 `WebView2` 前显式建立 `CoreWebView2Environment`，并�
 - 旋转角度
 - 图层顺序
 
-Word 中 `InlineShape` 是正文流式对象，没有 PowerPoint 那样的固定画布和图层顺序；当前优先保留图片大小、插入位置和浮动图片的环绕/相对位置。
+PowerPoint 新建时按幻灯片可用边界对原始 SVG 做 `contain` 缩放并居中；替换时保留现有宽度、按 SVG 源比例校正高度，不扩展 SVG `viewBox`，因此不会在图内制造留白。Word 新建、重新编辑和刷新时使用 620px 等比例 PNG；图片始终转换为浮动 `Shape` 并设置 `wdWrapFront`。横向和纵向图均按文档可用边界 `contain`，纵向回归比例为 `0.25`。替换采用“先创建并完整配置新图，再删除原图”的事务式顺序；新图创建或配置失败时清理新图、保留原图。预览临时 XML 删除使用有限重试和延迟，失败目录进入后台延迟清理，提供器启动时还会清理过期目录。
 
 如果后续发现动画、超链接或复杂格式在替换时容易丢失，则进入增强版本：
 

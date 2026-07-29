@@ -6,10 +6,10 @@
 
 | 状态 | 项目 |
 | --- | --- |
-| 通过 | 临时安装发布包完整 Office E2E 9/9；该结果仅代表隔离临时安装。 |
+| 通过 | 临时安装发布包完整 Office E2E 12/12；该结果仅代表隔离临时安装。 |
 | 通过 | 标准本地目录 `%LOCALAPPDATA%\Greensoft\DrawioPpt` 安装、DLL 哈希、Office 注册和真实 COM 加载。 |
-| 通过 | 安装态 Word UI 线程压力对照：两轮交叉顺序，每张图片每轮预热 4 秒后测量 12 秒；受管/普通选择、位置、尺寸 P95 比例为 0.778 / 0.948 / 0.920，加载项连接、135 次目标 Shape 事件零缺失、绝对延迟、最小样本、保存重开和完整源 XML 恢复门槛均通过；安装态运行时反射同时确认无被动选区元数据路径。 |
-| 待人工确认 | 普通/受管图形各连续 10 秒的真实指针拖动、缩放、重定位和“重新编辑”按钮点击；当前 Codex 交互桌面被系统拒绝光标访问，不能代替用户执行。 |
+| 未通过绝对门槛 | 最终 620px PNG / `Front` 富文档压力样本中，普通/受管位置 P95 为 556.177 / 574.474 ms，差 18.297 ms，94/94 目标选区事件确认；两者均未通过绝对 300 ms 门槛，17×24 纯色 PNG 基线也未通过。 |
+| 待人工确认 | `PointerInputCovered=false`；Windows `GetCursorPos` 访问被拒绝，`SetIsBorderRequired` 接口不受支持，自动化不能代替用户执行真实指针拖动、缩放、重定位和命令点击。 |
 
 ## 1. 构建与注册
 
@@ -57,13 +57,16 @@
 - 删除图形绑定后，不再保留无引用的孤儿 `CustomXMLPart`
 - 生成出的 SVG 包含 draw.io `content` 元数据
 
-## 6. SVG 替换保真
+## 6. 展示对象替换保真
 
 - 替换后位置不跳动
 - 替换后尺寸不跳动
 - 替换后旋转保留
 - 替换后名称保留
 - 替换后超链接保留
+- `scripts\word-preview-image-provider-e2e.ps1` 覆盖正常 620px 等比例 PNG、导出失败时 620×310 等比例轻量 PNG 占位预览，以及临时 XML 重试、延迟和启动清理；不得回退复杂 SVG。
+- `scripts\word-svg-aspect-ratio-e2e.ps1` 在真实 Word 中通过：2:1 PNG 新建和替换保持 2:1，均为 `wdWrapFront` 浮动图片；`VerticalRatio=0.25`、`VerticalContained=True`；`FailedReplacementPreservedOriginal=True` 验证替换先建新图、成功后才删原图。
+- `scripts\powerpoint-svg-aspect-ratio-e2e.ps1` 在真实 PowerPoint 中通过：直接插入原始 SVG，按边界 `contain` 等比居中，替换后保持源比例且不扩展 `viewBox` 产生图内留白。
 
 ## 7. 异常与日志
 
@@ -96,11 +99,11 @@
 - `scripts\word-url-e2e.ps1` 严格从 `Document.CustomXMLParts` 验证 URL 模式的创建、重开、编辑和最终回写，不以轻量 `AlternativeText` 冒充完整主存储。
 - `scripts\word-url-addin-host-e2e.ps1` 严格从文档级主存储验证实际宿主回写，`WordAddInConnect=True` 且 `ActualWordUrlEditorSaved=True`。
 - 每个 Word 自动化脚本结束后检查没有残留 `WINWORD.EXE`；发现残留进程即判定失败。
-- 安装态可见 Word UI 线程压力对照使用 120 元素 SVG 与 254,606 字符 XML，执行两轮交叉顺序测试，每张图片每轮预热 4 秒后测量 12 秒。普通/受管选择 P95 为 7.501 / 5.833 ms，位置 P95 为 388.910 / 368.568 ms，尺寸 P95 为 112.280 / 103.247 ms，受管/普通比例为 0.778 / 0.948 / 0.920。测量实例加载项已连接，按目标 Shape 分类确认 135 次事件且缺失为 0；安装态运行时反射输出 `NoPassiveSelectionMetadataPath=True`，所有门槛通过。本样本不证明绝对延迟来源，完整结果见 [v1.0.8 Word UI 线程压力验收报告](./word-ui-thread-stress-report-v1.0.8.md)。
+- 安装态可见 Word UI 线程压力对照使用用户复杂源图生成 620×876 PNG，普通/受管图均为等比例 `Front` 浮动图片。普通/受管位置 P95 为 556.177 / 574.474 ms，差 18.297 ms；94/94 目标 Shape 选区事件确认，缺失为 0。绝对 300 ms 门槛未通过，且 17×24 纯色 PNG 基线同样失败；`ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`OverallPassed=false`。安装态运行时反射仍独立确认 `NoPassiveSelectionMetadataPath=True`，但该源码/反射事实不能冒充性能或鼠标验收通过。完整结果见 [v1.0.8 Word UI 线程压力测试报告](./word-ui-thread-stress-report-v1.0.8.md)。
 
 发布前人工验收：
 
 | 状态 | 检查项 |
 | --- | --- |
-| 部分覆盖，待指针确认 | 同尺寸普通/受管图形两轮 UI 线程压力对照未观察到超过门槛的额外差异且绝对延迟门槛通过；仍需用户用真实指针对每个对象各连续 10 秒拖动、缩放和重新定位，确认视觉跟随。 |
-| 自动化通过，待按钮确认 | 保存重开后位置、尺寸及 254,606 字符源 XML 已恢复，真实 URL 宿主 E2E 已完成重新编辑回写；仍需用户点击一次“重新编辑”确认本机交互观感。 |
+| 自动化未覆盖，待指针确认 | `PointerInputCovered=false`；Windows 指针接口被拒绝/不支持，且绝对 300 ms 门槛失败。仍需用户用真实指针对每个对象各连续 10 秒拖动、缩放和重新定位，确认视觉跟随。 |
+| 自动化显式命令通过，待人工按钮确认 | 保存重开后位置、尺寸及 26,106 字符源 XML 已恢复，真实 URL 宿主 E2E 已通过“选中后显式重新编辑”入口完成回写；这不等于用户真实点击已验收，仍需本机人工点击一次“重新编辑”。 |

@@ -4,28 +4,27 @@
 
 ## 测试环境
 
-- 日期：2026-07-28
+- 日期：2026-07-29
 - Windows + Microsoft Word Desktop / PowerPoint Desktop
 - .NET Framework 4.8，`Release|x64`
-- 当前用户级 Office COM Add-in 注册和临时安装的 v1.0.8 发布包
+- 当前用户级 Office COM Add-in 注册、隔离临时安装的 v1.0.8 发布包和标准本地安装
 
 ## 发布前门槛
 
-以下命令按顺序串行执行，开始前确认没有用户 Word / PowerPoint 进程，结束后确认没有 `WINWORD` / `POWERPNT` 残留。
+真实 Office 命令串行执行；开始前要求没有用户 Word / PowerPoint 进程，结束后要求没有 `WINWORD` / `POWERPNT` 残留。
 
 | 项目 | 结果 | 关键证据 |
 | --- | --- | --- |
 | Release x64 构建 | 通过 | 0 warnings，0 errors |
-| Word 零被动选区路径源码约束 | 通过 | `WORD_SELECTION_SYNC_TEST_PASS`：无 `WindowSelectionChange` / 自动打开 / 启动时选区读取；四个显式命令一次捕获同一实时图片 |
+| Word 零被动选区路径源码约束 | 通过 | `WORD_SELECTION_SYNC_TEST_PASS`：无 `WindowSelectionChange`、自动打开或启动时选区读取；四个显式命令各捕获一次实时图片 |
 | WebView2 用户目录源码约束 | 通过 | `WEBVIEW2_USER_DATA_FOLDER_SOURCE_TEST_PASS` |
 | Word URL 宿主测试安全约束 | 通过 | `WORD_URL_ADDIN_HOST_E2E_SAFETY_TEST_PASS` |
-| full E2E 清理与统一出口安全约束 | 通过 | `FULL_E2E_CLEANUP_SAFETY_TEST_PASS`；主脚本 AST 只有最终一个 `exit 1`，错误启动时间不会终止进程，受控 probe 将主错误及卸载、重注册、设置恢复错误全部写入 FatalError 行并返回 1 |
-| Word 复杂元数据 E2E | 通过 | `DrawioXmlChars=271361`、`AlternativeTextChars=436`，主存储、轻量引用、失败回退、旧版迁移、part ID 稳定、保存关闭重开均满足断言 |
+| full E2E 清理安全约束 | 通过 | `FULL_E2E_CLEANUP_SAFETY_TEST_PASS`：安装前快照 Word / PowerPoint 注册树；finally 精确恢复值、类型、子键和原本不存在状态；最终残留 Office PID 会写入 FatalError 并令 E2E 失败 |
+| Word 复杂元数据 E2E | 通过 | 文档级主存储、轻量引用、失败回退、旧版迁移、稳定 part ID 和保存关闭重开均满足断言 |
 | Word 显式选区识别 E2E | 通过 | `NoPassiveSelectionMetadataPath=True`、`ExplicitManagedSelectionDetected=True`、`ExplicitPlainPictureCanBind=True` |
-| Word URL E2E | 通过 | `CreatedManagedPicture=True`、`ReopenedEditApplied=True`、`PersistedAfterReopen=True` |
-| 真实 Word URL 宿主 E2E | 通过 | `WordAddInConnect=True`、`ActualHostProcess=WINWORD`、`ExplicitEditAutomationAvailable=True`、`ExplicitEditCommandInvoked=True`、`ActualWordUrlEditorSaved=True`、`AccessDeniedDialog=False` |
+| 真实 Word URL 宿主 E2E | 通过 | `WordAddInConnect=True`、`ExplicitEditAutomationAvailable=True`、`ExplicitEditCommandInvoked=True`、`ActualWordUrlEditorSaved=True` |
 
-复杂元数据回归还验证了 `StoredPayload=True`、`LightweightAlternativeText=True`、`FallbackRetainsPayload=True`、`LegacyMigrationPassed=True`、`LegacyMigrationPartIdsStable=True`、`FallbackPersistedAfterReopen=True`、`LegacyMigrationPersistedAfterReopen=True`、`CleanupResidualWinWord=False`。
+显式命令自动化验证的是“选中图片后调用重新编辑命令”，不是选中自动打开，也不等同于用户真实鼠标点击验收。
 
 ## 临时安装包完整 Office E2E
 
@@ -35,46 +34,55 @@
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.8 -SkipBuild
 ```
 
-结果：9/9 通过。
-
-打包阶段先输出 `PackageMarkdownMissingLinkCount=0`，确认 ZIP 内所有本地 Markdown 链接均能解析到包内文件。
+结果：`12/12 PASS`。
 
 | 检查项 | 结果 | 关键证据 |
 | --- | --- | --- |
 | `ReleasePackage` | PASS | v1.0.8 发布目录生成成功 |
 | `InstallRelease` | PASS | 发布包安装到隔离临时目录 |
-| `InstalledOfficeAddInsVerify` | PASS | Word / PowerPoint 注册和 COM 加载验证通过 |
+| `InstalledOfficeAddInsVerify` | PASS | Word / PowerPoint 注册和 COM 加载通过 |
 | `PowerPointAddInLoad` | PASS | `Connect=True` |
-| `InstalledUrlSmoke` | PASS | `Saved=True`、`SvgHasSmoke=True`、`XmlHasSmokeId=True` |
-| `InstalledWordUrlHostE2E` | PASS | 临时安装包 DLL 在真实 `WINWORD.EXE` 中通过选中后显式命令完成 URL 回写 |
-| `InstalledWordComplexMetadataE2E` | PASS | 临时安装包 DLL 完成复杂 XML 主存储、轻量引用、回退和迁移回归 |
-| `PowerPointUrlE2E` | PASS | `CreatedManagedShape=True`、`ReopenedEditApplied=True`、`PersistedAfterReopen=True`、`ExitCode=0` |
+| `InstalledUrlSmoke` | PASS | URL 编辑器 smoke 完成保存和 SVG/XML 回写 |
+| `InstalledWordUrlHostE2E` | PASS | 临时包 DLL 在真实 `WINWORD.EXE` 中通过选中后显式命令完成 URL 回写 |
+| `InstalledWordComplexMetadataE2E` | PASS | 复杂 XML 主存储、轻量引用、回退和迁移回归通过 |
+| `InstalledWordSvgAspectE2E` | PASS | 包快照中的 Word 2:1 图片新建、替换和旧图比例修复通过，保持浮动 `wdWrapFront` |
+| `InstalledWordPreviewProviderE2E` | PASS | 包快照中的 Word 620px 等比例 PNG、零方形强制、临时源清理和安全回退通过 |
+| `InstalledPowerPointSvgAspectE2E` | PASS | PowerPoint 原始 SVG `contain` 等比居中且不扩展 `viewBox` |
+| `PowerPointUrlE2E` | PASS | PowerPoint URL 创建、重开、编辑和持久化通过 |
 | `DesktopExporter` | PASS | draw.io Desktop 导出 SVG 成功 |
 
-URL smoke 的 mock 编辑器会在 preferred loopback 端口被系统排除或占用时连续尝试后续端口；探活和 `PluginSettings.EditorUrl` 都使用最终绑定端口。本次 smoke 输出 `MockServerPort=8752`，真实 Word URL 宿主输出 `MockServerPort=12440`。
+打包阶段输出 `PackageMarkdownMissingLinkCount=0`。汇总报告和日志副本内容一致，SHA256 为 `BA3A00156E3ED56CC15C57EE175FD8E7A524D0B7662649E8A093CFCD81D4513F`。
 
-安装态复杂元数据测试写出 `TestWordProcessIdentity=42848:639208283590231895`。finally 按 PID 和启动时间核对测试拥有的 Word，本次进程已正常退出，因此输出 `TestOwnedProcessAlreadyExited=42848`；卸载临时包、恢复仓库加载项注册和设置均完成，最终输出 `FullE2ECleanupSucceeded=True`。
+临时安装结束后卸载测试包，并把 Word / PowerPoint 加载项注册精确恢复到执行前状态，包括执行前不存在的键。设置恢复完成，最终输出 `FullE2ECleanupSucceeded=True`，没有 `WINWORD` / `POWERPNT` 残留。
 
-## 后续标准本地安装与 Word UI 线程压力确认
+full E2E 完成后，源码侧又通过了增强后的真实 Word 回归：`VerticalRatio=0.25`、`VerticalContained=True`、`FailedReplacementPreservedOriginal=True`。最新预览门禁覆盖 draw.io Desktop 导出失败时的 620×310 等比例轻量 PNG 占位预览，以及临时 XML 有限重试、后台延迟清理和启动清理；不再回退复杂 SVG。这些增强尚未进入上述临时包快照。
 
-- 标准安装根：`%LOCALAPPDATA%\Greensoft\DrawioPpt`，`PACKAGE.txt` 为 `v1.0.8 / Release / x64`。
-- 标准安装目录的 Core、PowerPoint 和 Word DLL 与发布包 SHA256 一致；Word / PowerPoint `CodeBase` 均指向标准安装目录，`LoadBehavior=3`。
-- `verify-office-install.ps1`、`word-addin-load-check.ps1`、已安装版 `word-complex-metadata-e2e.ps1`、`word-selection-event-e2e.ps1` 和实际 Word URL 宿主回归分别通过；这些是标准安装确认，不计入上面的临时安装 9/9。
-- 使用同一 120 元素复杂 SVG 创建相同尺寸的普通图形与受管图形。受管图形引用为 382 字符，完整 Draw.io XML 254,606 字符保存在 `Document.CustomXMLParts`。
-- 在可见 Word 中执行两轮交叉顺序测试，每张图片每轮先预热 4 秒，再测量 12 秒；选择事件和位置更新分别计时。普通/受管合并选择 P95 为 7.501 / 5.833 ms，位置 P95 为 388.910 / 368.568 ms，尺寸 P95 为 112.280 / 103.247 ms；受管/普通比例分别为 0.778 / 0.948 / 0.920。比较、绝对延迟、最小样本、最终调用失败和无响应采样门槛均通过；测量实例加载项已连接，测试计数器按目标 Shape 分类确认 135 次事件且缺失 0，安装态运行时反射输出 `NoPassiveSelectionMetadataPath=True`。
-- 保存并重开后，受管图形位置/尺寸为 `69 / 82 / 340 / 226`，轻量引用仍为 382 字符，文档主存储恢复 254,606 字符 XML，`WordAddInConnect=True`。
-- 本样本只支持“未观察到图片元数据路径带来超过门槛的额外差异，且绝对延迟未超过本次验收门槛”，不证明绝对延迟的具体来源。完整命令、方法和路径规范化证据快照见 [Word UI 线程压力验收报告](./word-ui-thread-stress-report-v1.0.8.md)。
+## 标准本地安装与制品一致性
+
+- 标准安装根：`%LOCALAPPDATA%\Greensoft\DrawioPpt`；`PACKAGE.txt` 为 `v1.0.8 / Release / x64`。
+- Core 与 PowerPoint DLL 在源码 Release 输出、发布包和标准本地安装中 SHA256 一致。最新 Word 源码 DLL 为 `F5B68A12E0E7CBB54EEBE501239F45928EB4DFB685E8007AA57ABBE93615AD70`，发布包和本地安装仍为 `A888A38D2B45DC2126510A2B63669DA89812E4C7580E03EAC5DD02285045B5D9`；Word 尚待重打包和重装。
+- PowerPoint 直接插入原始 SVG，按幻灯片边界 `contain` 等比居中，不改写 `viewBox`、不制造图内留白。
+- 最新源码中 Word 正常展示为 620px 等比例 PNG，插入为 `wdWrapFront` 浮动 `Shape`；横向/纵向图均 `contain`，替换先建新图后删原图，失败时保留原图。导出失败则生成 620×310 等比例轻量 PNG 占位图，源 XML 仍在文档元数据中。选中本身不编辑，点击显式命令后才读取选区并进入编辑。
+- ZIP SHA256 不写入会再次进入压缩包的本报告，避免自引用失真；由发布脚本或包外交付摘要在最终重打包后记录。
+
+## Word UI 线程压力结果
+
+最新用户复杂源图压力运行使用 620×876 PNG、`Front` 浮动布局和富文档基线。普通/受管位置 P95 为 `556.177/574.474 ms`，差值 `18.297 ms`；目标 Shape 选区事件 `94/94`，缺失 0。保存重开、几何、存储和清理门槛通过。
+
+绝对位置 P95 门槛为 `300 ms`，普通图和受管图均失败；`17×24 px` 纯色 PNG 基线也失败。机器结果为 `SelectionComparisonPassed=false`、`ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`NoAdditionalMetadataPathDifferenceObserved=false`、`OverallPassed=false`。因此不能把绝对延迟归因于图形复杂度或受管元数据，也不能写成性能验收通过。
+
+`PointerInputCovered=false`。Windows `GetCursorPos` 访问被拒绝，`SetIsBorderRequired` 接口不受支持；自动化没有覆盖真实鼠标输入，不作鼠标拖动通过结论。
 
 ## 报告与日志
 
-- 汇总报告：`artifacts\test-reports\full-e2e-v1.0.8.md`
-- 报告副本：`artifacts\logs\v1.0.8\full-e2e-v1.0.8.report.md`
+- 功能 E2E 汇总：`artifacts\test-reports\full-e2e-v1.0.8.md`
+- 日志副本：`artifacts\logs\v1.0.8\full-e2e-v1.0.8.report.md`
 - PowerShell transcript：`artifacts\logs\v1.0.8\full-e2e-v1.0.8.transcript.log`
-- 插件日志快照：`artifacts\logs\v1.0.8\drawioppt-full-e2e.log`
-- 标准安装 UI 线程压力报告：[v1.0.8 Word UI 线程压力验收报告](./word-ui-thread-stress-report-v1.0.8.md)
-- 机器可读压力结果：[路径规范化证据快照](./evidence/word-ui-thread-stress-v1.0.8.json)
-- 发布内容与 DLL 哈希：见 [v1.0.8 发布证据](./release-evidence-v1.0.8.md)
+- Word 压力原始结果：`artifacts\test-reports\word-ui-thread-stress-user-source-v1.0.8.json`
+- [Word UI 线程压力测试报告](./word-ui-thread-stress-report-v1.0.8.md)
+- [脱敏机器可读压力证据](./evidence/word-ui-thread-stress-v1.0.8.json)
+- [发布内容与哈希](./release-evidence-v1.0.8.md)
 
 ## 验收边界
 
-本报告验证源码 Release DLL、临时安装发布包、标准本地安装及真实 Word UI 线程压力对照。当前 Codex 交互桌面的光标 API 被系统以 Win32 error 5 拒绝，无法执行真实指针连续拖动；普通/受管图形各连续 10 秒的人工指针拖动、缩放、重定位和“重新编辑”按钮点击仍是独立待确认项，不计入自动化 9/9 或 UI 线程压力结果。
+本报告记录的现有包快照功能性 Office E2E 为 `12/12 PASS`；最新 Word 源码增强尚未进入该包，必须重打包/重装后重新验证。Word 压力门槛为独立结果，当前 `OverallPassed=false`。真实指针拖动、缩放、重定位和人工点击“重新编辑”仍需用户确认。

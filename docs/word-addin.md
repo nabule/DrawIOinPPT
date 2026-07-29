@@ -7,9 +7,9 @@
 Word 版插件的目标是把当前 PowerPoint 插件的 Draw.io 工作流带到 Word Desktop：
 
 - 在当前光标位置插入 Draw.io 图形。
-- 以 SVG 图片形式显示，尽量保持矢量清晰度。
-- 选中已绑定图片后重新进入 Draw.io 编辑。
-- 保存后把新的 SVG 和 Draw.io XML 回写到原图片。
+- 从 Draw.io 源生成宽度 620px、保持源宽高比的 PNG 预览。
+- 以 `wdWrapFront` 浮动图片显示；用户选中图片后点击命令才重新进入 Draw.io 编辑。
+- 保存后把新的 PNG 预览和 Draw.io XML 回写到原图片。
 - 把源 XML 同步保存到 Word 文档的 `Document.CustomXMLParts`，并用图片 `AlternativeText` 保存轻量引用和失败回退。
 - 继续支持桌面 draw.io / diagrams.net 和 URL 模式编辑器。
 
@@ -20,14 +20,18 @@ Word 版插件的目标是把当前 PowerPoint 插件的 Draw.io 工作流带到
 - 桌面 draw.io 启动与导出。
 - URL 模式 `WebView2 + diagrams.net embed` 编辑器。
 - 设置窗口、日志、用户提示。
-- SVG 预览、SVG sanitize、draw.io `content` 元数据补写。
+- SVG 导出与 sanitize、620px PNG 预览生成、draw.io `content` 元数据补写。
 
 Word 专属代码负责：
 
 - Word COM Add-in 注册和 Ribbon 回调。
 - Word 显式双击处理；不监听普通选区变化。
 - `InlineShape` / 浮动 `Shape` 图片识别。
-- SVG 图片插入和替换。
+- 620px 等比例 PNG 浮动图片插入和替换。
+
+Word 的展示路径与 PowerPoint 分开：PowerPoint 继续直接插入原始 SVG；Word 正常路径从 Draw.io 源导出宽度 620px 的 PNG，保持源宽高比和零边框像素，并把图片转换为 `wdWrapFront` 浮动 `Shape`。横向和纵向图均在文档可用边界内 `contain`，纵向图回归比例为 `0.25`。重新编辑或刷新采用“先创建并完整配置新图，再删除原图”；失败时清理未完成的新图并保留原图。draw.io Desktop 导出不可用时生成 620×310 的等比例轻量 PNG 占位预览，不回退复杂 SVG；完整 Draw.io XML 仍保存在文档级主存储中，用户选中占位图后点击“重新编辑”仍可恢复编辑。
+
+预览提供器仅在 `%TEMP%\DrawioPpt\word-preview` 下创建临时 Draw.io XML 和 PNG。临时 XML 删除采用 4 次、间隔 50ms 的有限重试；同步清理未完成时安排后台延迟重试，提供器启动时还会清理一小时前遗留的受管目录。
 - `Document.CustomXMLParts` 写入、读取和孤儿清理。
 - Word 文档路径下 sidecar `.drawio` 重定位。
 
@@ -35,7 +39,7 @@ Word 专属代码负责：
 
 Word 宿主不订阅 `WindowSelectionChange`，启动时也不读取当前选区、图片属性、`AlternativeText` 或 `Document.CustomXMLParts`。普通选中、拖动、调整大小和重新定位期间，插件不做元数据识别、功能区状态刷新、孤儿清理或自动打开，Word 只执行自身的图片交互。
 
-“重新编辑”“刷新”“绑定”和“清除绑定”始终保持可点击；用户先选中图片，再点击相应命令，插件才读取实时 Word 选区并校验元数据。功能区信息固定提示“选中后点击操作 / 点击按钮时识别”，不再随选择变化。双击图片属于显式编辑动作，仍可打开受管图形。本版本不改变 SVG、Draw.io XML、图片格式、环绕方式或浮动图片布局本身的 Word 原生开销。
+“重新编辑”“刷新”“绑定”和“清除绑定”始终保持可点击；用户先选中图片，再点击相应命令，插件才读取实时 Word 选区并校验元数据。功能区信息固定提示“选中后点击操作 / 点击按钮时识别”，不再随选择变化。双击图片也属于显式编辑动作，仍可打开受管图形。普通选中、拖动、缩放和重定位不执行插件元数据处理；本版本把正常展示改为 620px 等比例 PNG 和 `wdWrapFront` 浮动布局，但不能据此声称 Word 原生鼠标拖动已经通过验收。
 
 ## 3. 数据策略
 
@@ -61,7 +65,7 @@ Word 版当前同样已经把 Draw.io 源 XML 嵌入 `.docx` 文件内部。主�
 - 更新时间
 - 经过 `gzip + base64` 压缩的 Draw.io XML
 
-选中图片后点击“重新编辑”时，插件才从图片 `AlternativeText` 解析 `diagramId`，再在 `Document.CustomXMLParts` 中查找最新完整 envelope。保存后，插件会同时更新可见 SVG 图片、图片上的轻量引用和文档级 XML；只有主存储写入失败时才在图片上保留全量回退。
+选中图片后点击“重新编辑”时，插件才从图片 `AlternativeText` 解析 `diagramId`，再在 `Document.CustomXMLParts` 中查找最新完整 envelope。保存后，插件会同时更新可见 PNG 预览、图片上的轻量引用和文档级 XML；只有主存储写入失败时才在图片上保留全量回退。
 
 sidecar `.drawio` 在 Word 版里也是编辑缓存和人工备份，不是主存储。把 `.docx` 移到另一台机器后，只要 `Document.CustomXMLParts` 没被清理，插件仍可以从文档内部恢复 Draw.io XML，并在需要桌面版 draw.io 时重新生成 sidecar。
 
@@ -154,6 +158,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-selection-event-e2e.
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-url-e2e.ps1 -SkipBuild
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e.ps1 -Configuration Release
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-svg-aspect-ratio-e2e.ps1 -Configuration Release -SkipBuild
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1 -Configuration Debug
 ```
 
@@ -161,13 +166,15 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\word-addin-load-check.ps1
 
 - 解决方案 Release x64 构建通过，`0` 个警告、`0` 个错误。
 - 真实 Word COM 打开 `.docx`。
-- URL 模式创建 Draw.io 图形并回写 SVG/XML。
+- URL 模式创建 Draw.io 图形并回写 Word PNG 预览/XML。
 - 保存后重开 Word 文档，再次编辑并回写。
 - `Document.CustomXMLParts` 持久化存在。
 - 复杂 Draw.io XML 保存在 `CustomXMLParts`，图片 `AlternativeText` 为不含 `DrawioXml` 的轻量引用；保存、关闭、重开后仍成立。
 - `CustomXMLParts` 写入失败时全量图片回退可持久化；旧版全量元数据迁移后再次读取保持 XML part ID 稳定。
 - Word COM Add-in 能通过 `COMAddIns.Item("Greensoft.DrawioWordAddIn")` 加载，`Connect=True`。
 - `word-url-addin-host-e2e.ps1` 在真实 `WINWORD.EXE` 中加载被测 DLL，先选中受管图片，再通过插件的显式命令入口执行“重新编辑”；验证 `ExplicitEditAutomationAvailable=True`、`ExplicitEditCommandInvoked=True`、`configure -> init -> load -> save -> export` 回写、用户级 WebView2 目录以及日志中没有 `E_ACCESSDENIED`。
+- `word-preview-image-provider-e2e.ps1` 验证正常 PNG 的签名/620px 宽度/源比例，以及导出失败时的 620×310 等比例轻量 PNG 占位预览；同时验证临时 XML 重试/延迟清理和启动清理。
+- `word-svg-aspect-ratio-e2e.ps1` 在真实 Word 中验证 2:1 PNG 新建和替换后均保持 2:1、始终为 `wdWrapFront` 浮动图片；纵向图 `VerticalRatio=0.25`、`VerticalContained=True`；失败替换输出 `FailedReplacementPreservedOriginal=True`，证明原图未被提前删除。
 - Word 自动化脚本结束后没有残留 `WINWORD.EXE`。
 
 `word-url-e2e.ps1` 不会强制关闭用户已有 Word 进程；如果检测到 Word 正在运行，会直接中止，避免影响未保存文档。为隔离测试自身创建的宿主，它会在测试期间暂时禁用已注册插件的自动加载，并在 finally 中恢复原 `LoadBehavior`；运行期间不要启动 Word 或并行执行其他 Word 自动化。

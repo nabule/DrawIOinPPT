@@ -46,6 +46,10 @@ Word 中的复杂图形采用下面的存储方式：
 - 图片 `AlternativeText` 正常只保存 `formatVersion`、`diagramId`、名称、编辑模式/目标、sidecar 路径和更新时间，不保存 `DrawioXml`。
 - Word 不订阅 `WindowSelectionChange`，启动时也不读取选区或图片元数据；选中、拖动、缩放和重新定位期间不执行插件处理。
 - 在 Word 中先选中图片，再点击“重新编辑”“刷新”“绑定”或“清除绑定”，此时才读取实时选区和元数据；Word 不提供选中后自动打开。
+- Word 中新建、重新编辑和刷新正常使用宽度 620px 的等比例 PNG，插入为 `Front` 浮动图片。draw.io Desktop 导出失败时显示 620×310 的等比例轻量 PNG 占位图，不回退复杂 SVG；图源仍保存在文档元数据中，选中占位图后点击“重新编辑”即可继续编辑。若旧图曾被拉成正方形，下一次重新编辑或刷新会恢复正确比例。
+- 横向和纵向 Word 图片都会在文档可用边界内 `contain`；替换先创建成功的新图再删除原图，替换失败时原图仍保留。临时预览 XML 会重试删除，并由后台/下次启动继续清理受管临时目录。
+- PowerPoint 仍直接插入原始 SVG，按幻灯片边界 `contain` 等比居中，不改写 `viewBox`，因此不会为了填满边界框在图内补白。
+- Word 选中图片本身不会启动编辑器；先选中，再点击“重新编辑”等命令，插件才读取实时选区并执行对应操作。
 - 如果主存储写入失败，图片会保留全量 envelope，避免源数据丢失；旧版全量图片元数据在首次读取时自动迁入主存储，迁移后改为轻量引用。
 
 需要注意：单独复制一张 Word 图片到另一文档时，Office 不保证复制原文档的 `CustomXMLParts`。正常轻量引用不含 Draw.io XML，目标文档中可能无法恢复编辑源。跨文档交付时建议复制整份 `.docx`，或提前保存/保留 sidecar `.drawio` 或 Draw.io XML。只有旧版图片或主存储失败回退图片，`AlternativeText` 才可能仍包含全量数据。
@@ -659,7 +663,7 @@ Draw.io XML 会先做 `gzip + base64`，再放进 envelope 的 `drawioXml` 节�
 默认日志位置：
 
 ```text
-C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.log
+%APPDATA%\Greensoft\DrawioPpt\Logs\drawioppt.log
 ```
 
 建议优先看日志的场景：

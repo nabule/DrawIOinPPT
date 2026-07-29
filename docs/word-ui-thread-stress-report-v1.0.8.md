@@ -1,63 +1,72 @@
-# v1.0.8 Word UI 线程压力验收报告
+# v1.0.8 Word UI 线程压力测试报告
 
-[中文](./word-ui-thread-stress-report-v1.0.8.md) | [English](./word-ui-thread-stress-report-v1.0.8.en.md) | [路径规范化证据快照](./evidence/word-ui-thread-stress-v1.0.8.json)
+[中文](./word-ui-thread-stress-report-v1.0.8.md) | [English](./word-ui-thread-stress-report-v1.0.8.en.md) | [脱敏机器可读证据](./evidence/word-ui-thread-stress-v1.0.8.json)
 
 ## 目的与边界
 
-本测试在标准本地安装的真实 Word 中，对相同视觉和尺寸的普通 SVG 图片与受管 Draw.io 图片执行同位置、同操作序列的 UI 线程压力对照。每个样本均先选择正文中性位置，等待 75 ms 消息处理，再分别计时目标图片选择事件和位置/尺寸更新；测量实例必须已连接加载项。测试自身的独立事件计数器按 Shape 名称分类，预热后清零对应对象计数，确认 Word 对目标图片实际发出 `WindowSelectionChange`，正文选择不能充入确认数；发布 DLL 的运行时反射另行确认 `NoPassiveSelectionMetadataPath=True`，加载项本身不订阅该事件。
+本测试在标准本地安装的真实 Word 中，把同一份用户复杂 Draw.io 源图渲染为宽度 `620 px`、保持源宽高比的 PNG，再创建视觉、尺寸、锚点和环绕语义一致的普通图片与受管图片。两者均为浮动 `Shape`，环绕方式为 `Front`。脚本在可见 Word STA UI 线程上执行相同的选中、位置和尺寸属性更新，用于比较受管元数据是否带来可观测差异。
 
-测试通过 Word COM 在可见 Word STA UI 线程更新 `Shape` 属性，不注入真实鼠标指针。因此，它不是人工指针拖动验收，不能证明图形一定逐像素跟随真实指针。
+本次测量使用的本地 Word DLL SHA256 为 `A888A38D2B45DC2126510A2B63669DA89812E4C7580E03EAC5DD02285045B5D9`。文档收尾时最新源码 Word DLL 已变为 `F5B68A12E0E7CBB54EEBE501239F45928EB4DFB685E8007AA57ABBE93615AD70`，尚未重装；因此本报告不能替代最新源码重打包、重装后的压力复测。
+
+测试通过 Word COM 更新 `Shape` 属性，不注入真实鼠标指针。`PointerInputCovered=false`；另行尝试 Windows 指针接口时，操作系统返回 Win32 error 5（拒绝访问）。因此本报告不是鼠标拖动验收，也绝不把自动化结果表述为“真实鼠标通过”。
+
+Word 加载项不订阅 `WindowSelectionChange`。测试用独立计数器验证 Word 实际发出的目标图片选区事件；用户在正常使用时必须先选中图片，再点击“重新编辑”等命令，插件才读取实时选区并启动编辑，单纯选中、拖动或缩放不会自动打开编辑器。
 
 ## 可复现命令
 
-测试前关闭所有 Word 窗口：
+测试前关闭所有 Word 窗口；`<USER_DRAWIO_SOURCE>` 仅表示调用者提供的本地源文件，不在报告或证据中保存绝对附件路径：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread-stress-acceptance.ps1 `
   -InstallRoot "$env:LOCALAPPDATA\Greensoft\DrawioPpt" `
-  -DurationSeconds 12 `
+  -DrawioSourcePath "<USER_DRAWIO_SOURCE>" `
+  -PictureWrapMode Front `
+  -PictureRenderFormat Png `
+  -PreviewPixelWidth 620 `
+  -DurationSeconds 10 `
   -MaximumP95Ratio 1.25 `
-  -MaximumPerRoundP95Ratio 1.50 `
-  -MaximumSelectionP95DeltaMs 100 `
-  -MaximumAbsoluteSelectionP95Ms 2000 `
-  -MaximumAbsoluteP95Ms 2000 `
-  -MaximumAbsoluteResizeP95Ms 750 `
+  -MaximumPerRoundP95Ratio 1.25 `
+  -MaximumP95DeltaMs 50 `
+  -MaximumSelectionP95DeltaMs 50 `
+  -MaximumAbsoluteSelectionP95Ms 300 `
+  -MaximumAbsoluteP95Ms 300 `
+  -MaximumAbsoluteResizeP95Ms 300 `
   -MinimumOperationsPerRound 10 `
   -WarmupSeconds 4 `
   -ResizeOperationsPerRound 12 `
   -SelectionSettleMilliseconds 75 `
-  -OutputPath ".\artifacts\test-reports\word-ui-thread-stress-v1.0.8.json"
+  -OutputPath ".\artifacts\test-reports\word-ui-thread-stress-user-source-v1.0.8.json"
 ```
 
-脚本生成 120 个 SVG 元素和 1,200 个 Draw.io 单元。它执行两轮交叉顺序测试：第一轮“普通→受管”，第二轮“受管→普通”；每张图片每轮先执行 4 秒独立预热，再连续执行至少 12 秒选择事件与位置更新，并执行 12 次单轴尺寸更新。普通和受管图片在各自测量时单独显示于同一页面位置，降低视口、首次布局、重叠渲染和固定顺序偏差。
+脚本在包含 150 个正文段落、19,456 个正文字符、8 页、2 个表格和 3 张辅助图片的文档中执行两轮交叉顺序测试：第一轮“普通→受管”，第二轮“受管→普通”。源图含 66 个 `mxCell`，PNG 输出为 `620×876 px`，源图和显示图宽高比均约为 `0.707763`，没有边框像素，普通图与受管图保持相同尺寸、锚点和 `Front` 环绕。
 
 ## 结果
 
-执行时间：2026-07-28。
+执行时间：2026-07-29。
 
 | 指标 | 普通图片 | 受管图片 |
 | --- | ---: | ---: |
-| 两轮合计时长 | 24.184 s | 24.516 s |
-| 选择事件计时次数 | 66 | 69 |
-| 选择事件平均延迟 | 3.594 ms | 3.368 ms |
-| 选择事件 P95 | 7.501 ms | 5.833 ms |
-| 位置更新次数 | 42 | 45 |
-| 位置更新平均延迟 | 311.822 ms | 287.630 ms |
-| 位置更新 P95 | 388.910 ms | 368.568 ms |
+| 两轮合计时长 | 20.767 s | 20.920 s |
+| 选择操作数 | 48 | 46 |
+| 选择 P95 | 38.657 ms | 34.615 ms |
+| 位置更新数 | 24 | 22 |
+| 位置更新平均延迟 | 389.270 ms | 443.003 ms |
+| 位置更新 P95 | 556.177 ms | 574.474 ms |
 | 位置更新最终失败 | 0 | 0 |
-| 单轴尺寸更新次数 | 24 | 24 |
-| 单轴尺寸更新 P95 | 112.280 ms | 103.247 ms |
+| 尺寸更新数 | 24 | 24 |
+| 尺寸更新 P95 | 61.801 ms | 99.776 ms |
 | 尺寸更新最终失败 | 0 | 0 |
 | Word 无响应采样 | 0 | 0 |
 
-- 第一轮普通/受管位置 P95 为 `387.316/368.568 ms`，比例 `0.952`；第二轮为 `388.910/314.240 ms`，比例 `0.808`。
-- 两轮合并后的受管/普通选择、位置和尺寸 P95 比例分别为 `0.778`、`0.948` 和 `0.920`，均未超过 `1.25` 门槛。单轮最高选择、位置和尺寸比例分别为 `1.015`、`0.952` 和 `1.151`，均未超过 `1.50`；合并选择额外延迟为 `-1.668 ms`。
-- 四组选择、位置和尺寸 P95 最高分别为 `8.766 ms`、`388.910 ms` 和 `129.184 ms`，未超过 `2000 / 2000 / 750 ms` 绝对门槛；每组位置样本至少 `21` 个，超过最低 `10` 个要求。
-- 测量实例 `MeasurementWordAddInConnect=True`；测试计数器共观察到 `414` 次事件，按目标 Shape 分类确认 `135` 次，对应 `135` 次目标选择操作，缺失数为 `0`，`SelectionChangeEventsPassed=True`。安装态运行时反射同时输出 `NoPassiveSelectionMetadataPath=True`。
-- Draw.io XML：`254,606` 字符；受管图片轻量 `AlternativeText`：`382` 字符。
-- 保存重开后位置和尺寸保持，`Document.CustomXMLParts` 恢复 `254,606` 字符完整源 XML。
-- `SelectionComparisonPassed=True`、`ComparisonPassed=True`、`AbsoluteLatencyGatePassed=True`、`MinimumSamplesPassed=True`、`WordAddInConnect=True`、`CleanupResidualWinWord=False`、`OverallPassed=True`。
+- 两轮合并后的受管/普通位置 P95 比例为 `1.033`，差值为 `18.297 ms`。
+- 第一轮普通/受管位置 P95 为 `703.730/574.474 ms`，差值 `-129.256 ms`；第二轮为 `551.664/601.743 ms`，差值 `50.079 ms`。
+- 目标图片选择操作共 `94` 次，独立计数器确认 `94` 次，缺失 `0`，即 `94/94`，`SelectionChangeEventsPassed=true`。
+- 保存并重开后宽高比、位置、尺寸和 `Document.CustomXMLParts` 中的 26,106 字符源 XML 均保留；`WordAddInConnect=true`，清理后没有残留 `WINWORD`。
+- 绝对位置 P95 门槛为 `300 ms`，普通图和受管图均未通过；另一个 `17×24 px` 纯色 PNG 基线也未通过同一绝对门槛。因此不能把绝对延迟归因于 Draw.io 图形复杂度或受管元数据，也不能宣称自动化绝对性能验收通过。
+- 机器结果为 `ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`OverallPassed=false`。这与完整 Office E2E 的功能性 `12/12 PASS` 是两类门槛，不能混写。
 
-本次样本只支持“未观察到图片元数据路径带来超过门槛的额外差异，且绝对延迟未超过本次验收门槛”。它不证明绝对延迟的具体来源，也不替代对普通和受管图片各自执行人工连续 10 秒指针拖动、缩放、重定位以及“重新编辑”按钮点击。
+## 结论
 
-完整机器可读结果见[路径规范化证据快照](./evidence/word-ui-thread-stress-v1.0.8.json)。该快照只把真实输出中的用户目录替换为 `%LOCALAPPDATA%` 和 `%TEMP%`，其余字段与当次脚本输出一致。
+最终 620px PNG 样本记录了普通/受管位置 P95 `556.177/574.474 ms`、差 `18.297 ms`，并确认 `94/94` 目标选区事件；这些数据只描述 `A888…B5D9` 本地 DLL 的自动化 Word/COM 属性更新。由于绝对 `300 ms` 门槛失败，且 `PointerInputCovered=false`、Windows 指针接口被拒绝，本报告不作“鼠标拖动通过”结论。最新 `F5B6…AD70` Word DLL 重装后仍需复测，真实鼠标的连续拖动、缩放、重定位和点击“重新编辑”仍是独立人工验收项。
+
+完整的发布用机器可读摘要见[脱敏证据](./evidence/word-ui-thread-stress-v1.0.8.json)。其中用户名、绝对附件路径、临时运行 GUID 和进程身份已移除；保留了源报告的关键配置、统计量、门槛结果和指针覆盖边界。

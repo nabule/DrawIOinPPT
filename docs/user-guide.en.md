@@ -46,6 +46,10 @@ Complex diagrams in Word use this storage model:
 - Picture `AlternativeText` normally keeps only `formatVersion`, `diagramId`, name, editor mode/target, sidecar path, and update time; it does not contain `DrawioXml`.
 - Word does not subscribe to `WindowSelectionChange`, and startup does not read selection or picture metadata. Selecting, dragging, resizing, and repositioning perform no add-in work.
 - In Word, select the picture and then click Re-edit, Refresh, Bind, or Clear Binding. Only that explicit command reads the live selection and metadata; Word does not offer selection-triggered auto-open.
+- Word create, Re-edit, and Refresh normally use a 620px-wide aspect-preserving PNG inserted as a floating `Front` picture. If draw.io Desktop export fails, Word shows a lightweight aspect-preserving 620×310 PNG placeholder instead of falling back to complex SVG. Source remains in document metadata, so selecting the placeholder and clicking Re-edit still opens the diagram. A legacy square-stretched picture is corrected to the source ratio on the next Re-edit or Refresh.
+- Horizontal and vertical Word pictures use `contain` within the document bounds. Replacement creates a valid new picture before deleting the original, so the original remains if replacement fails. Temporary preview XML deletion is retried, with managed directories receiving background and next-start cleanup.
+- PowerPoint still inserts the original SVG directly, centers it with proportional `contain` sizing inside the slide bounds, and does not rewrite the `viewBox`; it therefore introduces no internal blank padding to fill the bounding box.
+- Selecting a Word picture does not start the editor. The user selects it and then clicks Re-edit or another command; only then does the add-in read the live selection and perform the operation.
 - If the primary-store write fails, the picture retains the full envelope to avoid source-data loss. Legacy full picture metadata is migrated into the primary store on first read and then rewritten as a lightweight reference.
 
 Important: when copying only one Word picture into another document, Office does not guarantee that the source document's `CustomXMLParts` are copied. Because a normal lightweight reference has no Draw.io XML, the destination may not be able to recover the editing source. Copy the complete `.docx`, or save/retain the sidecar `.drawio` or Draw.io XML first. Only legacy pictures and primary-store failure fallbacks may still carry the full payload in `AlternativeText`.
@@ -659,7 +663,7 @@ If you send only a `.pptx` file to someone else, the source XML should still be 
 Default log path:
 
 ```text
-C:\Users\<your-username>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.log
+%APPDATA%\Greensoft\DrawioPpt\Logs\drawioppt.log
 ```
 
 Check the log first when:
