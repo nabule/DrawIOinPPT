@@ -3,7 +3,7 @@ param(
     [string]$DrawioSourcePath = "",
     [ValidateSet("Square", "Front")]
     [string]$PictureWrapMode = "Square",
-    [ValidateSet("Svg", "Png")]
+    [ValidateSet("Svg", "Png", "Jpeg", "Placeholder")]
     [string]$PictureRenderFormat = "Svg",
     [int]$PreviewPixelWidth = 0,
     [int]$DurationSeconds = 12,
@@ -38,9 +38,9 @@ if ($PreviewPixelWidth -lt 0) {
     throw "PreviewPixelWidth cannot be negative."
 }
 
-if ($PictureRenderFormat -ne "Png" -and
+if ($PictureRenderFormat -notin @("Png", "Jpeg") -and
     $PreviewPixelWidth -gt 0) {
-    throw "PreviewPixelWidth can only be used with PictureRenderFormat Png."
+    throw "PreviewPixelWidth can only be used with PictureRenderFormat Png or Jpeg."
 }
 
 foreach ($positiveThreshold in @(
@@ -387,7 +387,7 @@ function Export-DrawioSourceImage {
         [Parameter(Mandatory = $true)]
         [string]$SourcePath,
         [Parameter(Mandatory = $true)]
-        [ValidateSet("Svg", "Png")]
+        [ValidateSet("Svg", "Png", "Jpeg")]
         [string]$Format,
         [Parameter(Mandatory = $true)]
         [string]$OutputPath,
@@ -399,12 +399,18 @@ function Export-DrawioSourceImage {
         throw "draw.io Desktop was not found: $drawioDesktopPath"
     }
 
+    $drawioFormat = if ($Format -eq "Jpeg") {
+        "jpg"
+    }
+    else {
+        $Format.ToLowerInvariant()
+    }
     $drawioArguments = @(
         "--export",
-        "--format", $Format.ToLowerInvariant(),
+        "--format", $drawioFormat,
         "--page-index", "1",
         "--border", "0")
-    if ($Format -eq "Png" -and
+    if ($Format -in @("Png", "Jpeg") -and
         $PreviewPixelWidth -gt 0) {
         $drawioArguments += @(
             "--width",
@@ -439,7 +445,7 @@ function Export-DrawioSourceImage {
 function Get-RenderedImageStatistics {
     param(
         [Parameter(Mandatory = $true)]
-        [ValidateSet("Svg", "Png")]
+        [ValidateSet("Svg", "Png", "Jpeg", "Placeholder")]
         [string]$Format,
         [Parameter(Mandatory = $true)]
         [string]$Path
@@ -468,7 +474,7 @@ function Get-RenderedImageStatistics {
             ([uint32]$bytes[22] -shl 8) -bor
             [uint32]$bytes[23]
     }
-    else {
+    elseif ($Format -eq "Svg") {
         [xml]$svg = [System.IO.File]::ReadAllText($Path)
         $widthMatch = [regex]::Match(
             [string]$svg.DocumentElement.GetAttribute("width"),
@@ -501,6 +507,20 @@ function Get-RenderedImageStatistics {
                 [Globalization.CultureInfo]::InvariantCulture)
         }
     }
+    else {
+        Add-Type -AssemblyName System.Drawing
+        $image = $null
+        try {
+            $image = [Drawing.Image]::FromFile($Path)
+            $pixelWidth = $image.Width
+            $pixelHeight = $image.Height
+        }
+        finally {
+            if ($null -ne $image) {
+                $image.Dispose()
+            }
+        }
+    }
 
     if ($pixelWidth -le 0 -or $pixelHeight -le 0) {
         throw "Rendered image dimensions must be greater than zero."
@@ -514,6 +534,69 @@ function Get-RenderedImageStatistics {
             $pixelWidth / $pixelHeight,
             6)
         Bytes = (Get-Item -LiteralPath $Path).Length
+    }
+}
+
+function New-SolidPlaceholderImage {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [double]$SourceAspectRatio
+    )
+
+    if ($SourceAspectRatio -le 0) {
+        throw "Placeholder source aspect ratio must be greater than zero."
+    }
+
+    $placeholderWidth = 0
+    $placeholderHeight = 0
+    for ($candidateWidth = 16;
+        $candidateWidth -le 128;
+        $candidateWidth++) {
+        $candidateHeight = [Math]::Max(
+            1,
+            [int][Math]::Round(
+                $candidateWidth / $SourceAspectRatio,
+                [MidpointRounding]::AwayFromZero))
+        $candidateError = [Math]::Abs(
+            ($candidateWidth / [double]$candidateHeight) -
+                $SourceAspectRatio)
+        if ($candidateError -le 0.001) {
+            $placeholderWidth = $candidateWidth
+            $placeholderHeight = $candidateHeight
+            break
+        }
+    }
+
+    if ($placeholderWidth -le 0 -or
+        $placeholderHeight -le 0) {
+        throw "Unable to create a small placeholder within the source aspect-ratio tolerance."
+    }
+
+    Add-Type -AssemblyName System.Drawing
+    $bitmap = $null
+    $graphics = $null
+    try {
+        $bitmap = New-Object Drawing.Bitmap(
+            $placeholderWidth,
+            $placeholderHeight,
+            [Drawing.Imaging.PixelFormat]::Format24bppRgb)
+        $graphics = [Drawing.Graphics]::FromImage($bitmap)
+        $graphics.Clear(
+            [Drawing.Color]::FromArgb(91, 155, 213))
+        $bitmap.Save(
+            $Path,
+            [Drawing.Imaging.ImageFormat]::Png)
+    }
+    finally {
+        if ($null -ne $graphics) {
+            $graphics.Dispose()
+        }
+
+        if ($null -ne $bitmap) {
+            $bitmap.Dispose()
+        }
     }
 }
 
@@ -2312,9 +2395,14 @@ $testRoot = Join-Path (
 try {
     New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
 $sourceCopyPath = Join-Path $testRoot "source.drawio"
+$pictureExtension = switch ($PictureRenderFormat) {
+    "Jpeg" { "jpg" }
+    "Placeholder" { "png" }
+    default { $PictureRenderFormat.ToLowerInvariant() }
+}
 $picturePath = Join-Path `
     $testRoot `
-    ("source." + $PictureRenderFormat.ToLowerInvariant())
+    ("source." + $pictureExtension)
 $svgPath = if ($PictureRenderFormat -eq "Svg") {
     $picturePath
 }
@@ -2370,8 +2458,29 @@ else {
 
 }
 
-if ($sourceMode -eq "UserProvided" -or
-    $PictureRenderFormat -eq "Png") {
+$sourceDisplayAspectRatio = 0
+if ($PictureRenderFormat -eq "Placeholder") {
+    $ratioProbePath = Join-Path `
+        $testRoot `
+        "source-ratio-probe.png"
+    Export-DrawioSourceImage `
+        -SourcePath $sourceCopyPath `
+        -Format "Png" `
+        -OutputPath $ratioProbePath `
+        -PreviewPixelWidth 620
+    $ratioProbeStatistics =
+        Get-RenderedImageStatistics `
+            -Format "Png" `
+            -Path $ratioProbePath
+    $sourceDisplayAspectRatio =
+        $ratioProbeStatistics.AspectRatio
+    New-SolidPlaceholderImage `
+        -Path $picturePath `
+        -SourceAspectRatio $sourceDisplayAspectRatio
+    Remove-Item -LiteralPath $ratioProbePath -Force
+}
+elseif ($sourceMode -eq "UserProvided" -or
+    $PictureRenderFormat -in @("Png", "Jpeg")) {
     Export-DrawioSourceImage `
         -SourcePath $sourceCopyPath `
         -Format $PictureRenderFormat `
@@ -2381,6 +2490,18 @@ if ($sourceMode -eq "UserProvided" -or
 $renderedImageStatistics = Get-RenderedImageStatistics `
     -Format $PictureRenderFormat `
     -Path $picturePath
+if ($sourceDisplayAspectRatio -le 0) {
+    $sourceDisplayAspectRatio =
+        $renderedImageStatistics.AspectRatio
+}
+$renderingAspectRatioError = [Math]::Abs(
+    $renderedImageStatistics.AspectRatio -
+        $sourceDisplayAspectRatio)
+$renderingAspectRatioPassed =
+    $renderingAspectRatioError -le 0.001
+if (-not $renderingAspectRatioPassed) {
+    throw "Rendered image aspect ratio differs from the source aspect ratio."
+}
 $sourceStatistics = Get-DrawioSourceStatistics `
     -Path $sourceCopyPath `
     -XmlText $drawioXml
@@ -2409,7 +2530,7 @@ $report = $null
         -CoreAssemblyPath $coreAssemblyPath `
         -WordAddInAssemblyPath $wordAddInAssemblyPath `
         -PictureWrapMode $PictureWrapMode `
-        -SourceAspectRatio $renderedImageStatistics.AspectRatio `
+        -SourceAspectRatio $sourceDisplayAspectRatio `
         -MinimumBodyParagraphs $MinimumBodyParagraphs `
         -MinimumBodyCharacters $MinimumBodyCharacters `
         -MinimumPageCount $MinimumPageCount `
@@ -2474,7 +2595,7 @@ $report = $null
             -ManagedShape $managedShape `
             -PlainShape $plainShape `
             -SourceAspectRatio `
-                $renderedImageStatistics.AspectRatio
+                $sourceDisplayAspectRatio
     Write-Host "ComparisonSameSize=$($shapeComparisonSemantics.SameSize)"
     Write-Host "ComparisonSameAnchorSemantics=$($shapeComparisonSemantics.SameAnchorSemantics)"
     Write-Host "ComparisonSameWrap=$($shapeComparisonSemantics.SameWrap)"
@@ -2513,7 +2634,7 @@ $report = $null
         -SelectionEventTimeoutMilliseconds $SelectionEventTimeoutMilliseconds `
         -SelectionCounter $selectionCounter `
         -WordProcessIdentity $activeIdentity `
-        -SourceAspectRatio $renderedImageStatistics.AspectRatio
+        -SourceAspectRatio $sourceDisplayAspectRatio
     $round1Managed = Measure-ShapeMotion `
         -Document $document `
         -Shape $managedShape `
@@ -2526,7 +2647,7 @@ $report = $null
         -SelectionEventTimeoutMilliseconds $SelectionEventTimeoutMilliseconds `
         -SelectionCounter $selectionCounter `
         -WordProcessIdentity $activeIdentity `
-        -SourceAspectRatio $renderedImageStatistics.AspectRatio
+        -SourceAspectRatio $sourceDisplayAspectRatio
 
     Write-Host "Stage=Round2ManagedThenPlain"
     $round2Managed = Measure-ShapeMotion `
@@ -2541,7 +2662,7 @@ $report = $null
         -SelectionEventTimeoutMilliseconds $SelectionEventTimeoutMilliseconds `
         -SelectionCounter $selectionCounter `
         -WordProcessIdentity $activeIdentity `
-        -SourceAspectRatio $renderedImageStatistics.AspectRatio
+        -SourceAspectRatio $sourceDisplayAspectRatio
     $round2Plain = Measure-ShapeMotion `
         -Document $document `
         -Shape $plainShape `
@@ -2554,7 +2675,7 @@ $report = $null
         -SelectionEventTimeoutMilliseconds $SelectionEventTimeoutMilliseconds `
         -SelectionCounter $selectionCounter `
         -WordProcessIdentity $activeIdentity `
-        -SourceAspectRatio $renderedImageStatistics.AspectRatio
+        -SourceAspectRatio $sourceDisplayAspectRatio
 
     $plainRounds = @($round1Plain, $round2Plain)
     $managedRounds = @($round1Managed, $round2Managed)
@@ -2727,7 +2848,7 @@ $report = $null
             [double]$reopenedManaged.Height
     $reopenedAspectRatioError = [Math]::Abs(
         $reopenedAspectRatio -
-            $renderedImageStatistics.AspectRatio)
+            $sourceDisplayAspectRatio)
     $reopenedGeometryPassed =
         $reopenedAspectRatioError -le 0.001 -and
         [int]$reopenedManaged.LockAspectRatio -ne 0
@@ -2980,7 +3101,8 @@ $report = $null
     }
     $sourcePassed =
         $copiedSourceUnchanged -and
-        $originalSourceUnchanged
+        $originalSourceUnchanged -and
+        $renderingAspectRatioPassed
     $documentContentPassed =
         $buildDocumentContentPassed -and
         $reopenedDocumentContentPassed -and
@@ -3036,10 +3158,17 @@ $report = $null
                     $renderedImageStatistics.PixelHeight
                 AspectRatio =
                     $renderedImageStatistics.AspectRatio
+                SourceAspectRatio =
+                    $sourceDisplayAspectRatio
+                AspectRatioError =
+                    [Math]::Round(
+                        $renderingAspectRatioError,
+                        6)
                 Bytes = $renderedImageStatistics.Bytes
                 BorderPixels = 0
-                PreservesAspectRatio = $true
-                Passed = $true
+                PreservesAspectRatio =
+                    $renderingAspectRatioPassed
+                Passed = $renderingAspectRatioPassed
             }
             Chars = $sourceStatistics.Chars
             Bytes = $sourceStatistics.Bytes
@@ -3269,6 +3398,8 @@ $report = $null
     Write-Host "RenderedPixelWidth=$($report.Source.Rendering.PixelWidth)"
     Write-Host "RenderedPixelHeight=$($report.Source.Rendering.PixelHeight)"
     Write-Host "RenderedAspectRatio=$($report.Source.Rendering.AspectRatio)"
+    Write-Host "RenderingSourceAspectRatio=$($report.Source.Rendering.SourceAspectRatio)"
+    Write-Host "RenderingAspectRatioError=$($report.Source.Rendering.AspectRatioError)"
     Write-Host "RenderedBorderPixels=$($report.Source.Rendering.BorderPixels)"
     Write-Host "SourceSha256=$($report.Source.Sha256)"
     Write-Host "DrawioXmlChars=$($report.Source.Chars)"
