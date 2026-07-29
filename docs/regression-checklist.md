@@ -8,7 +8,7 @@
 | --- | --- |
 | 通过 | 临时安装发布包完整 Office E2E 12/12；该结果仅代表隔离临时安装。 |
 | 通过 | 标准本地目录 `%LOCALAPPDATA%\Greensoft\DrawioPpt` 安装、DLL 哈希、Office 注册和真实 COM 加载。 |
-| 未通过绝对门槛 | 最终 620px PNG / `Front` 富文档压力样本中，普通/受管位置 P95 为 556.177 / 574.474 ms，差 18.297 ms，94/94 目标选区事件确认；两者均未通过绝对 300 ms 门槛，17×24 纯色 PNG 基线也未通过。 |
+| 未通过绝对门槛 | 最终 620px PNG / `Front` 富文档压力样本中，普通/受管位置 P95 为 524.962 / 488.881 ms，受管图低 36.081 ms，98/98 目标选区事件确认；两者均未通过绝对 300 ms 门槛，17×24 纯色 PNG 基线也未通过。 |
 | 待人工确认 | `PointerInputCovered=false`；Windows `GetCursorPos` 访问被拒绝，`SetIsBorderRequired` 接口不受支持，自动化不能代替用户执行真实指针拖动、缩放、重定位和命令点击。 |
 
 ## 1. 构建与注册
@@ -99,7 +99,7 @@
 - `scripts\word-url-e2e.ps1` 严格从 `Document.CustomXMLParts` 验证 URL 模式的创建、重开、编辑和最终回写，不以轻量 `AlternativeText` 冒充完整主存储。
 - `scripts\word-url-addin-host-e2e.ps1` 严格从文档级主存储验证实际宿主回写，`WordAddInConnect=True` 且 `ActualWordUrlEditorSaved=True`。
 - 每个 Word 自动化脚本结束后检查没有残留 `WINWORD.EXE`；发现残留进程即判定失败。
-- 安装态可见 Word UI 线程压力对照使用用户复杂源图生成 620×876 PNG，普通/受管图均为等比例 `Front` 浮动图片。普通/受管位置 P95 为 556.177 / 574.474 ms，差 18.297 ms；94/94 目标 Shape 选区事件确认，缺失为 0。绝对 300 ms 门槛未通过，且 17×24 纯色 PNG 基线同样失败；`ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`OverallPassed=false`。安装态运行时反射仍独立确认 `NoPassiveSelectionMetadataPath=True`，但该源码/反射事实不能冒充性能或鼠标验收通过。完整结果见 [v1.0.8 Word UI 线程压力测试报告](./word-ui-thread-stress-report-v1.0.8.md)。
+- 安装态可见 Word UI 线程压力对照使用用户复杂源图生成 620×876 PNG，普通/受管图均为等比例 `Front` 浮动图片。普通/受管位置 P95 为 524.962 / 488.881 ms，受管图低 36.081 ms；98/98 目标 Shape 选区事件确认，缺失为 0。绝对 300 ms 门槛未通过，且 17×24 纯色 PNG 基线同样失败；`ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`OverallPassed=false`。安装态运行时反射仍独立确认 `NoPassiveSelectionMetadataPath=True`，但该源码/反射事实不能冒充性能或鼠标验收通过。完整结果见 [v1.0.8 Word UI 线程压力测试报告](./word-ui-thread-stress-report-v1.0.8.md)。
 
 发布前人工验收：
 

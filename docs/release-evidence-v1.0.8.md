@@ -34,8 +34,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread
 ## 最终验证结果
 
 - `Release|x64` 构建通过：0 warnings，0 errors。
-- 现有临时安装包快照的完整 Office 功能 E2E 为 `12/12 PASS`：`ReleasePackage`、`InstallRelease`、`InstalledOfficeAddInsVerify`、`PowerPointAddInLoad`、`InstalledUrlSmoke`、`InstalledWordUrlHostE2E`、`InstalledWordComplexMetadataE2E`、`InstalledWordSvgAspectE2E`、`InstalledWordPreviewProviderE2E`、`InstalledPowerPointSvgAspectE2E`、`PowerPointUrlE2E`、`DesktopExporter` 全部为 PASS。
-- full E2E 汇总报告与日志副本内容一致，SHA256 为 `BA3A00156E3ED56CC15C57EE175FD8E7A524D0B7662649E8A093CFCD81D4513F`；transcript SHA256 为 `F1FD957A318FD23809CD20E7D9722F11CCE34084169F1FD49E21BCCBE9489A7E`。
+- 最终发布包的完整 Office 功能 E2E 为 `12/12 PASS`：`ReleasePackage`、`InstallRelease`、`InstalledOfficeAddInsVerify`、`PowerPointAddInLoad`、`InstalledUrlSmoke`、`InstalledWordUrlHostE2E`、`InstalledWordComplexMetadataE2E`、`InstalledWordSvgAspectE2E`、`InstalledWordPreviewProviderE2E`、`InstalledPowerPointSvgAspectE2E`、`PowerPointUrlE2E`、`DesktopExporter` 全部为 PASS。
+- full E2E 汇总报告与日志副本内容一致，SHA256 为 `7D5AC38245C29AF08B04C24414480E1024E270210657EC0AFB97D0ABF52CF73C`；transcript SHA256 为 `3006C8C50E311F8F5BB65C9745BE131A440215FFB3B5A0780F96B1D773A37121`。
 - 压缩阶段的包内 Markdown 链接门槛输出 `PackageMarkdownMissingLinkCount=0`。
 - full E2E 只按 PID、启动时间和进程名识别测试拥有的 Office 进程，不终止用户预存进程。它在安装前快照 Word / PowerPoint 注册树，finally 精确恢复值、类型、子键和原本不存在状态；残留 `WINWORD` / `POWERPNT` PID 会写入 FatalError 并令 E2E 失败。
 - 最终临时包卸载、注册状态恢复和设置恢复成功，输出 `FullE2ECleanupSucceeded=True`，没有 Office 进程残留。
@@ -44,13 +44,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread
 
 ## DLL SHA256 与 ZIP 记录边界
 
-以下哈希于 2026-07-29 在最新源码回归后重新只读计算。Core 与 PowerPoint 三方一致；Word 源码已更新，发布包和标准本地安装尚未同步。
+以下哈希于 2026-07-29 在最终打包和标准本地安装后重新只读计算，三个 DLL 均在源码 Release、发布包和标准本地安装之间一致。
 
 | 文件 | 源码 Release | 发布包 | 标准本地安装 |
 | --- | --- | --- | --- |
 | `DrawioPpt.Core.dll` | `5A7E8E57B485D39FCB4B46D23A3DBB0ACDCEBB212B48A0A39543E3C9F104C11E` | `5A7E8E57B485D39FCB4B46D23A3DBB0ACDCEBB212B48A0A39543E3C9F104C11E` | `5A7E8E57B485D39FCB4B46D23A3DBB0ACDCEBB212B48A0A39543E3C9F104C11E` |
 | `DrawioPpt.PowerPointAddIn.dll` | `EB500C2575C929BDD6CAA7718A47A7671D604C468C77CF197497CEE1096F1F3E` | `EB500C2575C929BDD6CAA7718A47A7671D604C468C77CF197497CEE1096F1F3E` | `EB500C2575C929BDD6CAA7718A47A7671D604C468C77CF197497CEE1096F1F3E` |
-| `DrawioPpt.WordAddIn.dll` | `F5B68A12E0E7CBB54EEBE501239F45928EB4DFB685E8007AA57ABBE93615AD70` | `A888A38D2B45DC2126510A2B63669DA89812E4C7580E03EAC5DD02285045B5D9` | `A888A38D2B45DC2126510A2B63669DA89812E4C7580E03EAC5DD02285045B5D9` |
+| `DrawioPpt.WordAddIn.dll` | `6E6DEAF2D5DFFDF9363FD28787E40E7AE681290CB669B4A64D82ED2D364B127D` | `6E6DEAF2D5DFFDF9363FD28787E40E7AE681290CB669B4A64D82ED2D364B127D` | `6E6DEAF2D5DFFDF9363FD28787E40E7AE681290CB669B4A64D82ED2D364B127D` |
 
 相对位置：
 
@@ -58,15 +58,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread
 - 发布包：`artifacts\releases\v1.0.8\package\bin\<dll>`
 - 标准本地安装：`%LOCALAPPDATA%\Greensoft\DrawioPpt\bin\<dll>`
 
-当前 ZIP 内仍携带文档收尾前的旧 v8 压力证据副本和 `A888…B5D9` Word DLL，不包含最新 `F5B6…AD70` Word 源码构建，也不能把旧证据作为当前 Word DLL 的压力通过记录。必须重打包、更新标准本地安装、重跑 full E2E 并复核包内内容及链接。
+最终发布包已经包含 `6E6D…127D` Word DLL，并已覆盖安装到标准本地目录；安装后的 Word、预览提供器和 PowerPoint 比例 E2E 再次通过。
 
 ZIP SHA256 不写入会再次进入同一 ZIP 的本证据文档，避免自引用导致哈希必然变化；由发布脚本或包外交付摘要在最终打包完成后记录。
 
 ## Word UI 线程压力证据
 
-- 原始结果：`artifacts\test-reports\word-ui-thread-stress-user-source-v1.0.8.json`，`ReportVersion=9`，SHA256 `82CBC3A18C43495B1C24154D6FE28981B7E282633C073592816AABC4BEB2EC54`。
+- 原始结果：`artifacts\test-reports\word-ui-thread-stress-user-source-v1.0.8.json`，`ReportVersion=9`，SHA256 `935D7C0827E872B5F29309EC1A30E0FB72898865CB4092BDBDAFE6B35928DCB1`。
 - 测试图片：620×876 PNG、保持源比例、零边框、`Front` 浮动布局；普通图与受管图尺寸、锚点和环绕语义一致。
-- 普通/受管位置 P95：`556.177/574.474 ms`；受管减普通：`18.297 ms`；目标选区事件 `94/94`，缺失 0。
+- 普通/受管位置 P95：`524.962/488.881 ms`；受管减普通：`-36.081 ms`；目标选区事件 `98/98`，缺失 0。
 - 绝对位置 P95 门槛 `300 ms` 未通过；17×24 纯色 PNG 基线也未通过。
 - `SelectionComparisonPassed=false`、`ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`NoAdditionalMetadataPathDifferenceObserved=false`、`OverallPassed=false`。
 - `PointerInputCovered=false`；Windows `GetCursorPos` 访问被拒绝，`SetIsBorderRequired` 不受支持。本证据不声称鼠标拖动通过。
@@ -84,4 +84,4 @@ ZIP SHA256 不写入会再次进入同一 ZIP 的本证据文档，避免自引�
 
 ## 已知边界
 
-现有包快照的 `12/12 PASS` 不覆盖其后的 Word 源码增强、真实鼠标输入或独立压力门槛失败。公开发布前需重打包/重装并重跑 full E2E，用户仍需完成真实指针拖动、缩放、重定位和人工点击“重新编辑”；最终 ZIP 哈希在包外记录。
+最终包、标准本地安装和最新源码 DLL 已同步，功能性 `12/12 PASS` 已覆盖本次 Word 增强。独立压力测试仍因严格绝对 `300 ms` 门槛和真实指针未覆盖而为 `OverallPassed=false`；用户仍需完成真实指针拖动、缩放、重定位和人工点击“重新编辑”。最终 ZIP 哈希在包外交付摘要记录。

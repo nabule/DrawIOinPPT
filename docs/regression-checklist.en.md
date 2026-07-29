@@ -8,7 +8,7 @@
 | --- | --- |
 | PASS | Full Office E2E against the temporary release-package installation passed 12/12; this result covers only the isolated temporary installation. |
 | PASS | Standard local installation at `%LOCALAPPDATA%\Greensoft\DrawioPpt`, DLL hashes, Office registration, and real COM loading. |
-| Absolute gate failed | In the final 620px PNG / `Front` rich-document stress sample, normal/managed position P95 values were 556.177/574.474 ms, a delta of 18.297 ms, with 94/94 target selection events confirmed. Both failed the absolute 300 ms gate, as did the 17×24 solid-color PNG baseline. |
+| Absolute gate failed | In the final 620px PNG / `Front` rich-document stress sample, normal/managed position P95 values were 524.962/488.881 ms, with the managed picture 36.081 ms lower and 98/98 target selection events confirmed. Both failed the absolute 300 ms gate, as did the 17×24 solid-color PNG baseline. |
 | Pending manual confirmation | `PointerInputCovered=false`. Windows denied `GetCursorPos`, and the `SetIsBorderRequired` interface is unsupported, so automation cannot substitute for real-pointer drag, resize, reposition, and command-click acceptance. |
 
 ## 1. Build and Registration
@@ -99,7 +99,7 @@ Automated checks:
 - `scripts\word-url-e2e.ps1` strictly verifies URL-mode create, reopen, edit, and final write-back through `Document.CustomXMLParts`; the lightweight `AlternativeText` must not stand in for the full primary store.
 - `scripts\word-url-addin-host-e2e.ps1` strictly verifies actual-host write-back through the document-level primary store, with `WordAddInConnect=True` and `ActualWordUrlEditorSaved=True`.
 - Each Word automation script checks that no residual `WINWORD.EXE` remains; a residual process fails the check.
-- The installed visible-Word UI-thread stress comparison rendered the user-supplied complex source as a 620×876 PNG; normal and managed pictures were proportional floating `Front` pictures. Normal/managed position P95 values were 556.177/574.474 ms, a delta of 18.297 ms, with 94/94 target-Shape selection events confirmed and none missing. The absolute 300 ms gate failed, and a 17×24 solid-color PNG baseline failed it as well; `ComparisonPassed=false`, `AbsoluteLatencyGatePassed=false`, and `OverallPassed=false`. Installed-build runtime reflection independently confirms `NoPassiveSelectionMetadataPath=True`, but that source/runtime fact is not a performance or mouse-acceptance pass. See the [v1.0.8 Word UI-thread stress test report](./word-ui-thread-stress-report-v1.0.8.en.md).
+- The installed visible-Word UI-thread stress comparison rendered the user-supplied complex source as a 620×876 PNG; normal and managed pictures were proportional floating `Front` pictures. Normal/managed position P95 values were 524.962/488.881 ms, with the managed picture 36.081 ms lower and all 98/98 target-Shape selection events confirmed. The absolute 300 ms gate failed, and a 17×24 solid-color PNG baseline failed it as well; `ComparisonPassed=false`, `AbsoluteLatencyGatePassed=false`, and `OverallPassed=false`. Installed-build runtime reflection independently confirms `NoPassiveSelectionMetadataPath=True`, but that source/runtime fact is not a performance or mouse-acceptance pass. See the [v1.0.8 Word UI-thread stress test report](./word-ui-thread-stress-report-v1.0.8.en.md).
 
 Pre-release manual acceptance:
 

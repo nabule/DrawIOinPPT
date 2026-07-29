@@ -24,13 +24,13 @@ Word PNG 负责显示而非主存储。正常路径需要可用的 draw.io Deskt
 - 最新 `word-preview-image-provider-e2e.ps1` 覆盖正常 620px 等比例 PNG、失败时 620×310 等比例轻量 PNG 占位预览，以及临时 XML 重试/延迟/启动清理。
 - 最新 `word-svg-aspect-ratio-e2e.ps1` 通过：真实 Word 中 2:1 PNG 新建和替换保持 2:1；纵向图 `VerticalRatio=0.25`、`VerticalContained=True`；失败替换 `FailedReplacementPreservedOriginal=True`，证明新图成功前不会删除原图。
 - `powerpoint-svg-aspect-ratio-e2e.ps1` 通过：真实 PowerPoint 直接插入原始 SVG，按边界 `contain` 等比居中，替换保持源比例且不扩展 `viewBox`。
-- 现有临时安装发布包快照的完整 Office 功能 E2E 为 `12/12 PASS`，覆盖 `InstalledWordSvgAspectE2E`、`InstalledWordPreviewProviderE2E` 和 `InstalledPowerPointSvgAspectE2E`。上述最新 Word 替换/清理增强晚于该包快照，需重打包后重新执行 full E2E。
+- 最终发布包的完整 Office 功能 E2E 为 `12/12 PASS`，覆盖 `InstalledWordSvgAspectE2E`、`InstalledWordPreviewProviderE2E` 和 `InstalledPowerPointSvgAspectE2E`。
 - full E2E 在执行前快照 Word / PowerPoint 加载项注册树，结束时精确恢复原状态，包括原本不存在的键；最终 `WINWORD` / `POWERPNT` 零残留硬门槛通过，`FullE2ECleanupSucceeded=True`。
-- 当前 Core 与 PowerPoint DLL 在源码 Release、发布包和标准本地安装中一致；最新 Word 源码 DLL 为 `F5B68A12…AD70`，而现有发布包/本地安装仍为 `A888A38D…B5D9`，尚未同步。完整 DLL 哈希见[发布证据](./release-evidence-v1.0.8.md)。
+- Core、PowerPoint 和 Word DLL 在源码 Release、发布包和标准本地安装中均一致；Word DLL 为 `6E6DEAF2…B127D`。完整 DLL 哈希见[发布证据](./release-evidence-v1.0.8.md)。
 
 ## Word 压力与指针边界
 
-最终用户复杂源图样本使用 620×876 PNG、`Front` 浮动布局和富文档基线。普通/受管位置 P95 为 `556.177/574.474 ms`，差值 `18.297 ms`；目标选区事件 `94/94`，缺失 0。
+最终用户复杂源图样本使用 620×876 PNG、`Front` 浮动布局和富文档基线。普通/受管位置 P95 为 `524.962/488.881 ms`，受管图低 `36.081 ms`；目标选区事件 `98/98`，缺失 0。
 
 绝对位置 P95 门槛为 `300 ms`，普通图和受管图均未通过；`17×24 px` 纯色 PNG 基线也未通过同一门槛。机器结果为 `ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`OverallPassed=false`，不得写成自动化性能验收通过。
 
@@ -38,6 +38,6 @@ Word PNG 负责显示而非主存储。正常路径需要可用的 draw.io Deskt
 
 ## 发布状态
 
-v1.0.8 仍处于待公开发布状态。当前 ZIP 和标准本地 Word DLL 均早于最新替换/清理增强；公开发布前必须重打包、更新本地安装、重跑 `12/12` full E2E 并复核包内链接。ZIP SHA256 不能写入会再次进入 ZIP 的文档，由发布脚本或包外交付摘要在最终打包后记录。
+v1.0.8 仍处于待公开发布状态，但最终包已重建、标准本地安装已更新、`12/12` full E2E 和包内链接门槛均已通过。ZIP SHA256 不写入会再次进入 ZIP 的文档，由包外交付摘要记录。
 
 完整结果见 [v1.0.8 E2E 测试报告](./e2e-test-report-v1.0.8.md)、[v1.0.8 发布证据](./release-evidence-v1.0.8.md)和 [Word UI 线程压力测试报告](./word-ui-thread-stress-report-v1.0.8.md)。

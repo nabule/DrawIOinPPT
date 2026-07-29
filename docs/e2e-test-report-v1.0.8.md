@@ -51,23 +51,23 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.
 | `PowerPointUrlE2E` | PASS | PowerPoint URL 创建、重开、编辑和持久化通过 |
 | `DesktopExporter` | PASS | draw.io Desktop 导出 SVG 成功 |
 
-打包阶段输出 `PackageMarkdownMissingLinkCount=0`。汇总报告和日志副本内容一致，SHA256 为 `BA3A00156E3ED56CC15C57EE175FD8E7A524D0B7662649E8A093CFCD81D4513F`。
+打包阶段输出 `PackageMarkdownMissingLinkCount=0`。汇总报告和日志副本内容一致，SHA256 为 `7D5AC38245C29AF08B04C24414480E1024E270210657EC0AFB97D0ABF52CF73C`。
 
 临时安装结束后卸载测试包，并把 Word / PowerPoint 加载项注册精确恢复到执行前状态，包括执行前不存在的键。设置恢复完成，最终输出 `FullE2ECleanupSucceeded=True`，没有 `WINWORD` / `POWERPNT` 残留。
 
-full E2E 完成后，源码侧又通过了增强后的真实 Word 回归：`VerticalRatio=0.25`、`VerticalContained=True`、`FailedReplacementPreservedOriginal=True`。最新预览门禁覆盖 draw.io Desktop 导出失败时的 620×310 等比例轻量 PNG 占位预览，以及临时 XML 有限重试、后台延迟清理和启动清理；不再回退复杂 SVG。这些增强尚未进入上述临时包快照。
+最终包已覆盖增强后的真实 Word 回归：`VerticalRatio=0.25`、`VerticalContained=True`、`FailedReplacementPreservedOriginal=True`。预览门禁覆盖 draw.io Desktop 导出失败时的 620×310 等比例轻量 PNG 占位预览，以及临时 XML 有限重试、后台延迟清理和启动清理；不再回退复杂 SVG。
 
 ## 标准本地安装与制品一致性
 
 - 标准安装根：`%LOCALAPPDATA%\Greensoft\DrawioPpt`；`PACKAGE.txt` 为 `v1.0.8 / Release / x64`。
-- Core 与 PowerPoint DLL 在源码 Release 输出、发布包和标准本地安装中 SHA256 一致。最新 Word 源码 DLL 为 `F5B68A12E0E7CBB54EEBE501239F45928EB4DFB685E8007AA57ABBE93615AD70`，发布包和本地安装仍为 `A888A38D2B45DC2126510A2B63669DA89812E4C7580E03EAC5DD02285045B5D9`；Word 尚待重打包和重装。
+- Core、PowerPoint 与 Word DLL 在源码 Release 输出、发布包和标准本地安装中 SHA256 一致；Word DLL 为 `6E6DEAF2D5DFFDF9363FD28787E40E7AE681290CB669B4A64D82ED2D364B127D`。
 - PowerPoint 直接插入原始 SVG，按幻灯片边界 `contain` 等比居中，不改写 `viewBox`、不制造图内留白。
 - 最新源码中 Word 正常展示为 620px 等比例 PNG，插入为 `wdWrapFront` 浮动 `Shape`；横向/纵向图均 `contain`，替换先建新图后删原图，失败时保留原图。导出失败则生成 620×310 等比例轻量 PNG 占位图，源 XML 仍在文档元数据中。选中本身不编辑，点击显式命令后才读取选区并进入编辑。
 - ZIP SHA256 不写入会再次进入压缩包的本报告，避免自引用失真；由发布脚本或包外交付摘要在最终重打包后记录。
 
 ## Word UI 线程压力结果
 
-最新用户复杂源图压力运行使用 620×876 PNG、`Front` 浮动布局和富文档基线。普通/受管位置 P95 为 `556.177/574.474 ms`，差值 `18.297 ms`；目标 Shape 选区事件 `94/94`，缺失 0。保存重开、几何、存储和清理门槛通过。
+最新用户复杂源图压力运行使用 620×876 PNG、`Front` 浮动布局和富文档基线。普通/受管位置 P95 为 `524.962/488.881 ms`，受管图低 `36.081 ms`；目标 Shape 选区事件 `98/98`，缺失 0。保存重开、几何、存储和清理门槛通过。
 
 绝对位置 P95 门槛为 `300 ms`，普通图和受管图均失败；`17×24 px` 纯色 PNG 基线也失败。机器结果为 `SelectionComparisonPassed=false`、`ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`NoAdditionalMetadataPathDifferenceObserved=false`、`OverallPassed=false`。因此不能把绝对延迟归因于图形复杂度或受管元数据，也不能写成性能验收通过。
 
@@ -85,4 +85,4 @@ full E2E 完成后，源码侧又通过了增强后的真实 Word 回归：`Vert
 
 ## 验收边界
 
-本报告记录的现有包快照功能性 Office E2E 为 `12/12 PASS`；最新 Word 源码增强尚未进入该包，必须重打包/重装后重新验证。Word 压力门槛为独立结果，当前 `OverallPassed=false`。真实指针拖动、缩放、重定位和人工点击“重新编辑”仍需用户确认。
+本报告记录的最终包功能性 Office E2E 为 `12/12 PASS`，标准本地安装也已更新并复核。Word 压力门槛为独立结果，当前 `OverallPassed=false`。真实指针拖动、缩放、重定位和人工点击“重新编辑”仍需用户确认。

@@ -51,23 +51,23 @@ Result: `12/12 PASS`.
 | `PowerPointUrlE2E` | PASS | PowerPoint URL create, reopen, edit, and persistence passed |
 | `DesktopExporter` | PASS | draw.io Desktop exported SVG successfully |
 
-Packaging reported `PackageMarkdownMissingLinkCount=0`. The summary and log copy are content-identical, with SHA256 `BA3A00156E3ED56CC15C57EE175FD8E7A524D0B7662649E8A093CFCD81D4513F`.
+Packaging reported `PackageMarkdownMissingLinkCount=0`. The summary and log copy are content-identical, with SHA256 `7D5AC38245C29AF08B04C24414480E1024E270210657EC0AFB97D0ABF52CF73C`.
 
 After the temporary test installation was uninstalled, cleanup restored Word and PowerPoint add-in registration to the exact pre-run state, including keys that were absent before the run. Settings restoration completed, `FullE2ECleanupSucceeded=True`, and no `WINWORD` or `POWERPNT` process remained.
 
-After full E2E completed, enhanced source-side real-Word regressions also passed: `VerticalRatio=0.25`, `VerticalContained=True`, and `FailedReplacementPreservedOriginal=True`. The latest preview gate covers a 620×310 aspect-preserving lightweight PNG placeholder when draw.io Desktop export fails, plus bounded retry, deferred background cleanup, and startup cleanup for temporary XML; complex-SVG fallback is no longer used. These refinements are not yet in the temporary package snapshot above.
+The final package includes the enhanced real-Word regressions: `VerticalRatio=0.25`, `VerticalContained=True`, and `FailedReplacementPreservedOriginal=True`. The preview gate covers a 620×310 aspect-preserving lightweight PNG placeholder when draw.io Desktop export fails, plus bounded retry, deferred background cleanup, and startup cleanup for temporary XML; complex-SVG fallback is no longer used.
 
 ## Standard Local Installation and Artifact Consistency
 
 - Standard install root: `%LOCALAPPDATA%\Greensoft\DrawioPpt`; `PACKAGE.txt` reports `v1.0.8 / Release / x64`.
-- Core and PowerPoint DLL SHA256 values match across source Release output, the release package, and the standard local installation. The latest source Word DLL is `F5B68A12E0E7CBB54EEBE501239F45928EB4DFB685E8007AA57ABBE93615AD70`; the package and local installation still carry `A888A38D2B45DC2126510A2B63669DA89812E4C7580E03EAC5DD02285045B5D9`. Word still requires rebuild and reinstall.
+- Core, PowerPoint, and Word DLL SHA256 values match across source Release output, the release package, and the standard local installation. The Word DLL is `6E6DEAF2D5DFFDF9363FD28787E40E7AE681290CB669B4A64D82ED2D364B127D`.
 - PowerPoint inserts the original SVG directly, centers it with proportional `contain` sizing inside the slide bounds, and neither rewrites the `viewBox` nor introduces internal blank padding.
 - In the latest source, Word normally displays a 620px aspect-preserving PNG as a floating `wdWrapFront` `Shape`; horizontal and vertical diagrams use `contain`, replacement creates the new picture before deleting the old one, and failures preserve the original. Export failure creates a lightweight aspect-preserving 620×310 PNG placeholder while source XML remains in document metadata. Selection alone does not edit; only an explicit command reads the selection and starts editing.
 - ZIP SHA256 is not embedded in this report because the report is packaged into that same archive. The release script or an external delivery summary records it after final repackaging.
 
 ## Word UI-thread Stress Result
 
-The latest user-complex-source stress run used a 620×876 PNG, floating `Front` layout, and a rich-document baseline. Normal/managed position P95 values were `556.177/574.474 ms`, a delta of `18.297 ms`; all `94/94` target-Shape selection events were confirmed, with none missing. Save/reopen, geometry, storage, and cleanup gates passed.
+The latest user-complex-source stress run used a 620×876 PNG, floating `Front` layout, and a rich-document baseline. Normal/managed position P95 values were `524.962/488.881 ms`, with the managed picture `36.081 ms` lower; all `98/98` target-Shape selection events were confirmed, with none missing. Save/reopen, geometry, storage, and cleanup gates passed.
 
 The absolute position-P95 gate was `300 ms`, and both normal and managed pictures failed it. A `17×24 px` solid-color PNG baseline also failed. Machine results are `SelectionComparisonPassed=false`, `ComparisonPassed=false`, `AbsoluteLatencyGatePassed=false`, `NoAdditionalMetadataPathDifferenceObserved=false`, and `OverallPassed=false`. The absolute latency cannot be attributed to diagram complexity or managed metadata, and this is not a performance-acceptance pass.
 
@@ -85,4 +85,4 @@ The absolute position-P95 gate was `300 ms`, and both normal and managed picture
 
 ## Acceptance Boundary
 
-This report records `12/12 PASS` for the existing package snapshot. The latest Word source refinements are not in that package and require rebuilt-package/reinstalled verification. Word stress gates are separate and currently report `OverallPassed=false`. Real-pointer drag, resize, reposition, and a manual Re-edit click remain for user confirmation.
+This report records `12/12 PASS` for the final package, and the standard local installation was updated and reverified. Word stress gates are separate and currently report `OverallPassed=false`. Real-pointer drag, resize, reposition, and a manual Re-edit click remain for user confirmation.
