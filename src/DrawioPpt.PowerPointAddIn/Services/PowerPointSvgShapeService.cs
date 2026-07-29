@@ -42,14 +42,24 @@ namespace DrawioPpt.PowerPointAddIn.Services
 
             float slideWidth = presentation.PageSetup.SlideWidth;
             float slideHeight = presentation.PageSetup.SlideHeight;
-            float width = slideWidth * 0.50f;
-            float height = slideHeight * 0.38f;
+            float maxWidth = slideWidth * 0.50f;
+            float maxHeight = slideHeight * 0.38f;
+            float width = maxWidth;
+            float height = maxHeight;
+            float sourceWidth;
+            float sourceHeight;
+            bool hasSourceSize = TryReadSourceSize(svgFilePath, out sourceWidth, out sourceHeight);
+            if (hasSourceSize)
+            {
+                float scale = Math.Min(maxWidth / sourceWidth, maxHeight / sourceHeight);
+                width = sourceWidth * scale;
+                height = sourceHeight * scale;
+            }
             float left = (slideWidth - width) / 2f;
             float top = (slideHeight - height) / 2f;
-            string renderSvgPath = PreparePresentationSvg(svgFilePath, width, height);
 
             PptInterop.Shape shape = slide.Shapes.AddPicture(
-                renderSvgPath,
+                svgFilePath,
                 MsoTriState.msoFalse,
                 MsoTriState.msoTrue,
                 left,
@@ -58,6 +68,10 @@ namespace DrawioPpt.PowerPointAddIn.Services
                 height);
 
             TrySetShapeName(shape, shapeName);
+            if (hasSourceSize)
+            {
+                TrySetLockAspectRatio(shape, MsoTriState.msoTrue);
+            }
             shape.Select(MsoTriState.msoFalse);
             return shape;
         }
@@ -76,28 +90,38 @@ namespace DrawioPpt.PowerPointAddIn.Services
             }
 
             ShapeSnapshot snapshot = ShapeSnapshot.Capture(existingShape);
+            float sourceWidth;
+            float sourceHeight;
+            bool hasSourceSize = TryReadSourceSize(svgFilePath, out sourceWidth, out sourceHeight);
+            float replacementHeight = hasSourceSize
+                ? snapshot.Width * sourceHeight / sourceWidth
+                : snapshot.Height;
+            float replacementTop = hasSourceSize
+                ? snapshot.Top + ((snapshot.Height - replacementHeight) / 2f)
+                : snapshot.Top;
             // PowerPoint's PickUp/Apply pipeline corrupts SVG pictures and turns them into
             // solid black shapes after replacement. Keep geometry/metadata/animation, but
             // let the newly inserted SVG keep its own vector styling.
             TryPickupAnimation(existingShape);
             existingShape.Delete();
-            string renderSvgPath = PreparePresentationSvg(svgFilePath, snapshot.Width, snapshot.Height);
 
             PptInterop.Shape newShape = slide.Shapes.AddPicture(
-                renderSvgPath,
+                svgFilePath,
                 MsoTriState.msoFalse,
                 MsoTriState.msoTrue,
                 snapshot.Left,
-                snapshot.Top,
+                replacementTop,
                 snapshot.Width,
-                snapshot.Height);
+                replacementHeight);
 
             TryApplyAnimation(newShape);
             newShape.Rotation = snapshot.Rotation;
             TrySetShapeName(newShape, snapshot.Name);
             TrySetTitle(newShape, snapshot.Title);
             TrySetVisible(newShape, snapshot.Visible);
-            TrySetLockAspectRatio(newShape, snapshot.LockAspectRatio);
+            TrySetLockAspectRatio(
+                newShape,
+                hasSourceSize ? MsoTriState.msoTrue : snapshot.LockAspectRatio);
             TrySetBlackWhiteMode(newShape, snapshot.BlackWhiteMode);
             TryApplyActionSetting(newShape, PptInterop.PpMouseActivation.ppMouseClick, snapshot.ClickAction);
             TryApplyActionSetting(newShape, PptInterop.PpMouseActivation.ppMouseOver, snapshot.MouseOverAction);
@@ -106,14 +130,23 @@ namespace DrawioPpt.PowerPointAddIn.Services
             return newShape;
         }
 
-        private string PreparePresentationSvg(string svgFilePath, float targetWidth, float targetHeight)
+        private bool TryReadSourceSize(string svgFilePath, out float sourceWidth, out float sourceHeight)
         {
+            sourceWidth = 0f;
+            sourceHeight = 0f;
             if (_svgSupportService == null)
             {
-                return svgFilePath;
+                return false;
             }
 
-            return _svgSupportService.PrepareForPresentation(svgFilePath, targetWidth, targetHeight);
+            if (!_svgSupportService.TryReadSize(svgFilePath, out sourceWidth, out sourceHeight) ||
+                sourceWidth <= 0f ||
+                sourceHeight <= 0f)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private static void MoveToZOrder(PptInterop.Shape shape, int targetPosition)
