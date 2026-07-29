@@ -5,6 +5,7 @@ param(
     [string]$PictureWrapMode = "Square",
     [ValidateSet("Svg", "Png")]
     [string]$PictureRenderFormat = "Svg",
+    [int]$PreviewPixelWidth = 0,
     [int]$DurationSeconds = 12,
     [double]$MaximumP95Ratio = 1.25,
     [double]$MaximumPerRoundP95Ratio = 1.25,
@@ -31,6 +32,15 @@ $ErrorActionPreference = "Stop"
 
 if ($DurationSeconds -lt 10) {
     throw "DurationSeconds must be at least 10 seconds for each picture."
+}
+
+if ($PreviewPixelWidth -lt 0) {
+    throw "PreviewPixelWidth cannot be negative."
+}
+
+if ($PictureRenderFormat -ne "Png" -and
+    $PreviewPixelWidth -gt 0) {
+    throw "PreviewPixelWidth can only be used with PictureRenderFormat Png."
 }
 
 foreach ($positiveThreshold in @(
@@ -380,7 +390,8 @@ function Export-DrawioSourceImage {
         [ValidateSet("Svg", "Png")]
         [string]$Format,
         [Parameter(Mandatory = $true)]
-        [string]$OutputPath
+        [string]$OutputPath,
+        [int]$PreviewPixelWidth = 0
     )
 
     $drawioDesktopPath = "C:\Program Files\draw.io\draw.io.exe"
@@ -388,15 +399,25 @@ function Export-DrawioSourceImage {
         throw "draw.io Desktop was not found: $drawioDesktopPath"
     }
 
+    $drawioArguments = @(
+        "--export",
+        "--format", $Format.ToLowerInvariant(),
+        "--page-index", "1",
+        "--border", "0")
+    if ($Format -eq "Png" -and
+        $PreviewPixelWidth -gt 0) {
+        $drawioArguments += @(
+            "--width",
+            $PreviewPixelWidth.ToString(
+                [Globalization.CultureInfo]::InvariantCulture))
+    }
+
+    $drawioArguments += @(
+        "--output", $OutputPath,
+        $SourcePath)
     $process = Start-Process `
         -FilePath $drawioDesktopPath `
-        -ArgumentList @(
-            "--export",
-            "--format", $Format.ToLowerInvariant(),
-            "--page-index", "1",
-            "--border", "0",
-            "--output", $OutputPath,
-            $SourcePath) `
+        -ArgumentList $drawioArguments `
         -WindowStyle Hidden `
         -Wait `
         -PassThru
@@ -560,7 +581,9 @@ function Get-ShapeComparisonSemantics {
         [Parameter(Mandatory = $true)]
         [object]$ManagedShape,
         [Parameter(Mandatory = $true)]
-        [object]$PlainShape
+        [object]$PlainShape,
+        [Parameter(Mandatory = $true)]
+        [double]$SourceAspectRatio
     )
 
     $managedAnchor = $null
@@ -602,14 +625,53 @@ function Get-ShapeComparisonSemantics {
                 [int]$PlainShape.RelativeVerticalPosition
         $sameWrap =
             [int]$managedWrap.Type -eq [int]$plainWrap.Type
+        $managedDisplayedAspectRatio =
+            [double]$ManagedShape.Width /
+                [double]$ManagedShape.Height
+        $plainDisplayedAspectRatio =
+            [double]$PlainShape.Width /
+                [double]$PlainShape.Height
+        $managedAspectRatioError = [Math]::Abs(
+            $managedDisplayedAspectRatio -
+                $SourceAspectRatio)
+        $plainAspectRatioError = [Math]::Abs(
+            $plainDisplayedAspectRatio -
+                $SourceAspectRatio)
+        $aspectRatioLocked =
+            [int]$ManagedShape.LockAspectRatio -ne 0 -and
+            [int]$PlainShape.LockAspectRatio -ne 0
+        $aspectRatioPassed =
+            $managedAspectRatioError -le 0.001 -and
+            $plainAspectRatioError -le 0.001 -and
+            $aspectRatioLocked
         return [pscustomobject]@{
             SameSize = $sameSize
             SameAnchorSemantics = $sameAnchorSemantics
             SameWrap = $sameWrap
+            SourceAspectRatio = $SourceAspectRatio
+            ManagedDisplayedAspectRatio =
+                [Math]::Round(
+                    $managedDisplayedAspectRatio,
+                    6)
+            PlainDisplayedAspectRatio =
+                [Math]::Round(
+                    $plainDisplayedAspectRatio,
+                    6)
+            ManagedAspectRatioError =
+                [Math]::Round(
+                    $managedAspectRatioError,
+                    6)
+            PlainAspectRatioError =
+                [Math]::Round(
+                    $plainAspectRatioError,
+                    6)
+            AspectRatioLocked = $aspectRatioLocked
+            AspectRatioPassed = $aspectRatioPassed
             Passed =
                 $sameSize -and
                 $sameAnchorSemantics -and
-                $sameWrap
+                $sameWrap -and
+                $aspectRatioPassed
         }
     }
     finally {
@@ -729,7 +791,10 @@ function Measure-ShapeMotion {
         [Parameter(Mandatory = $true)]
         [object]$SelectionCounter,
         [Parameter(Mandatory = $true)]
-        [object]$WordProcessIdentity
+        [object]$WordProcessIdentity,
+        [Parameter(Mandatory = $true)]
+        [double]$SourceAspectRatio,
+        [single]$DisplayWidth = 330
     )
 
     $neutralRange = $null
@@ -738,9 +803,11 @@ function Measure-ShapeMotion {
         $Shape.Visible = -1
         $Shape.Left = 45
         $Shape.Top = 70
-        $Shape.Width = 330
-        $Shape.Height = 220
         $Shape.LockAspectRatio = 0
+        $Shape.Width = $DisplayWidth
+        $Shape.Height =
+            [single]($DisplayWidth / $SourceAspectRatio)
+        $Shape.LockAspectRatio = -1
         $Shape.Select()
         Start-Sleep -Milliseconds 250
 
@@ -958,10 +1025,10 @@ function Measure-ShapeMotion {
                         $Shape.Width = [single]$baseWidth
                     }
                     elseif ($resizePhase -eq 2) {
-                        $Shape.Height = [single]($baseHeight + 4)
+                        $Shape.Width = [single]($baseWidth - 6)
                     }
                     else {
-                        $Shape.Height = [single]$baseHeight
+                        $Shape.Width = [single]$baseWidth
                     }
 
                     $resizeSucceeded = $true
@@ -1006,6 +1073,20 @@ function Measure-ShapeMotion {
             ($selectionSampleArray | Measure-Object -Average).Average
         $selectionMaximum =
             ($selectionSampleArray | Measure-Object -Maximum).Maximum
+        $startAspectRatio =
+            [double]$baseWidth / [double]$baseHeight
+        $endWidth = [single]$Shape.Width
+        $endHeight = [single]$Shape.Height
+        $endAspectRatio =
+            [double]$endWidth / [double]$endHeight
+        $startAspectRatioError = [Math]::Abs(
+            $startAspectRatio - $SourceAspectRatio)
+        $endAspectRatioError = [Math]::Abs(
+            $endAspectRatio - $SourceAspectRatio)
+        $geometryPassed =
+            $startAspectRatioError -le 0.001 -and
+            $endAspectRatioError -le 0.001 -and
+            [int]$Shape.LockAspectRatio -ne 0
 
         return [pscustomobject]@{
             Label = $Label
@@ -1055,6 +1136,21 @@ function Measure-ShapeMotion {
             UnresponsiveSamples = $unresponsiveSamples
             StartLeft = $baseLeft
             StartTop = $baseTop
+            StartWidth = $baseWidth
+            StartHeight = $baseHeight
+            StartAspectRatio =
+                [Math]::Round($startAspectRatio, 6)
+            StartAspectRatioError =
+                [Math]::Round($startAspectRatioError, 6)
+            EndWidth = $endWidth
+            EndHeight = $endHeight
+            EndAspectRatio =
+                [Math]::Round($endAspectRatio, 6)
+            EndAspectRatioError =
+                [Math]::Round($endAspectRatioError, 6)
+            AspectRatioLocked =
+                [int]$Shape.LockAspectRatio -ne 0
+            GeometryPassed = $geometryPassed
             SelectionSamplesMs = $selectionSampleArray
             MotionSamplesMs = $sampleArray
             ResizeSamplesMs = $resizeSampleArray
@@ -1246,6 +1342,8 @@ function New-TypedStressDocument {
         [Parameter(Mandatory = $true)]
         [ValidateSet("Square", "Front")]
         [string]$PictureWrapMode,
+        [Parameter(Mandatory = $true)]
+        [double]$SourceAspectRatio,
         [Parameter(Mandatory = $true)]
         [int]$MinimumBodyParagraphs,
         [Parameter(Mandatory = $true)]
@@ -1573,7 +1671,8 @@ public static class DrawioPptWordUiStressDocumentBuilder
         string imagePath,
         float top,
         string name,
-        Word.WdWrapType wrapType)
+        Word.WdWrapType wrapType,
+        double sourceAspectRatio)
     {
         object linkToFile = false;
         object saveWithDocument = true;
@@ -1598,9 +1697,13 @@ public static class DrawioPptWordUiStressDocumentBuilder
                 Word.WdRelativeVerticalPosition.wdRelativeVerticalPositionPage;
             shape.Left = 45f;
             shape.Top = top;
+            shape.LockAspectRatio =
+                Office.MsoTriState.msoFalse;
             shape.Width = 330f;
-            shape.Height = 220f;
-            shape.LockAspectRatio = Office.MsoTriState.msoFalse;
+            shape.Height =
+                (float)(330.0 / sourceAspectRatio);
+            shape.LockAspectRatio =
+                Office.MsoTriState.msoTrue;
             wrapFormat = shape.WrapFormat;
             wrapFormat.Type = wrapType;
             return shape;
@@ -1921,6 +2024,7 @@ public static class DrawioPptWordUiStressDocumentBuilder
         string documentPath,
         string drawioXml,
         string pictureWrapMode,
+        double sourceAspectRatio,
         int minimumBodyParagraphs,
         int minimumBodyCharacters,
         int minimumPageCount,
@@ -1938,6 +2042,12 @@ public static class DrawioPptWordUiStressDocumentBuilder
         long windowHandle = 0;
         try
         {
+            if (sourceAspectRatio <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    "sourceAspectRatio");
+            }
+
             application = new Word.Application();
             CaptureSoleWordProcess(
                 out processId,
@@ -2004,13 +2114,15 @@ public static class DrawioPptWordUiStressDocumentBuilder
                 imagePath,
                 70f,
                 "Managed Complex v1.0.8",
-                comparisonWrapType);
+                comparisonWrapType,
+                sourceAspectRatio);
             plain = AddPicture(
                 document,
                 imagePath,
                 390f,
                 "Plain Complex Same Visual",
-                comparisonWrapType);
+                comparisonWrapType,
+                sourceAspectRatio);
 
             DiagramEnvelope envelope = new DiagramEnvelope();
             envelope.DiagramId = Guid.NewGuid().ToString("N");
@@ -2140,6 +2252,7 @@ public static class DrawioPptWordUiStressDocumentBuilder
         $DocumentPath,
         $DrawioXml,
         $PictureWrapMode,
+        $SourceAspectRatio,
         $MinimumBodyParagraphs,
         $MinimumBodyCharacters,
         $MinimumPageCount,
@@ -2262,7 +2375,8 @@ if ($sourceMode -eq "UserProvided" -or
     Export-DrawioSourceImage `
         -SourcePath $sourceCopyPath `
         -Format $PictureRenderFormat `
-        -OutputPath $picturePath
+        -OutputPath $picturePath `
+        -PreviewPixelWidth $PreviewPixelWidth
 }
 $renderedImageStatistics = Get-RenderedImageStatistics `
     -Format $PictureRenderFormat `
@@ -2295,6 +2409,7 @@ $report = $null
         -CoreAssemblyPath $coreAssemblyPath `
         -WordAddInAssemblyPath $wordAddInAssemblyPath `
         -PictureWrapMode $PictureWrapMode `
+        -SourceAspectRatio $renderedImageStatistics.AspectRatio `
         -MinimumBodyParagraphs $MinimumBodyParagraphs `
         -MinimumBodyCharacters $MinimumBodyCharacters `
         -MinimumPageCount $MinimumPageCount `
@@ -2357,10 +2472,16 @@ $report = $null
     $shapeComparisonSemantics =
         Get-ShapeComparisonSemantics `
             -ManagedShape $managedShape `
-            -PlainShape $plainShape
+            -PlainShape $plainShape `
+            -SourceAspectRatio `
+                $renderedImageStatistics.AspectRatio
     Write-Host "ComparisonSameSize=$($shapeComparisonSemantics.SameSize)"
     Write-Host "ComparisonSameAnchorSemantics=$($shapeComparisonSemantics.SameAnchorSemantics)"
     Write-Host "ComparisonSameWrap=$($shapeComparisonSemantics.SameWrap)"
+    Write-Host "ComparisonSourceAspectRatio=$($shapeComparisonSemantics.SourceAspectRatio)"
+    Write-Host "ComparisonManagedDisplayedAspectRatio=$($shapeComparisonSemantics.ManagedDisplayedAspectRatio)"
+    Write-Host "ComparisonPlainDisplayedAspectRatio=$($shapeComparisonSemantics.PlainDisplayedAspectRatio)"
+    Write-Host "ComparisonAspectRatioPassed=$($shapeComparisonSemantics.AspectRatioPassed)"
     if (-not $shapeComparisonSemantics.Passed) {
         throw "Managed and plain comparison pictures do not have identical size, anchor semantics, and wrapping."
     }
@@ -2391,7 +2512,8 @@ $report = $null
         -SelectionSettleMilliseconds $SelectionSettleMilliseconds `
         -SelectionEventTimeoutMilliseconds $SelectionEventTimeoutMilliseconds `
         -SelectionCounter $selectionCounter `
-        -WordProcessIdentity $activeIdentity
+        -WordProcessIdentity $activeIdentity `
+        -SourceAspectRatio $renderedImageStatistics.AspectRatio
     $round1Managed = Measure-ShapeMotion `
         -Document $document `
         -Shape $managedShape `
@@ -2403,7 +2525,8 @@ $report = $null
         -SelectionSettleMilliseconds $SelectionSettleMilliseconds `
         -SelectionEventTimeoutMilliseconds $SelectionEventTimeoutMilliseconds `
         -SelectionCounter $selectionCounter `
-        -WordProcessIdentity $activeIdentity
+        -WordProcessIdentity $activeIdentity `
+        -SourceAspectRatio $renderedImageStatistics.AspectRatio
 
     Write-Host "Stage=Round2ManagedThenPlain"
     $round2Managed = Measure-ShapeMotion `
@@ -2417,7 +2540,8 @@ $report = $null
         -SelectionSettleMilliseconds $SelectionSettleMilliseconds `
         -SelectionEventTimeoutMilliseconds $SelectionEventTimeoutMilliseconds `
         -SelectionCounter $selectionCounter `
-        -WordProcessIdentity $activeIdentity
+        -WordProcessIdentity $activeIdentity `
+        -SourceAspectRatio $renderedImageStatistics.AspectRatio
     $round2Plain = Measure-ShapeMotion `
         -Document $document `
         -Shape $plainShape `
@@ -2429,7 +2553,8 @@ $report = $null
         -SelectionSettleMilliseconds $SelectionSettleMilliseconds `
         -SelectionEventTimeoutMilliseconds $SelectionEventTimeoutMilliseconds `
         -SelectionCounter $selectionCounter `
-        -WordProcessIdentity $activeIdentity
+        -WordProcessIdentity $activeIdentity `
+        -SourceAspectRatio $renderedImageStatistics.AspectRatio
 
     $plainRounds = @($round1Plain, $round2Plain)
     $managedRounds = @($round1Managed, $round2Managed)
@@ -2470,12 +2595,11 @@ $report = $null
     $managedShape.Left = [single]($managedResult.StartLeft + 24)
     $managedShape.Top = [single]($managedResult.StartTop + 12)
     $managedShape.Width = [single]($managedShape.Width + 10)
-    $managedShape.Height = [single]($managedShape.Height + 6)
     $plainShape.Visible = -1
     $plainShape.Left = 45
     $plainShape.Top = 390
+    $plainShape.LockAspectRatio = -1
     $plainShape.Width = 330
-    $plainShape.Height = 220
     $expectedLeft = [single]$managedShape.Left
     $expectedTop = [single]$managedShape.Top
     $expectedWidth = [single]$managedShape.Width
@@ -2598,6 +2722,15 @@ $report = $null
         [Math]::Abs([single]$reopenedManaged.Top - $expectedTop) -lt 0.1 -and
         [Math]::Abs([single]$reopenedManaged.Width - $expectedWidth) -lt 0.1 -and
         [Math]::Abs([single]$reopenedManaged.Height - $expectedHeight) -lt 0.1
+    $reopenedAspectRatio =
+        [double]$reopenedManaged.Width /
+            [double]$reopenedManaged.Height
+    $reopenedAspectRatioError = [Math]::Abs(
+        $reopenedAspectRatio -
+            $renderedImageStatistics.AspectRatio)
+    $reopenedGeometryPassed =
+        $reopenedAspectRatioError -le 0.001 -and
+        [int]$reopenedManaged.LockAspectRatio -ne 0
     $storedPayloadPassed =
         $null -ne $storedEnvelope -and
         [string]$storedEnvelope.DrawioXml -eq $drawioXml -and
@@ -2820,6 +2953,13 @@ $report = $null
                 $_.ResizeOperations -lt
                     $ResizeOperationsPerRound
             }).Count -eq 0
+    $geometryGatePassed =
+        $shapeComparisonSemantics.AspectRatioPassed -and
+        $reopenedGeometryPassed -and
+        @($allRoundResults |
+            Where-Object {
+                -not $_.GeometryPassed
+            }).Count -eq 0
     $noAdditionalDifferenceObserved =
         $comparisonPassed
     $storagePassed =
@@ -2869,6 +3009,7 @@ $report = $null
             "Round2:ManagedThenPlain")
         PictureWrapMode = $PictureWrapMode
         PictureRenderFormat = $PictureRenderFormat
+        PreviewPixelWidth = $PreviewPixelWidth
         MaximumP95Ratio = $MaximumP95Ratio
         MaximumPerRoundP95Ratio = $MaximumPerRoundP95Ratio
         MaximumP95DeltaMs = $MaximumP95DeltaMs
@@ -2888,6 +3029,7 @@ $report = $null
             PicturePath = $picturePath
             Rendering = [ordered]@{
                 Format = $renderedImageStatistics.Format
+                RequestedPixelWidth = $PreviewPixelWidth
                 PixelWidth =
                     $renderedImageStatistics.PixelWidth
                 PixelHeight =
@@ -2953,6 +3095,20 @@ $report = $null
             SameAnchorSemantics =
                 $shapeComparisonSemantics.SameAnchorSemantics
             SameWrap = $shapeComparisonSemantics.SameWrap
+            SourceAspectRatio =
+                $shapeComparisonSemantics.SourceAspectRatio
+            ManagedDisplayedAspectRatio =
+                $shapeComparisonSemantics.ManagedDisplayedAspectRatio
+            PlainDisplayedAspectRatio =
+                $shapeComparisonSemantics.PlainDisplayedAspectRatio
+            ManagedAspectRatioError =
+                $shapeComparisonSemantics.ManagedAspectRatioError
+            PlainAspectRatioError =
+                $shapeComparisonSemantics.PlainAspectRatioError
+            AspectRatioLocked =
+                $shapeComparisonSemantics.AspectRatioLocked
+            AspectRatioPassed =
+                $shapeComparisonSemantics.AspectRatioPassed
             Passed = $shapeComparisonSemantics.Passed
         }
         DrawioXmlChars = $drawioXml.Length
@@ -3023,6 +3179,12 @@ $report = $null
             $selectionChangeEventsPassed
         NoAdditionalMetadataPathDifferenceObserved = $noAdditionalDifferenceObserved
         ReopenPersistencePassed = $reopenPersistencePassed
+        ReopenedAspectRatio =
+            [Math]::Round($reopenedAspectRatio, 6)
+        ReopenedAspectRatioError =
+            [Math]::Round($reopenedAspectRatioError, 6)
+        ReopenedGeometryPassed = $reopenedGeometryPassed
+        GeometryGatePassed = $geometryGatePassed
         StoredPayloadPassed = $storedPayloadPassed
         StoragePassed = $storagePassed
         ReopenedPositionAndSize = [ordered]@{
@@ -3071,6 +3233,7 @@ $report = $null
         $report.Source.Passed -and
         $report.DocumentContent.Passed -and
         $report.ComparisonPictureSemantics.Passed -and
+        $report.GeometryGatePassed -and
         -not $report.CleanupResidualWinWord
 
     $reportJson = $report | ConvertTo-Json -Depth 8
@@ -3102,6 +3265,7 @@ $report = $null
     Write-Host "SourcePassed=$($report.Source.Passed)"
     Write-Host "SourceMode=$($report.Source.Mode)"
     Write-Host "PictureRenderFormat=$($report.PictureRenderFormat)"
+    Write-Host "PreviewPixelWidth=$($report.PreviewPixelWidth)"
     Write-Host "RenderedPixelWidth=$($report.Source.Rendering.PixelWidth)"
     Write-Host "RenderedPixelHeight=$($report.Source.Rendering.PixelHeight)"
     Write-Host "RenderedAspectRatio=$($report.Source.Rendering.AspectRatio)"
@@ -3124,6 +3288,7 @@ $report = $null
     Write-Host "DocumentContentStable=$($report.DocumentContent.StableAfterReopen)"
     Write-Host "DocumentContentPassed=$($report.DocumentContent.Passed)"
     Write-Host "ComparisonPictureSemanticsPassed=$($report.ComparisonPictureSemantics.Passed)"
+    Write-Host "GeometryGatePassed=$($report.GeometryGatePassed)"
     Write-Host "WordAddInConnect=$($report.WordAddInConnect)"
     Write-Host "PointerInputCovered=False"
     Write-Host "CleanupResidualWinWord=$($report.CleanupResidualWinWord)"
