@@ -3,6 +3,8 @@ param(
     [string]$DrawioSourcePath = "",
     [ValidateSet("Square", "Front")]
     [string]$PictureWrapMode = "Square",
+    [ValidateSet("Svg", "Png")]
+    [string]$PictureRenderFormat = "Svg",
     [int]$DurationSeconds = 12,
     [double]$MaximumP95Ratio = 1.25,
     [double]$MaximumPerRoundP95Ratio = 1.25,
@@ -370,12 +372,15 @@ function Get-DrawioSourceStatistics {
     }
 }
 
-function Export-DrawioSourceSvg {
+function Export-DrawioSourceImage {
     param(
         [Parameter(Mandatory = $true)]
         [string]$SourcePath,
         [Parameter(Mandatory = $true)]
-        [string]$SvgPath
+        [ValidateSet("Svg", "Png")]
+        [string]$Format,
+        [Parameter(Mandatory = $true)]
+        [string]$OutputPath
     )
 
     $drawioDesktopPath = "C:\Program Files\draw.io\draw.io.exe"
@@ -387,26 +392,107 @@ function Export-DrawioSourceSvg {
         -FilePath $drawioDesktopPath `
         -ArgumentList @(
             "--export",
-            "--format", "svg",
+            "--format", $Format.ToLowerInvariant(),
             "--page-index", "1",
             "--border", "0",
-            "--output", $SvgPath,
+            "--output", $OutputPath,
             $SourcePath) `
         -WindowStyle Hidden `
         -Wait `
         -PassThru
     try {
         if ($process.ExitCode -ne 0) {
-            throw "draw.io Desktop SVG export failed with exit code $($process.ExitCode)."
+            throw "draw.io Desktop $Format export failed with exit code $($process.ExitCode)."
         }
     }
     finally {
         $process.Dispose()
     }
 
-    if (-not (Test-Path -LiteralPath $SvgPath) -or
-        (Get-Item -LiteralPath $SvgPath).Length -le 0) {
-        throw "draw.io Desktop did not create a non-empty SVG."
+    if (-not (Test-Path -LiteralPath $OutputPath) -or
+        (Get-Item -LiteralPath $OutputPath).Length -le 0) {
+        throw "draw.io Desktop did not create a non-empty $Format image."
+    }
+}
+
+function Get-RenderedImageStatistics {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("Svg", "Png")]
+        [string]$Format,
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    [double]$pixelWidth = 0
+    [double]$pixelHeight = 0
+    if ($Format -eq "Png") {
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
+        if ($bytes.Length -lt 24 -or
+            $bytes[0] -ne 0x89 -or
+            $bytes[1] -ne 0x50 -or
+            $bytes[2] -ne 0x4E -or
+            $bytes[3] -ne 0x47) {
+            throw "The rendered PNG does not have a valid PNG signature and IHDR."
+        }
+
+        $pixelWidth =
+            ([uint32]$bytes[16] -shl 24) -bor
+            ([uint32]$bytes[17] -shl 16) -bor
+            ([uint32]$bytes[18] -shl 8) -bor
+            [uint32]$bytes[19]
+        $pixelHeight =
+            ([uint32]$bytes[20] -shl 24) -bor
+            ([uint32]$bytes[21] -shl 16) -bor
+            ([uint32]$bytes[22] -shl 8) -bor
+            [uint32]$bytes[23]
+    }
+    else {
+        [xml]$svg = [System.IO.File]::ReadAllText($Path)
+        $widthMatch = [regex]::Match(
+            [string]$svg.DocumentElement.GetAttribute("width"),
+            "^[\s]*([0-9]+(?:\.[0-9]+)?)")
+        $heightMatch = [regex]::Match(
+            [string]$svg.DocumentElement.GetAttribute("height"),
+            "^[\s]*([0-9]+(?:\.[0-9]+)?)")
+        if ($widthMatch.Success -and $heightMatch.Success) {
+            $pixelWidth = [double]::Parse(
+                $widthMatch.Groups[1].Value,
+                [Globalization.CultureInfo]::InvariantCulture)
+            $pixelHeight = [double]::Parse(
+                $heightMatch.Groups[1].Value,
+                [Globalization.CultureInfo]::InvariantCulture)
+        }
+        else {
+            $viewBoxParts = @(
+                ([string]$svg.DocumentElement.GetAttribute("viewBox")) `
+                    -split "[,\s]+" |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+            if ($viewBoxParts.Count -ne 4) {
+                throw "The rendered SVG has no readable width, height, or viewBox."
+            }
+
+            $pixelWidth = [double]::Parse(
+                $viewBoxParts[2],
+                [Globalization.CultureInfo]::InvariantCulture)
+            $pixelHeight = [double]::Parse(
+                $viewBoxParts[3],
+                [Globalization.CultureInfo]::InvariantCulture)
+        }
+    }
+
+    if ($pixelWidth -le 0 -or $pixelHeight -le 0) {
+        throw "Rendered image dimensions must be greater than zero."
+    }
+
+    return [pscustomobject]@{
+        Format = $Format
+        PixelWidth = $pixelWidth
+        PixelHeight = $pixelHeight
+        AspectRatio = [Math]::Round(
+            $pixelWidth / $pixelHeight,
+            6)
+        Bytes = (Get-Item -LiteralPath $Path).Length
     }
 }
 
@@ -2113,7 +2199,15 @@ $testRoot = Join-Path (
 try {
     New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
 $sourceCopyPath = Join-Path $testRoot "source.drawio"
-$svgPath = Join-Path $testRoot "source.svg"
+$picturePath = Join-Path `
+    $testRoot `
+    ("source." + $PictureRenderFormat.ToLowerInvariant())
+$svgPath = if ($PictureRenderFormat -eq "Svg") {
+    $picturePath
+}
+else {
+    ""
+}
 $auxiliarySvgPath = Join-Path $testRoot "auxiliary.svg"
 $documentPath = Join-Path $testRoot "word-ui-thread-stress.docx"
 [System.IO.File]::WriteAllText(
@@ -2130,10 +2224,12 @@ if ([string]::IsNullOrWhiteSpace($DrawioSourcePath)) {
         $sourceCopyPath,
         $drawioXml,
         (New-Object System.Text.UTF8Encoding($false)))
-    [System.IO.File]::WriteAllText(
-        $svgPath,
-        (New-ComplexSvg),
-        (New-Object System.Text.UTF8Encoding($false)))
+    if ($PictureRenderFormat -eq "Svg") {
+        [System.IO.File]::WriteAllText(
+            $picturePath,
+            (New-ComplexSvg),
+            (New-Object System.Text.UTF8Encoding($false)))
+    }
 }
 else {
     if (-not (Test-Path -LiteralPath $DrawioSourcePath -PathType Leaf)) {
@@ -2159,11 +2255,18 @@ else {
         throw "The copied Draw.io source SHA256 differs from the original."
     }
 
-    Export-DrawioSourceSvg `
-        -SourcePath $sourceCopyPath `
-        -SvgPath $svgPath
 }
 
+if ($sourceMode -eq "UserProvided" -or
+    $PictureRenderFormat -eq "Png") {
+    Export-DrawioSourceImage `
+        -SourcePath $sourceCopyPath `
+        -Format $PictureRenderFormat `
+        -OutputPath $picturePath
+}
+$renderedImageStatistics = Get-RenderedImageStatistics `
+    -Format $PictureRenderFormat `
+    -Path $picturePath
 $sourceStatistics = Get-DrawioSourceStatistics `
     -Path $sourceCopyPath `
     -XmlText $drawioXml
@@ -2185,7 +2288,7 @@ $report = $null
 
     Write-Host "Stage=BuildDocument"
     $buildResult = New-TypedStressDocument `
-        -ImagePath $svgPath `
+        -ImagePath $picturePath `
         -AuxiliaryImagePath $auxiliarySvgPath `
         -DocumentPath $documentPath `
         -DrawioXml $drawioXml `
@@ -2765,6 +2868,7 @@ $report = $null
             "Round1:PlainThenManaged",
             "Round2:ManagedThenPlain")
         PictureWrapMode = $PictureWrapMode
+        PictureRenderFormat = $PictureRenderFormat
         MaximumP95Ratio = $MaximumP95Ratio
         MaximumPerRoundP95Ratio = $MaximumPerRoundP95Ratio
         MaximumP95DeltaMs = $MaximumP95DeltaMs
@@ -2781,6 +2885,20 @@ $report = $null
             Path = $sourceReportPath
             CopiedPath = $sourceCopyPath
             SvgPath = $svgPath
+            PicturePath = $picturePath
+            Rendering = [ordered]@{
+                Format = $renderedImageStatistics.Format
+                PixelWidth =
+                    $renderedImageStatistics.PixelWidth
+                PixelHeight =
+                    $renderedImageStatistics.PixelHeight
+                AspectRatio =
+                    $renderedImageStatistics.AspectRatio
+                Bytes = $renderedImageStatistics.Bytes
+                BorderPixels = 0
+                PreservesAspectRatio = $true
+                Passed = $true
+            }
             Chars = $sourceStatistics.Chars
             Bytes = $sourceStatistics.Bytes
             Sha256 = $sourceStatistics.Sha256
@@ -2983,6 +3101,11 @@ $report = $null
     Write-Host "StoredPayloadPassed=$($report.StoredPayloadPassed)"
     Write-Host "SourcePassed=$($report.Source.Passed)"
     Write-Host "SourceMode=$($report.Source.Mode)"
+    Write-Host "PictureRenderFormat=$($report.PictureRenderFormat)"
+    Write-Host "RenderedPixelWidth=$($report.Source.Rendering.PixelWidth)"
+    Write-Host "RenderedPixelHeight=$($report.Source.Rendering.PixelHeight)"
+    Write-Host "RenderedAspectRatio=$($report.Source.Rendering.AspectRatio)"
+    Write-Host "RenderedBorderPixels=$($report.Source.Rendering.BorderPixels)"
     Write-Host "SourceSha256=$($report.Source.Sha256)"
     Write-Host "DrawioXmlChars=$($report.Source.Chars)"
     Write-Host "DrawioXmlBytes=$($report.Source.Bytes)"
@@ -3074,6 +3197,7 @@ finally {
         Write-Host "TestRoot=$testRoot"
         Write-Host "DocumentPath=$documentPath"
         Write-Host "SvgPath=$svgPath"
+        Write-Host "PicturePath=$picturePath"
     }
     else {
         Remove-OwnedTestRoot -Path $testRoot
