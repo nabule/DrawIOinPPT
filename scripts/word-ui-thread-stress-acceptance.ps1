@@ -2490,6 +2490,10 @@ elseif ($sourceMode -eq "UserProvided" -or
 $renderedImageStatistics = Get-RenderedImageStatistics `
     -Format $PictureRenderFormat `
     -Path $picturePath
+$renderingPixelWidthPassed =
+    $PictureRenderFormat -notin @("Png", "Jpeg") -or
+    $PreviewPixelWidth -le 0 -or
+    $renderedImageStatistics.PixelWidth -eq $PreviewPixelWidth
 if ($sourceDisplayAspectRatio -le 0) {
     $sourceDisplayAspectRatio =
         $renderedImageStatistics.AspectRatio
@@ -3102,6 +3106,7 @@ $report = $null
     $sourcePassed =
         $copiedSourceUnchanged -and
         $originalSourceUnchanged -and
+        $renderingPixelWidthPassed -and
         $renderingAspectRatioPassed
     $documentContentPassed =
         $buildDocumentContentPassed -and
@@ -3166,9 +3171,13 @@ $report = $null
                         6)
                 Bytes = $renderedImageStatistics.Bytes
                 BorderPixels = 0
+                PixelWidthPassed =
+                    $renderingPixelWidthPassed
                 PreservesAspectRatio =
                     $renderingAspectRatioPassed
-                Passed = $renderingAspectRatioPassed
+                Passed =
+                    $renderingPixelWidthPassed -and
+                    $renderingAspectRatioPassed
             }
             Chars = $sourceStatistics.Chars
             Bytes = $sourceStatistics.Bytes
@@ -3400,6 +3409,7 @@ $report = $null
     Write-Host "RenderedAspectRatio=$($report.Source.Rendering.AspectRatio)"
     Write-Host "RenderingSourceAspectRatio=$($report.Source.Rendering.SourceAspectRatio)"
     Write-Host "RenderingAspectRatioError=$($report.Source.Rendering.AspectRatioError)"
+    Write-Host "RenderingPixelWidthPassed=$($report.Source.Rendering.PixelWidthPassed)"
     Write-Host "RenderedBorderPixels=$($report.Source.Rendering.BorderPixels)"
     Write-Host "SourceSha256=$($report.Source.Sha256)"
     Write-Host "DrawioXmlChars=$($report.Source.Chars)"
