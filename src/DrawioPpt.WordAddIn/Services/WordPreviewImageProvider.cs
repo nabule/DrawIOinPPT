@@ -11,7 +11,7 @@ namespace DrawioPpt.WordAddIn.Services
 {
     public class WordPreviewImageProvider
     {
-        private const int PreviewWidth = 620;
+        private const int PreviewWidth = 1240;
         private readonly DesktopSvgExporter exporter;
 
         public WordPreviewImageProvider()

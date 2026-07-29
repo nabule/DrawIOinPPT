@@ -192,7 +192,7 @@ public static class WordPreviewImageProviderE2E
             double aspectRatio = pixelHeight > 0
                 ? pixelWidth / (double)pixelHeight
                 : 0;
-            bool widthPassed = pixelWidth == 620;
+            bool widthPassed = pixelWidth == 1240;
             bool aspectPassed =
                 Math.Abs(aspectRatio - 2.0) <= 0.02;
             bool notForcedSquare =
@@ -254,8 +254,8 @@ public static class WordPreviewImageProviderE2E
             bool fallbackPassed =
                 File.Exists(fallbackPreviewPath) &&
                 HasPngSignature(fallbackPreviewPath) &&
-                fallbackPixelWidth == 620 &&
-                fallbackPixelHeight == 310 &&
+                fallbackPixelWidth == 1240 &&
+                fallbackPixelHeight == 620 &&
                 string.Equals(
                     fallbackHashBefore,
                     fallbackHashAfter,
@@ -288,7 +288,7 @@ public static class WordPreviewImageProviderE2E
                 "AspectRatio=" +
                 aspectRatio.ToString("0.######"));
             Console.WriteLine(
-                "Width620Passed=" +
+                "Width1240Passed=" +
                 widthPassed);
             Console.WriteLine(
                 "Aspect2To1Passed=" +
