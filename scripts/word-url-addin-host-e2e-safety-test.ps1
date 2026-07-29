@@ -29,4 +29,10 @@ if ($source -notmatch 'foreach \(\$cleanupAction in \$cleanupActions\)' -or
     throw "The real Word URL E2E cleanup steps are not independently isolated and summarized."
 }
 
+if ($source -notmatch 'WordProcessNaturalExitObserved' -or
+    $source -notmatch 'Wait-TestWordProcessExit' -or
+    $source -notmatch 'TestWordProcessStopped=') {
+    throw "The real Word URL E2E does not wait for test-owned Word to exit naturally before forced cleanup."
+}
+
 Write-Host "WORD_URL_ADDIN_HOST_E2E_SAFETY_TEST_PASS"

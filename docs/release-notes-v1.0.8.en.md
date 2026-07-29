@@ -40,6 +40,6 @@ The latest PNG is an opaque 24bpp raster with no alpha channel, so transparent-p
 
 ## Release Status
 
-v1.0.8 remains pending public release, but the final package has been rebuilt, the standard local installation updated, and both `12/12` full E2E and the internal-link gate passed. ZIP SHA256 is not embedded in a document packaged into the same ZIP; the external delivery summary records it.
+v1.0.8 has been published as a GitHub Release: <https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>. The final package has been rebuilt, the standard local installation updated, and both `12/12` full E2E and the internal-link gate passed. ZIP SHA256 is not embedded in a document packaged into the same ZIP; the GitHub Release asset record and external delivery summary record it.
 
 See the [v1.0.8 E2E test report](./e2e-test-report-v1.0.8.en.md), [v1.0.8 release evidence](./release-evidence-v1.0.8.en.md), and [Word UI-thread stress test report](./word-ui-thread-stress-report-v1.0.8.en.md) for details.

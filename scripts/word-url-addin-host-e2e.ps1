@@ -86,6 +86,35 @@ function Read-TestWordProcessIdentities {
     }
 }
 
+function Wait-TestWordProcessExit {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$ProcessId,
+        [Parameter(Mandatory = $true)]
+        [Int64]$StartTicks,
+        [int]$TimeoutSeconds = 10
+    )
+
+    $deadline = [DateTime]::UtcNow.AddSeconds([Math]::Max(0, $TimeoutSeconds))
+    do {
+        $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+        if ($null -eq $process) {
+            return $true
+        }
+
+        if ($process.ProcessName -ne "WINWORD" -or
+            $process.StartTime.ToUniversalTime().Ticks -ne $StartTicks) {
+            return $true
+        }
+
+        if ([DateTime]::UtcNow -ge $deadline) {
+            return $false
+        }
+
+        Start-Sleep -Milliseconds 100
+    } while ($true)
+}
+
 function Assert-NoRunningWord {
     $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
     if ($runningWord) {
@@ -158,11 +187,17 @@ function Stop-TestWordProcesses {
             throw "测试 Word 进程身份已变化，拒绝终止 PID $($identity.ProcessId)。"
         }
 
+        if (Wait-TestWordProcessExit -ProcessId $identity.ProcessId -StartTicks $identity.StartTicks -TimeoutSeconds 20) {
+            Write-Host "WordProcessNaturalExitObserved=$($identity.ProcessId)"
+            continue
+        }
+
         Stop-Process -Id $identity.ProcessId -Force -ErrorAction Stop
-        Wait-Process -Id $identity.ProcessId -Timeout 10 -ErrorAction SilentlyContinue
-        if (Get-Process -Id $identity.ProcessId -ErrorAction SilentlyContinue) {
+        if (-not (Wait-TestWordProcessExit -ProcessId $identity.ProcessId -StartTicks $identity.StartTicks -TimeoutSeconds 20)) {
             throw "无法终止测试拥有的 WINWORD 进程：$($identity.ProcessId)"
         }
+
+        Write-Host "TestWordProcessStopped=$($identity.ProcessId)"
     }
 }
 

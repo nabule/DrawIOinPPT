@@ -10,7 +10,7 @@
 - 标准本地安装根：`%LOCALAPPDATA%\Greensoft\DrawioPpt`
 - 新增安装包回归：`word-svg-aspect-ratio-e2e.ps1`、`word-preview-image-provider-e2e.ps1`、`powerpoint-svg-aspect-ratio-e2e.ps1`
 
-v1.0.8 仍处于待公开发布状态；本证据不表示 GitHub Release 已创建。
+v1.0.8 已作为 GitHub Release 公开发布：<https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>。
 
 ## 发布门槛
 

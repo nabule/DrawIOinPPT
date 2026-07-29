@@ -40,6 +40,6 @@ Word PNG 负责显示而非主存储。正常路径需要可用的 draw.io Deskt
 
 ## 发布状态
 
-v1.0.8 仍处于待公开发布状态，但最终包已重建、标准本地安装已更新、`12/12` full E2E 和包内链接门槛均已通过。ZIP SHA256 不写入会再次进入 ZIP 的文档，由包外交付摘要记录。
+v1.0.8 已作为 GitHub Release 公开发布：<https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>。最终包已重建、标准本地安装已更新、`12/12` full E2E 和包内链接门槛均已通过。ZIP SHA256 不写入会再次进入 ZIP 的文档，由 GitHub Release 资产记录和包外交付摘要记录。
 
 完整结果见 [v1.0.8 E2E 测试报告](./e2e-test-report-v1.0.8.md)、[v1.0.8 发布证据](./release-evidence-v1.0.8.md)和 [Word UI 线程压力测试报告](./word-ui-thread-stress-report-v1.0.8.md)。

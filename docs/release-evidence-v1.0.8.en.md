@@ -10,7 +10,7 @@
 - Standard local install root: `%LOCALAPPDATA%\Greensoft\DrawioPpt`
 - New installed-package regressions: `word-svg-aspect-ratio-e2e.ps1`, `word-preview-image-provider-e2e.ps1`, and `powerpoint-svg-aspect-ratio-e2e.ps1`
 
-v1.0.8 remains pending public release; this evidence does not mean that a GitHub Release has been created.
+v1.0.8 has been published as a GitHub Release: <https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>.
 
 ## Release Gates
 
