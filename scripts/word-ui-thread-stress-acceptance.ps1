@@ -1,6 +1,8 @@
 param(
     [string]$InstallRoot = (Join-Path $env:LOCALAPPDATA "Greensoft\DrawioPpt"),
     [string]$DrawioSourcePath = "",
+    [ValidateSet("Square", "Front")]
+    [string]$PictureWrapMode = "Square",
     [int]$DurationSeconds = 12,
     [double]$MaximumP95Ratio = 1.25,
     [double]$MaximumPerRoundP95Ratio = 1.25,
@@ -1156,6 +1158,9 @@ function New-TypedStressDocument {
         [Parameter(Mandatory = $true)]
         [string]$WordAddInAssemblyPath,
         [Parameter(Mandatory = $true)]
+        [ValidateSet("Square", "Front")]
+        [string]$PictureWrapMode,
+        [Parameter(Mandatory = $true)]
         [int]$MinimumBodyParagraphs,
         [Parameter(Mandatory = $true)]
         [int]$MinimumBodyCharacters,
@@ -1481,7 +1486,8 @@ public static class DrawioPptWordUiStressDocumentBuilder
         Word.Document document,
         string imagePath,
         float top,
-        string name)
+        string name,
+        Word.WdWrapType wrapType)
     {
         object linkToFile = false;
         object saveWithDocument = true;
@@ -1510,7 +1516,7 @@ public static class DrawioPptWordUiStressDocumentBuilder
             shape.Height = 220f;
             shape.LockAspectRatio = Office.MsoTriState.msoFalse;
             wrapFormat = shape.WrapFormat;
-            wrapFormat.Type = Word.WdWrapType.wdWrapSquare;
+            wrapFormat.Type = wrapType;
             return shape;
         }
         finally
@@ -1828,6 +1834,7 @@ public static class DrawioPptWordUiStressDocumentBuilder
         string auxiliaryImagePath,
         string documentPath,
         string drawioXml,
+        string pictureWrapMode,
         int minimumBodyParagraphs,
         int minimumBodyCharacters,
         int minimumPageCount,
@@ -1890,6 +1897,13 @@ public static class DrawioPptWordUiStressDocumentBuilder
             ReleaseComObject(pageSetup);
             pageSetup = null;
 
+            Word.WdWrapType comparisonWrapType =
+                string.Equals(
+                    pictureWrapMode,
+                    "Front",
+                    StringComparison.OrdinalIgnoreCase)
+                ? Word.WdWrapType.wdWrapFront
+                : Word.WdWrapType.wdWrapSquare;
             BuildRichBody(
                 application,
                 document,
@@ -1903,12 +1917,14 @@ public static class DrawioPptWordUiStressDocumentBuilder
                 document,
                 imagePath,
                 70f,
-                "Managed Complex v1.0.8");
+                "Managed Complex v1.0.8",
+                comparisonWrapType);
             plain = AddPicture(
                 document,
                 imagePath,
                 390f,
-                "Plain Complex Same Visual");
+                "Plain Complex Same Visual",
+                comparisonWrapType);
 
             DiagramEnvelope envelope = new DiagramEnvelope();
             envelope.DiagramId = Guid.NewGuid().ToString("N");
@@ -2037,6 +2053,7 @@ public static class DrawioPptWordUiStressDocumentBuilder
         $AuxiliaryImagePath,
         $DocumentPath,
         $DrawioXml,
+        $PictureWrapMode,
         $MinimumBodyParagraphs,
         $MinimumBodyCharacters,
         $MinimumPageCount,
@@ -2174,6 +2191,7 @@ $report = $null
         -DrawioXml $drawioXml `
         -CoreAssemblyPath $coreAssemblyPath `
         -WordAddInAssemblyPath $wordAddInAssemblyPath `
+        -PictureWrapMode $PictureWrapMode `
         -MinimumBodyParagraphs $MinimumBodyParagraphs `
         -MinimumBodyCharacters $MinimumBodyCharacters `
         -MinimumPageCount $MinimumPageCount `
@@ -2746,6 +2764,7 @@ $report = $null
         MeasurementOrder = @(
             "Round1:PlainThenManaged",
             "Round2:ManagedThenPlain")
+        PictureWrapMode = $PictureWrapMode
         MaximumP95Ratio = $MaximumP95Ratio
         MaximumPerRoundP95Ratio = $MaximumPerRoundP95Ratio
         MaximumP95DeltaMs = $MaximumP95DeltaMs
