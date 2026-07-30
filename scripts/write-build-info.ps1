@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.9",
+    [string]$Version = "v1.0.10",
     [string[]]$OutputRoots = @()
 )
 

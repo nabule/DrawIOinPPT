@@ -4,9 +4,9 @@
 
 DrawioPpt is a native Draw.io / diagrams.net add-in for Microsoft Office Desktop. It lets you insert, detect, re-edit, and refresh Draw.io diagrams directly in PowerPoint and Word, instead of maintaining diagrams as one-time screenshots.
 
-Current public release: [DrawioPpt v1.0.9](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.9)
+Current public release: [DrawioPpt v1.0.10](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.10)
 
-Previous public release: [DrawioPpt v1.0.8](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8)
+Previous public release: [DrawioPpt v1.0.9](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.9)
 
 ## Value
 
@@ -48,7 +48,7 @@ DrawioPpt is built for long-lived diagrams in Office documents:
 - `Clear Binding`: remove add-in metadata while keeping the visible diagram.
 - `Auto Open` (PowerPoint only): automatically enter edit flow when selecting a managed diagram. Word omits it to keep the drag hot path free of add-in overhead.
 - `Settings`: configure desktop editor path, URL editor, sidecar behavior, and information dialogs.
-- Version check: the Ribbon info area and settings footer show a BuildId in the form `v1.0.9+<git-short-hash>`.
+- Version check: the Ribbon info area and settings footer show a BuildId in the form `v1.0.10+<git-short-hash>`.
 
 ## Source Data Storage
 
@@ -88,14 +88,14 @@ These tools are useful for inspecting embedded Office XML, manually recovering d
 
 ## Quick Install
 
-1. Download `DrawioPpt-v1.0.9.zip` from the [v1.0.9 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.9).
+1. Download `DrawioPpt-v1.0.10.zip` from the [v1.0.10 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.10).
 2. Extract it to a local folder.
 3. Close PowerPoint and Word.
 4. Double-click `install.cmd`.
 5. Open PowerPoint or Word and confirm that the `Draw.io` Ribbon appears.
 6. Check the BuildId in the Ribbon info area or settings footer; the release installer prints the same BuildId.
 
-On a machine with an older build already installed, run `install.cmd` from the new release package again to upgrade; do not run an old `install.cmd` left in the previous install directory. The Ribbon version text must match the BuildId printed by the installer.
+On a machine with an older build already installed, run `install.cmd` from the new release package again to upgrade; do not run an old `install.cmd` left in the previous install directory. If installation fails, the command window keeps the original PowerShell error and prints its exit code. Close Word and PowerPoint as directed, then rerun the new package. The Ribbon version text must match the BuildId printed by the installer.
 
 To uninstall, close PowerPoint and Word, then run `uninstall.cmd`.
 
@@ -122,9 +122,9 @@ The package root and `bin` folder contain `BuildInfo.txt`, and `PACKAGE.txt` rec
 - [Word add-in design and usage](./docs/word-addin.en.md)
 - [Architecture](./docs/architecture.en.md)
 - [Regression checklist](./docs/regression-checklist.en.md)
-- [v1.0.9 release notes](./docs/release-notes-v1.0.9.en.md)
-- [Verified v1.0.9 E2E test report](./docs/e2e-test-report-v1.0.9.en.md)
-- [v1.0.9 release evidence and log index](./docs/release-evidence-v1.0.9.en.md)
+- [v1.0.10 release notes](./docs/release-notes-v1.0.10.en.md)
+- [Verified v1.0.10 E2E test report](./docs/e2e-test-report-v1.0.10.en.md)
+- [v1.0.10 release evidence and log index](./docs/release-evidence-v1.0.10.en.md)
 
 Development plans, historical release notes, and optimization backlog live under [docs](./docs/). The README is kept as the project overview and quick-start entry point.
 

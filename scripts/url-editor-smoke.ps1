@@ -360,14 +360,14 @@ finally {
                 -not (Split-Path -Leaf $resolvedTempRoot).StartsWith(
                     "url-editor-smoke-",
                     [StringComparison]::OrdinalIgnoreCase)) {
-                throw "拒绝清理不属于 URL 编辑器冒烟测试的目录：$resolvedTempRoot"
+                throw "Refusing to delete a directory not owned by the URL editor smoke test: $resolvedTempRoot"
             }
 
             Remove-Item -LiteralPath $resolvedTempRoot -Recurse -Force
         }
     }
     catch {
-        Write-Error ("URL 编辑器冒烟测试清理失败：" + $_.Exception.Message)
+        Write-Error ("URL editor smoke-test cleanup failed: " + $_.Exception.Message)
         $testExitCode = 1
     }
 }

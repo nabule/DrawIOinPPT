@@ -21,7 +21,7 @@ $officeCore = "C:\Windows\assembly\GAC_MSIL\office\15.0.0.0__71e9bce111e9429c\OF
 
 function Assert-NoRunningWord {
     if (Get-Process -Name WINWORD -ErrorAction SilentlyContinue) {
-        throw "请先关闭正在运行的 Word，再执行复杂元数据 E2E 测试。"
+        throw "Close Word before running the complex-metadata E2E test."
     }
 }
 
@@ -31,7 +31,7 @@ function Remove-TestTempRoot {
     }
 
     if (-not $tempRoot.StartsWith($tempRootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "拒绝清理不属于复杂元数据 E2E 的临时目录：$tempRoot"
+        throw "Refusing to delete a temporary directory not owned by the complex-metadata E2E test: $tempRoot"
     }
 
     Remove-Item -LiteralPath $tempRoot -Recurse -Force

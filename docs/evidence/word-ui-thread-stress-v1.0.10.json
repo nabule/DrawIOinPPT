@@ -1,0 +1,7 @@
+{
+  "version": "v1.0.10",
+  "scope": "Release installer encoding and failure reporting only",
+  "wordUiStressRerun": false,
+  "reason": "No Word UI hot-path behavior changed in this release",
+  "baselineVersion": "v1.0.8"
+}

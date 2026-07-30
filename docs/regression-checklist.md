@@ -2,12 +2,12 @@
 
 [中文](./regression-checklist.md) | [English](./regression-checklist.en.md) | [中文首页](../README.md) | [English Home](../README.en.md)
 
-## v1.0.9 本轮执行状态
+## v1.0.10 本轮执行状态
 
 | 状态 | 项目 |
 | --- | --- |
-| 通过 | 临时安装发布包完整 Office E2E 13/13；覆盖发布包位于旧安装目录子目录内的升级探针。 |
-| 通过 | 标准本地目录 `%LOCALAPPDATA%\Greensoft\DrawioPpt` 安装、DLL 哈希、Office 注册、真实 COM 加载，以及 Word/PowerPoint 返回的 BuildId 与 `BuildInfo.txt` 比对。 |
+| 通过 | 临时安装发布包完整 Office E2E `14/14 PASS`；覆盖安装脚本 ASCII 编码、失败退出码处理，以及发布包位于旧安装目录子目录内的升级探针。 |
+| 通过 | 标准目录 `%LOCALAPPDATA%\Greensoft\DrawioPpt` 安装完成；DLL、`BuildInfo.txt`、`PACKAGE.txt` 哈希一致，Office 注册和 Word/PowerPoint 实际 COM 加载通过，两个宿主返回的 BuildId 与 `BuildInfo.txt` 一致。 |
 | 压力总体未通过 | 修正留白检测后的最新 1240×1753 PNG / `Front` 富文档轮中，普通/受管位置 P95 为 321.844 / 325.764 ms；相对和绝对门槛均失败，`OverallPassed=false`。 |
 | 用户决定略过 | `PointerInputCovered=false`；自动化不能代替真实指针拖动、缩放、重定位和命令点击。用户已决定略过该人工验收，状态不是“通过”。 |
 
@@ -80,6 +80,7 @@
 
 - 已安装旧版本时，运行新发布包中的 `install.cmd` 可完成升级；安装器先暂存新包，再清理旧目录，不会因新包位于旧安装目录本身或子目录内而删除安装源。
 - `scripts\install-release-upgrade-safety-test.ps1` 通过：覆盖 same-root 升级、nested-package 升级和旧残留文件清理。
+- `scripts\install-release-encoding-safety-test.ps1` 检查仓库和发布包中的每个 `.ps1` 都为 ASCII，并检查 `install.cmd` 会保留 PowerShell 原始错误、打印退出码和返回相同退出码。
 - 卸载脚本可正常移除注册项
 - 卸载后 PowerPoint 和 Word 不再加载对应插件
 
@@ -101,7 +102,7 @@
 - `scripts\word-url-e2e.ps1` 严格从 `Document.CustomXMLParts` 验证 URL 模式的创建、重开、编辑和最终回写，不以轻量 `AlternativeText` 冒充完整主存储。
 - `scripts\word-url-addin-host-e2e.ps1` 严格从文档级主存储验证实际宿主回写，`WordAddInConnect=True` 且 `ActualWordUrlEditorSaved=True`。
 - 每个 Word 自动化脚本结束后检查没有残留 `WINWORD.EXE`；发现残留进程即判定失败。
-- 安装态可见 Word UI 线程压力对照使用用户复杂源图生成 1240×1753 PNG，普通/受管图均为等比例 `Front` 浮动图片。修正留白检测后的最新轮普通/受管位置 P95 为 321.844 / 325.764 ms，96/96 目标 Shape 选区事件确认，缺失为 0；相对与绝对 300ms 门槛均未通过，`ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`OverallPassed=false`。PNG 为不透明 24bpp，透明留白像素检测明确标记不支持；比例误差为 0.000236，导出参数为 `--border 0`。安装态运行时反射仍独立确认 `NoPassiveSelectionMetadataPath=True`，但该源码/反射事实不能冒充性能或鼠标验收通过。v1.0.9 未改动该热路径，边界说明见 [v1.0.9 Word UI 线程压力测试边界](./word-ui-thread-stress-report-v1.0.9.md)。
+- 安装态可见 Word UI 线程压力对照使用用户复杂源图生成 1240×1753 PNG，普通/受管图均为等比例 `Front` 浮动图片。修正留白检测后的最新轮普通/受管位置 P95 为 321.844 / 325.764 ms，96/96 目标 Shape 选区事件确认，缺失为 0；相对与绝对 300ms 门槛均未通过，`ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`OverallPassed=false`。PNG 为不透明 24bpp，透明留白像素检测明确标记不支持；比例误差为 0.000236，导出参数为 `--border 0`。安装态运行时反射仍独立确认 `NoPassiveSelectionMetadataPath=True`，但该源码/反射事实不能冒充性能或鼠标验收通过。v1.0.10 未改动该热路径，边界说明见 [v1.0.10 Word UI 线程压力测试边界](./word-ui-thread-stress-report-v1.0.10.md)。
 
 发布前人工验收：
 

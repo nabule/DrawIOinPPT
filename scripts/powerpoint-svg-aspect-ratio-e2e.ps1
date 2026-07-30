@@ -21,7 +21,7 @@ $officeCore = "C:\Windows\assembly\GAC_MSIL\office\15.0.0.0__71e9bce111e9429c\OF
 
 function Assert-NoRunningPowerPoint {
     if (Get-Process -Name POWERPNT -ErrorAction SilentlyContinue) {
-        throw "请先关闭正在运行的 PowerPoint，再执行 SVG 比例 E2E 测试。"
+        throw "Close PowerPoint before running the SVG aspect-ratio E2E test."
     }
 }
 
@@ -32,7 +32,7 @@ function Get-TestOwnedPowerPointProcess {
 
     $identity = (Get-Content -LiteralPath $processIdentityPath -Raw).Trim().Split("|")
     if ($identity.Count -ne 2) {
-        throw "测试拥有的 PowerPoint 进程标识格式无效。"
+        throw "The test-owned PowerPoint process identity format is invalid."
     }
 
     $processId = [int]$identity[0]
@@ -42,9 +42,10 @@ function Get-TestOwnedPowerPointProcess {
         return $null
     }
 
+    $actualStartTimeTicks = $process.StartTime.ToUniversalTime().Ticks
     if (-not [string]::Equals($process.ProcessName, "POWERPNT", [System.StringComparison]::OrdinalIgnoreCase) -or
-        $process.StartTime.ToUniversalTime().Ticks -ne $expectedStartTimeTicks) {
-        throw "拒绝清理身份不匹配的 PowerPoint 进程：$processId"
+        $actualStartTimeTicks -ne $expectedStartTimeTicks) {
+        throw "Refusing to terminate a PowerPoint process with a mismatched identity: ProcessId=$processId; ExpectedName=POWERPNT; ActualName=$($process.ProcessName); ExpectedStartTimeUtcTicks=$expectedStartTimeTicks; ActualStartTimeUtcTicks=$actualStartTimeTicks"
     }
 
     return $process
@@ -56,7 +57,7 @@ function Remove-TestTempRoot {
     }
 
     if (-not $tempRoot.StartsWith($tempRootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "拒绝清理不属于 SVG 比例 E2E 的临时目录：$tempRoot"
+        throw "Refusing to delete a temporary directory not owned by the SVG aspect-ratio E2E test: $tempRoot"
     }
 
     Remove-Item -LiteralPath $tempRoot -Recurse -Force
@@ -396,7 +397,7 @@ finally {
     $residualPowerPoint = @(Get-Process -Name POWERPNT -ErrorAction SilentlyContinue)
     if ($residualPowerPoint.Count -gt 0) {
         $processIds = ($residualPowerPoint | ForEach-Object Id) -join ","
-        throw "SVG 比例 E2E 后存在无法确认归属的 POWERPNT 进程：$processIds"
+        throw "POWERPNT processes with unverified ownership remained after the SVG aspect-ratio E2E test: $processIds"
     }
 }
 

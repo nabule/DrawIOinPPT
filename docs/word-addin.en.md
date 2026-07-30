@@ -115,7 +115,7 @@ To uninstall, close PowerPoint and Word first, then run:
 If an upgrade reports that a file such as `WebView2Loader.dll` is still in use, an old WebView2 child process has usually not exited yet. Close Office, the add-in settings window, and any URL editor window; if the file remains locked, reboot and rerun the installer. The installer does not terminate those processes automatically, to avoid affecting unrelated WebView2 applications.
 
 After installation, Word shows the `Draw.io` Ribbon; the existing PowerPoint add-in remains available in PowerPoint.
-The Word and PowerPoint Ribbon info areas both show the current BuildId, formatted as `v1.0.9+<git-short-hash>`. The settings window footer shows the same value, which helps confirm whether Office loaded the DLLs from the current release package. Release-package verification directly calls both Office add-ins' version callbacks and compares them with `BuildInfo.txt`.
+The Word and PowerPoint Ribbon info areas both show the current BuildId, formatted as `v1.0.10+<git-short-hash>`. The settings window footer shows the same value, which helps confirm whether Office loaded the DLLs from the current release package. Release-package verification directly calls both Office add-ins' version callbacks and compares them with `BuildInfo.txt`. If `install.cmd` fails, its window shows the original PowerShell error and exit code; replace any older package that shows garbled text or a parser error with v1.0.10 or later.
 
 ## 5. Developer Build and Registration
 
@@ -145,7 +145,7 @@ After developer registration, Word shows the `Draw.io` Ribbon:
 - `Bind`: bring a normal picture under Draw.io management.
 - `Clear Binding`: remove metadata while keeping the visible picture.
 - `Settings`: reuse the existing editor settings.
-- Info-area version: shows the current BuildId, for example `v1.0.9+<git-short-hash>`.
+- Info-area version: shows the current BuildId, for example `v1.0.10+<git-short-hash>`.
 
 Word does not expose Auto Open, so selection and dragging remain free of add-in work. PowerPoint auto-open behavior is unchanged.
 

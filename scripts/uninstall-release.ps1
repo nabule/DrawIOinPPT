@@ -7,12 +7,12 @@ $ErrorActionPreference = "Stop"
 $targetRoot = [System.IO.Path]::GetFullPath($InstallRoot)
 $runningPowerPoint = Get-Process -Name POWERPNT -ErrorAction SilentlyContinue
 if ($runningPowerPoint) {
-    throw "请先关闭正在运行的 PowerPoint，再执行卸载。"
+    throw "Close PowerPoint before uninstalling."
 }
 
 $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
 if ($runningWord) {
-    throw "请先关闭正在运行的 Word，再执行卸载。"
+    throw "Close Word before uninstalling."
 }
 
 $unregisterScript = Join-Path $targetRoot "scripts\\unregister-office-addins.ps1"

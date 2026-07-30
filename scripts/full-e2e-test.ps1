@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.9",
+    [string]$Version = "v1.0.10",
     [switch]$SkipBuild,
     [switch]$KeepInstalled
 )
@@ -66,14 +66,14 @@ $officeAddInRegistrationSnapshot = $null
 function Assert-NoRunningPowerPoint {
     $runningPowerPoint = Get-Process -Name POWERPNT -ErrorAction SilentlyContinue
     if ($runningPowerPoint) {
-        throw "请先关闭正在运行的 PowerPoint，再执行完整 E2E 测试。"
+        throw "Close PowerPoint before running the full E2E test."
     }
 }
 
 function Assert-NoRunningWord {
     $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
     if ($runningWord) {
-        throw "请先关闭正在运行的 Word，再执行完整 E2E 测试。"
+        throw "Close Word before running the full E2E test."
     }
 }
 
@@ -242,7 +242,7 @@ function Assert-NoOfficeProcesses {
         $remainingProcesses |
             Sort-Object ProcessName, Id |
             ForEach-Object { "$($_.ProcessName) PID=$($_.Id)" })
-    throw "完整 E2E 清理后仍有 Office 进程：$($processDetails -join ', ')"
+    throw "Office processes remained after full E2E cleanup: $($processDetails -join ', ')"
 }
 
 function Stop-TestOwnedProcess {
@@ -1052,6 +1052,10 @@ try {
         throw "ReleasePackage failed with exit code $packageExitCode."
     }
     Add-Result -Name "ReleasePackage" -Passed (Test-Path $packageRoot) -Detail $packageRoot
+
+    $encodingSafetyTest = Join-Path $packageRoot "scripts\\install-release-encoding-safety-test.ps1"
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $encodingSafetyTest -PackageRoot $packageRoot
+    Add-Result -Name "InstallerEncodingSafety" -Passed ($LASTEXITCODE -eq 0) -Detail $encodingSafetyTest
 
     $nestedUpgradeDetail = Invoke-ReleasePackageNestedUpgradeProbe `
         -PackageRoot $packageRoot `

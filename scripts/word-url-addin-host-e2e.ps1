@@ -118,7 +118,7 @@ function Wait-TestWordProcessExit {
 function Assert-NoRunningWord {
     $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
     if ($runningWord) {
-        throw "请先关闭正在运行的 Word，再执行真实 Word URL 加载项 E2E 测试。"
+        throw "Close Word before running the installed Word URL add-in E2E test."
     }
 }
 
@@ -166,7 +166,7 @@ function Restore-WordAddInRegistration {
         if ($backup.Existed -and (Test-Path -LiteralPath $backup.BackupPath)) {
             $process = Start-Process -FilePath reg.exe -ArgumentList @("import", $backup.BackupPath) -Wait -PassThru -WindowStyle Hidden
             if ($process.ExitCode -ne 0) {
-                throw "无法恢复 Word 加载项注册：$($backup.RegistryPath)"
+                throw "Could not restore Word add-in registration: $($backup.RegistryPath)"
             }
         }
     }
@@ -184,7 +184,7 @@ function Stop-TestWordProcesses {
         $actualStartTicks = $process.StartTime.ToUniversalTime().Ticks
         if ($process.ProcessName -ne "WINWORD" -or
             $actualStartTicks -ne $identity.StartTicks) {
-            throw "测试 Word 进程身份已变化，拒绝终止 PID $($identity.ProcessId)。"
+            throw "The test-owned Word process identity changed; refusing to terminate PID $($identity.ProcessId)."
         }
 
         if (Wait-TestWordProcessExit -ProcessId $identity.ProcessId -StartTicks $identity.StartTicks -TimeoutSeconds 20) {
@@ -194,7 +194,7 @@ function Stop-TestWordProcesses {
 
         Stop-Process -Id $identity.ProcessId -Force -ErrorAction Stop
         if (-not (Wait-TestWordProcessExit -ProcessId $identity.ProcessId -StartTicks $identity.StartTicks -TimeoutSeconds 20)) {
-            throw "无法终止测试拥有的 WINWORD 进程：$($identity.ProcessId)"
+            throw "Could not terminate the test-owned WINWORD process: $($identity.ProcessId)"
         }
 
         Write-Host "TestWordProcessStopped=$($identity.ProcessId)"
@@ -214,7 +214,7 @@ function Remove-TestTempRoot {
             -not $leafName.StartsWith(
                 "word-url-addin-host-e2e-",
                 [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "拒绝清理不属于真实 Word URL 加载项 E2E 的临时目录：$resolvedRoot"
+            throw "Refusing to delete a temporary directory not owned by the installed Word URL add-in E2E test: $resolvedRoot"
         }
 
         Remove-Item -LiteralPath $resolvedRoot -Recurse -Force
@@ -873,7 +873,8 @@ try {
         }
     }
 
-    $accessDeniedDialog = $newLog -match "Failed to initialize URL editor|E_ACCESSDENIED|拒绝访问"
+    $accessDeniedText = -join @([char]0x62d2, [char]0x7edd, [char]0x8bbf, [char]0x95ee)
+    $accessDeniedDialog = $newLog -match ("Failed to initialize URL editor|E_ACCESSDENIED|" + [regex]::Escape($accessDeniedText))
     Write-Host "ActualWordUrlEditorSaved=$actualWordUrlEditorSaved"
     Write-Host "WebView2UserDataFolderExists=$webView2UserDataFolderExists"
     Write-Host "AccessDeniedDialog=$accessDeniedDialog"

@@ -95,6 +95,7 @@ try {
     Import-FunctionDefinition -Ast $ast -Name "Stop-TestOwnedProcess"
     Import-FunctionDefinition -Ast $ast -Name "Invoke-CheckedPowerShellScript"
     Import-FunctionDefinition -Ast $ast -Name "Get-ErrorDetail"
+    Import-FunctionDefinition -Ast $ast -Name "ConvertTo-ReportSafeDetail"
     Import-FunctionDefinition -Ast $ast -Name "Get-FullE2EFailureDetails"
     Import-FunctionDefinition -Ast $ast -Name "Add-FullE2EFailureResult"
     Import-FunctionDefinition -Ast $ast -Name "Get-RegistryKeyTreeSnapshot"
@@ -418,6 +419,7 @@ try {
     $probeReportPath = Join-Path $tempRoot "final-exit-probe-report.md"
     $probeSource = @(
         (Get-FunctionDefinitionText -Ast $ast -Name "Get-ErrorDetail"),
+        (Get-FunctionDefinitionText -Ast $ast -Name "ConvertTo-ReportSafeDetail"),
         (Get-FunctionDefinitionText -Ast $ast -Name "Get-FullE2EFailureDetails"),
         (Get-FunctionDefinitionText -Ast $ast -Name "Add-FullE2EFailureResult"),
         '$results = New-Object System.Collections.Generic.List[string]',

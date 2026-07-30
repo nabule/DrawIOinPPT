@@ -4,9 +4,9 @@
 
 DrawioPpt 是一个面向 Microsoft Office Desktop 的 Draw.io / diagrams.net 原生插件。它让你可以在 PowerPoint 和 Word 里直接插入、识别、重新编辑和刷新 Draw.io 图形，而不是把图形当成一次性截图维护。
 
-当前公开版本：[DrawioPpt v1.0.9](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.9)
+当前公开版本：[DrawioPpt v1.0.10](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.10)
 
-上一公开版本：[DrawioPpt v1.0.8](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8)
+上一公开版本：[DrawioPpt v1.0.9](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.9)
 
 ## 项目价值
 
@@ -48,7 +48,7 @@ DrawioPpt 解决的是 Office 文档里流程图、架构图和说明图的长�
 - `清除绑定`：移除插件元数据，保留可见图形。
 - `自动打开`（仅 PowerPoint）：选中已绑定图形时自动进入编辑流程；Word 为保证拖动热路径零插件开销，不提供此入口。
 - `设置`：配置桌面编辑器路径、URL 编辑器地址、sidecar 保存策略和信息弹窗。
-- 版本核对：功能区信息区和设置窗口底部显示 `v1.0.9+<git-short-hash>` 形式的 BuildId。
+- 版本核对：功能区信息区和设置窗口底部显示 `v1.0.10+<git-short-hash>` 形式的 BuildId。
 
 ## 源数据如何保存
 
@@ -88,14 +88,14 @@ win-unpacked\draw.io.exe
 
 ## 快速安装
 
-1. 从 [v1.0.9 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.9) 下载 `DrawioPpt-v1.0.9.zip`。
+1. 从 [v1.0.10 Release](https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.10) 下载 `DrawioPpt-v1.0.10.zip`。
 2. 解压到本地目录。
 3. 关闭 PowerPoint 和 Word。
 4. 双击 `install.cmd`。
 5. 打开 PowerPoint 或 Word，确认出现 `Draw.io` 功能区。
 6. 在功能区信息区或设置窗口底部核对 BuildId；发布包安装脚本也会输出同一个 BuildId。
 
-已安装过旧版本时，重复运行新发布包里的 `install.cmd` 就是升级；不要运行旧安装目录里遗留的旧 `install.cmd`。功能区的版本文本应与安装程序输出的 BuildId 一致。
+已安装过旧版本时，重复运行新发布包里的 `install.cmd` 就是升级；不要运行旧安装目录里遗留的旧 `install.cmd`。若安装失败，命令窗口会保留 PowerShell 原始错误并打印退出码，按提示关闭 Word、PowerPoint 后再运行新包。功能区的版本文本应与安装程序输出的 BuildId 一致。
 
 卸载时关闭 PowerPoint 和 Word，然后运行 `uninstall.cmd`。
 
@@ -122,9 +122,9 @@ powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\
 - [Word 插件设计与使用说明](./docs/word-addin.md)
 - [架构设计](./docs/architecture.md)
 - [回归清单](./docs/regression-checklist.md)
-- [v1.0.9 发布说明](./docs/release-notes-v1.0.9.md)
-- [v1.0.9 已验证 E2E 测试报告](./docs/e2e-test-report-v1.0.9.md)
-- [v1.0.9 发布证据与日志索引](./docs/release-evidence-v1.0.9.md)
+- [v1.0.10 发布说明](./docs/release-notes-v1.0.10.md)
+- [v1.0.10 已验证 E2E 测试报告](./docs/e2e-test-report-v1.0.10.md)
+- [v1.0.10 发布证据与日志索引](./docs/release-evidence-v1.0.10.md)
 
 开发计划、历史发布记录和优化 backlog 也放在 [docs](./docs/) 目录中，README 只保留项目定位和上手入口。
 

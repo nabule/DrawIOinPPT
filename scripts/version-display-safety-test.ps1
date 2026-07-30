@@ -26,7 +26,7 @@ if ($buildInfoSource -notmatch 'class\s+BuildInfo' -or
 
 $settingsFormSource = Read-Text "src\DrawioPpt.PowerPointAddIn\UI\SettingsForm.cs"
 if ($settingsFormSource -notmatch 'BuildInfo\.DisplayVersion' -or
-    $settingsFormSource -notmatch '版本：') {
+    $settingsFormSource -notmatch ([string]::Concat([char]0x7248, [char]0x672C, [char]0xff1a))) {
     throw "Shared SettingsForm must display the build version."
 }
 

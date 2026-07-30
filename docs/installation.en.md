@@ -19,7 +19,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. Installation for End Users
 
-If you received a release package such as `DrawioPpt-v1.0.9.zip`, the recommended installation flow is:
+If you received a release package such as `DrawioPpt-v1.0.10.zip`, the recommended installation flow is:
 
 1. Extract the zip file to a local directory.
 2. Make sure PowerPoint and Word are not currently running.
@@ -27,9 +27,9 @@ If you received a release package such as `DrawioPpt-v1.0.9.zip`, the recommende
 4. Wait for the script to report success.
 5. Open PowerPoint or Word and confirm that the `Draw.io` tab appears on the Ribbon.
 
-Successful installation output includes `BuildId` in the form `v1.0.9+<git-short-hash>`. The same value is written to `BuildInfo.txt` / `PACKAGE.txt` in the package root and installed root, and installation verification reads the same text from the actual Word and PowerPoint add-ins.
+Successful installation output includes `BuildId` in the form `v1.0.10+<git-short-hash>`. The same value is written to `BuildInfo.txt` / `PACKAGE.txt` in the package root and installed root, and installation verification reads the same text from the actual Word and PowerPoint add-ins.
 
-On machines where an older build is already installed, upgrade by running `install.cmd` from the new release package. The installer stages the new package payload under `%TEMP%` before cleaning the old installation directory, so it can upgrade even when the package is extracted into the current install root or a child folder. Word and PowerPoint still need to be closed first; if Office or WebView2 keeps an old DLL locked, close Office and retry, or reboot Windows and run the new package's `install.cmd` again.
+On machines where an older build is already installed, upgrade by running `install.cmd` from the new release package. The installer stages the new package payload under `%TEMP%` before cleaning the old installation directory, so it can upgrade even when the package is extracted into the current install root or a child folder. Word and PowerPoint still need to be closed first; if Office or WebView2 keeps an old DLL locked, close Office and retry, or reboot Windows and run the new package's `install.cmd` again. On failure, the command window keeps the original PowerShell error and prints the exit code; follow that error before rerunning the new package.
 
 Core installation files included in the release package:
 
@@ -47,9 +47,10 @@ Core installation files included in the release package:
 - `scripts\register-word-addin.ps1`
 - `scripts\unregister-word-addin.ps1`
 - `scripts\install-release-upgrade-safety-test.ps1`
-- `docs\release-notes-v1.0.9.en.md`
-- `docs\e2e-test-report-v1.0.9.en.md`
-- `docs\release-evidence-v1.0.9.en.md`
+- `scripts\install-release-encoding-safety-test.ps1`
+- `docs\release-notes-v1.0.10.en.md`
+- `docs\e2e-test-report-v1.0.10.en.md`
+- `docs\release-evidence-v1.0.10.en.md`
 
 Default installation path:
 
@@ -163,7 +164,7 @@ Use this order to confirm that installation succeeded:
 
 1. The add-in loads correctly.
 2. The settings window opens.
-3. The settings window footer and Ribbon information area show `版本：v1.0.9+<git-short-hash>`.
+3. The settings window footer and Ribbon information area show `版本：v1.0.10+<git-short-hash>`.
 4. `Desktop` mode can detect a local `draw.io.exe`.
 5. `Test URL` succeeds in `Url` mode.
 6. You can create a new diagram and write it back successfully.
@@ -176,7 +177,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 Full test report:
 
-- [v1.0.9 E2E test report](./e2e-test-report-v1.0.9.en.md)
+- [v1.0.10 E2E test report](./e2e-test-report-v1.0.10.en.md)
 
 ## 9. Desktop Mode Validation
 
@@ -242,6 +243,10 @@ Useful for diagnosing:
 This is usually not a Word or PowerPoint registration problem. The old installer sequence deleted the default install directory before copying from the release package. If the user had extracted the new package into the existing install directory or one of its child folders, the cleanup step deleted the package itself, and the following registration step could not find the scripts or DLLs.
 
 Use the fixed package and run `install.cmd` from that new package. Do not run an old `install.cmd` left in the previous installation directory. The fixed installer first copies the package payload listed in `PACKAGE.txt` into a temporary staging directory, then cleans the old install root and installs from staging, so it can replace the old version without bringing stale files back.
+
+### `install.cmd` shows garbled text or a PowerShell parser error
+
+This means Windows PowerShell decoded a PowerShell script in an old release package with the wrong encoding, before installation began. Download `v1.0.10` or later and do not rerun that old package. The new package uses ASCII-only PowerShell scripts, and `install.cmd` prints both the original error and its exit code on failure.
 
 ### The URL window opens, but save is never called back
 

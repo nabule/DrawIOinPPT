@@ -1,7 +1,7 @@
 param(
     [string]$Configuration = "Debug",
     [string]$Platform = "x64",
-    [string]$Version = "v1.0.9"
+    [string]$Version = "v1.0.10"
 )
 
 $solutionPath = Join-Path $PSScriptRoot "..\\DrawioPpt.sln"

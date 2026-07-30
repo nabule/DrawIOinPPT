@@ -2,12 +2,12 @@
 
 [English](./regression-checklist.en.md) | [中文](./regression-checklist.md) | [English Home](../README.en.md) | [中文首页](../README.md)
 
-## v1.0.9 Execution Status
+## v1.0.10 Execution Status
 
 | Status | Item |
 | --- | --- |
-| PASS | Full Office E2E against the temporary release-package installation passed 13/13, including a probe where the release package sits under the old install root. |
-| PASS | Standard local installation at `%LOCALAPPDATA%\Greensoft\DrawioPpt`, DLL hashes, Office registration, real COM loading, and BuildId comparison between `BuildInfo.txt` and both host callbacks. |
+| PASS | Full Office E2E against the temporary release-package installation passed `14/14`, covering ASCII installer scripts, failure exit-code handling, and a probe where the release package sits under the old install root. |
+| PASS | Standard installation at `%LOCALAPPDATA%\Greensoft\DrawioPpt` completed; DLL, `BuildInfo.txt`, and `PACKAGE.txt` hashes matched, Office registration and real COM loading passed, and both hosts returned a BuildId matching `BuildInfo.txt`. |
 | Overall stress gate failed | In the latest 1240×1753 PNG / `Front` rich-document run after blank-padding validation was corrected, normal/managed position P95 values were 321.844/325.764 ms. Both relative and absolute gates failed, with `OverallPassed=false`. |
 | Skipped by user | `PointerInputCovered=false`; automation cannot substitute for real-pointer drag, resize, reposition, and command-click acceptance. The user chose to skip that manual acceptance, whose status is not “passed.” |
 
@@ -80,6 +80,7 @@
 
 - On a machine with an older build installed, running `install.cmd` from the new release package upgrades the installation; the installer stages the new package before cleaning the old directory, so it does not delete its own source when the package is at or under the old install root.
 - `scripts\install-release-upgrade-safety-test.ps1` passes: it covers same-root upgrade, nested-package upgrade, and stale old-file cleanup.
+- `scripts\install-release-encoding-safety-test.ps1` verifies that every repository and release-package `.ps1` is ASCII-only, and that `install.cmd` keeps the original PowerShell error, prints its exit code, and returns that code.
 - The uninstall script removes registration entries correctly
 - After uninstall, PowerPoint and Word no longer load the add-ins
 
@@ -101,7 +102,7 @@ Automated checks:
 - `scripts\word-url-e2e.ps1` strictly verifies URL-mode create, reopen, edit, and final write-back through `Document.CustomXMLParts`; the lightweight `AlternativeText` must not stand in for the full primary store.
 - `scripts\word-url-addin-host-e2e.ps1` strictly verifies actual-host write-back through the document-level primary store, with `WordAddInConnect=True` and `ActualWordUrlEditorSaved=True`.
 - Each Word automation script checks that no residual `WINWORD.EXE` remains; a residual process fails the check.
-- The installed visible-Word UI-thread stress comparison rendered the user-supplied complex source as a 1240×1753 PNG; normal and managed pictures were proportional floating `Front` pictures. In the latest run after blank-padding validation was corrected, normal/managed position P95 values were 321.844/325.764 ms, and all 96/96 target-Shape selection events were confirmed, with none missing. Both the relative and absolute 300ms gates failed: `ComparisonPassed=false`, `AbsoluteLatencyGatePassed=false`, and `OverallPassed=false`. The PNG is opaque 24bpp, so transparent-padding pixel inspection is explicitly unsupported; the ratio error is 0.000236 and export uses `--border 0`. Installed-build runtime reflection independently confirms `NoPassiveSelectionMetadataPath=True`, but that source/runtime fact is not a performance or mouse-acceptance pass. v1.0.9 does not change that hot path; see the [v1.0.9 Word UI-thread stress boundary](./word-ui-thread-stress-report-v1.0.9.en.md).
+- The installed visible-Word UI-thread stress comparison rendered the user-supplied complex source as a 1240×1753 PNG; normal and managed pictures were proportional floating `Front` pictures. In the latest run after blank-padding validation was corrected, normal/managed position P95 values were 321.844/325.764 ms, and all 96/96 target-Shape selection events were confirmed, with none missing. Both the relative and absolute 300ms gates failed: `ComparisonPassed=false`, `AbsoluteLatencyGatePassed=false`, and `OverallPassed=false`. The PNG is opaque 24bpp, so transparent-padding pixel inspection is explicitly unsupported; the ratio error is 0.000236 and export uses `--border 0`. Installed-build runtime reflection independently confirms `NoPassiveSelectionMetadataPath=True`, but that source/runtime fact is not a performance or mouse-acceptance pass. v1.0.10 does not change that hot path; see the [v1.0.10 Word UI-thread stress boundary](./word-ui-thread-stress-report-v1.0.10.en.md).
 
 Pre-release manual acceptance:
 

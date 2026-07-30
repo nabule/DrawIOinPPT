@@ -13,7 +13,7 @@ $wordClsidKey = "HKCU:\Software\Classes\CLSID\{F10C5C83-0D86-4C81-A0B8-7E8FE9D31
 function Assert-NoRunningWord {
     $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
     if ($runningWord) {
-        throw "请先关闭正在运行的 Word，再执行 Word Add-in 加载检查。"
+        throw "Close Word before running the Word add-in load check."
     }
 }
 

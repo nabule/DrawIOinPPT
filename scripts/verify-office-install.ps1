@@ -245,7 +245,7 @@ function Assert-ComAddInConnects {
         Write-Host "$ApplicationProgId COM load verified: $ProgId"
 
         $versionSummary = Read-OfficeAddInVersion -Automation $addin.Object
-        $expectedVersionSummary = "版本：" + $ExpectedBuildId
+        $expectedVersionSummary = ([string]::Concat([char]0x7248, [char]0x672C, [char]0xff1a)) + $ExpectedBuildId
         if ($versionSummary -ne $expectedVersionSummary) {
             throw "$ProgId returned version '$versionSummary' in $ApplicationProgId. Expected '$expectedVersionSummary'."
         }

@@ -68,6 +68,7 @@ Word 不订阅 `WindowSelectionChange`，启动时也不读取当前选区、图
 - `scripts\verify-office-install.ps1` 是安装验收入口，会检查插件文件、当前用户级 COM 注册、`CodeBase` 指向、Office 禁用项，以及可选的 Word/PowerPoint COM 加载和版本自动化回调。
 - `scripts\register-addin.ps1`、`scripts\register-word-addin.ps1` 以及对应注销脚本保留为单宿主排障入口。
 - 发布包的 `install.cmd` 调用 `scripts\install-release.ps1`，安装脚本复制文件后调用统一注册入口，并立即执行非交互注册验收，避免只安装 PowerPoint 而遗漏 Word。
+- 发布包内所有 `.ps1` 均限定为 ASCII，避免 Windows PowerShell 5.1 将 UTF-8 无 BOM 的中文文本按本地代码页误解码。`install.cmd` 保留 PowerShell 原始错误、捕获退出码并打印失败摘要，用户可以据此处理文件锁定或 Office 仍在运行的问题。
 - 升级安装遵循“先暂存、再清理、后复制”的顺序：`install-release.ps1` 先按 `PACKAGE.txt` 清单把发布包有效载荷复制到 `%TEMP%`，再删除旧安装目录并从暂存目录安装，避免新包位于旧安装目录内时删除安装源，也避免旧残留文件回流。
 - Ribbon 的版本标签由 Office 直接调用两个 `Connect` COM 入口类的 `GetVersionSummary`。入口类转发到各自的 `RibbonController` 和共享 `BuildInfo`，确保 Word、PowerPoint 显示的 BuildId 与安装包 `BuildInfo.txt` 一致。安装验收则通过每个宿主的 `COMAddIn.Object` 自动化对象读取同一份宿主版本文本；这与 Ribbon 入口分离，但都最终调用同一个 `AddInHost`。
 

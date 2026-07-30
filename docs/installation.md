@@ -19,7 +19,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. 面向最终用户的安装
 
-如果你拿到的是发布包 `DrawioPpt-v1.0.9.zip`，推荐按下面流程安装：
+如果你拿到的是发布包 `DrawioPpt-v1.0.10.zip`，推荐按下面流程安装：
 
 1. 解压 zip 到一个本地目录
 2. 确认 PowerPoint 和 Word 当前没有运行
@@ -27,9 +27,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 4. 等待脚本提示安装成功
 5. 打开 PowerPoint 或 Word，确认功能区里出现 `Draw.io`
 
-安装成功输出会包含 `BuildId`，格式为 `v1.0.9+<git-short-hash>`。同一值也会写入发布包根目录和安装目录中的 `BuildInfo.txt` / `PACKAGE.txt`，便于核对当前安装到底来自哪个提交；安装验收还会从实际 Word 和 PowerPoint 加载项读取相同的版本文本。
+安装成功输出会包含 `BuildId`，格式为 `v1.0.10+<git-short-hash>`。同一值也会写入发布包根目录和安装目录中的 `BuildInfo.txt` / `PACKAGE.txt`，便于核对当前安装到底来自哪个提交；安装验收还会从实际 Word 和 PowerPoint 加载项读取相同的版本文本。
 
-已安装过旧版本的机器，升级时仍然运行新发布包里的 `install.cmd`。新安装包会先把新包内容暂存到 `%TEMP%`，再清理旧安装目录，所以即使你把新包解压到当前安装目录或其子目录，也不会在升级过程中删除安装源。仍需先关闭 Word 和 PowerPoint；如果 WebView2 或 Office 锁住了旧 DLL，关闭 Office 后重试，必要时重启 Windows 再运行新包里的 `install.cmd`。
+已安装过旧版本的机器，升级时仍然运行新发布包里的 `install.cmd`。新安装包会先把新包内容暂存到 `%TEMP%`，再清理旧安装目录，所以即使你把新包解压到当前安装目录或其子目录，也不会在升级过程中删除安装源。仍需先关闭 Word 和 PowerPoint；如果 WebView2 或 Office 锁住了旧 DLL，关闭 Office 后重试，必要时重启 Windows 再运行新包里的 `install.cmd`。若安装失败，窗口会先显示 PowerShell 原始错误，再打印退出码；不要关闭窗口，按错误提示处理后重新执行新包中的 `install.cmd`。
 
 发布包内的核心安装文件包括：
 
@@ -47,9 +47,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 - `scripts\register-word-addin.ps1`
 - `scripts\unregister-word-addin.ps1`
 - `scripts\install-release-upgrade-safety-test.ps1`
-- `docs\release-notes-v1.0.9.md`
-- `docs\e2e-test-report-v1.0.9.md`
-- `docs\release-evidence-v1.0.9.md`
+- `scripts\install-release-encoding-safety-test.ps1`
+- `docs\release-notes-v1.0.10.md`
+- `docs\e2e-test-report-v1.0.10.md`
+- `docs\release-evidence-v1.0.10.md`
 
 默认安装位置：
 
@@ -163,7 +164,7 @@ powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\
 
 1. 插件能正常加载
 2. 设置窗口能打开
-3. 设置窗口底部和功能区信息区能看到 `版本：v1.0.9+<git-short-hash>`
+3. 设置窗口底部和功能区信息区能看到 `版本：v1.0.10+<git-short-hash>`
 4. `Desktop` 模式可探测本地 `draw.io.exe`
 5. `Url` 模式的 `Test URL` 能通过
 6. 能创建一个新图形并成功回写
@@ -176,7 +177,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 完整测试报告：
 
-- [v1.0.9 E2E 测试报告](./e2e-test-report-v1.0.9.md)
+- [v1.0.10 E2E 测试报告](./e2e-test-report-v1.0.10.md)
 
 ## 9. 桌面模式验证
 
@@ -242,6 +243,10 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 这类问题通常不是 Word 或 PowerPoint 注册失败，而是旧安装脚本的升级顺序有问题：它先删除默认安装目录，再从发布包目录复制新文件。如果用户把新包解压在旧安装目录本身或子目录里，删除旧安装目录时会把新包也删掉，随后就会出现注册脚本或 DLL 找不到。
 
 处理办法是换用修复后的发布包，并运行新包里的 `install.cmd`。不要运行旧安装目录里遗留的旧 `install.cmd`。修复后的脚本会先把新包按 `PACKAGE.txt` 清单复制到临时目录，再清理旧目录并安装，可以覆盖旧版本，同时不会把旧目录里的残留文件带回去。
+
+### 运行 `install.cmd` 时出现乱码或 PowerShell 语法错误
+
+这表示旧发布包中的 PowerShell 脚本被 Windows PowerShell 按错误编码读取，安装尚未开始。请下载 `v1.0.10` 或更高版本，不要继续运行该旧包。新包中的 PowerShell 脚本只使用 ASCII 字符，`install.cmd` 还会在失败时输出退出码和原始错误，方便直接判断是 Office 未关闭、文件锁定还是其他问题。
 
 ### URL 窗口打开但没有保存回调
 

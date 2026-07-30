@@ -33,12 +33,12 @@ function Remove-ExistingInstallRoot {
             }
 
             $webView2 = Get-Process -Name msedgewebview2 -ErrorAction SilentlyContinue
-            $hint = "请确认 PowerPoint、Word、插件设置窗口和 URL 编辑窗口都已关闭，然后重试。"
+            $hint = "Close PowerPoint, Word, add-in settings, and URL editor windows, then try again."
             if ($webView2) {
-                $hint = "检测到 msedgewebview2 仍在运行。请关闭相关 WebView2 应用窗口，或重启后再执行安装。"
+                $hint = "msedgewebview2 is still running. Close related WebView2 windows, or restart before installing again."
             }
 
-            throw "无法清理旧安装目录：${Path}`n${hint}`n原始错误：$($_.Exception.Message)"
+            throw "Could not remove the previous installation directory: ${Path}`n${hint}`nOriginal error: $($_.Exception.Message)"
         }
     }
 }
@@ -204,12 +204,12 @@ try {
 
     $runningPowerPoint = Get-Process -Name POWERPNT -ErrorAction SilentlyContinue
     if ($runningPowerPoint) {
-        throw "请先关闭正在运行的 PowerPoint，再执行安装。"
+        throw "Close PowerPoint before installing."
     }
 
     $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
     if ($runningWord) {
-        throw "请先关闭正在运行的 Word，再执行安装。"
+        throw "Close Word before installing."
     }
 
     Copy-PackagePayloadToStaging -SourceRoot $sourceRoot -StagingRoot $stagingRoot

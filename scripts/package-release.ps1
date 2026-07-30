@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v1.0.9",
+    [string]$Version = "v1.0.10",
     [string]$Configuration = "Release",
     [string]$Platform = "x64",
     [switch]$SkipBuild
@@ -360,6 +360,7 @@ Copy-Item (Join-Path $repoRoot "scripts\\webview2-user-data-folder-test.ps1") (J
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\version-display-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release-upgrade-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\install-release-encoding-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\write-build-info.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\uninstall-release.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -367,7 +368,15 @@ Copy-Item (Join-Path $repoRoot "scripts\\url-editor-smoke.ps1") (Join-Path $pack
 
 @'
 @echo off
+setlocal
 powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\install-release.ps1" %*
+set "exitCode=%ERRORLEVEL%"
+if not "%exitCode%"=="0" (
+    echo.
+    echo DrawioPpt installation failed with exit code %exitCode%.
+    echo Review the error messages above, close Word and PowerPoint, then try again.
+)
+exit /b %exitCode%
 '@ | Set-Content -Path (Join-Path $packageRoot "install.cmd") -Encoding ASCII
 
 @'
@@ -420,6 +429,7 @@ Contents:
 - scripts\word-url-addin-host-e2e-safety-test.ps1
 - scripts\version-display-safety-test.ps1
 - scripts\install-release-upgrade-safety-test.ps1
+- scripts\install-release-encoding-safety-test.ps1
 - scripts\write-build-info.ps1
 - scripts\install-release.ps1
 - scripts\uninstall-release.ps1

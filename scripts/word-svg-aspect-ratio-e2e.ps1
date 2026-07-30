@@ -23,7 +23,7 @@ $officeCore = "C:\Windows\assembly\GAC_MSIL\office\15.0.0.0__71e9bce111e9429c\OF
 
 function Assert-NoRunningWord {
     if (Get-Process -Name WINWORD -ErrorAction SilentlyContinue) {
-        throw "请先关闭正在运行的 Word，再执行 SVG 比例 E2E 测试。"
+        throw "Close Word before running the SVG aspect-ratio E2E test."
     }
 }
 
@@ -33,7 +33,7 @@ function Remove-TestTempRoot {
     }
 
     if (-not $tempRoot.StartsWith($tempRootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "拒绝清理不属于 SVG 比例 E2E 的临时目录：$tempRoot"
+        throw "Refusing to delete a temporary directory not owned by the SVG aspect-ratio E2E test: $tempRoot"
     }
 
     Remove-Item -LiteralPath $tempRoot -Recurse -Force
@@ -437,14 +437,14 @@ finally {
                 if ($ownedWord.ProcessName -ne "WINWORD" -or
                     $actualStartTicks -ne $ownedStartTicks) {
                     $cleanupFailures.Add(
-                        "测试拥有的 Word 进程身份已变化，拒绝终止 PID $ownedProcessId。")
+                        "The test-owned Word process identity changed; refusing to terminate PID $ownedProcessId.")
                 }
                 else {
                     Stop-Process -Id $ownedProcessId -Force -ErrorAction Stop
                     Wait-Process -Id $ownedProcessId -Timeout 10 -ErrorAction SilentlyContinue
                     if (Get-Process -Id $ownedProcessId -ErrorAction SilentlyContinue) {
                         $cleanupFailures.Add(
-                            "SVG 比例 E2E 无法终止测试拥有的 WINWORD 进程：$ownedProcessId")
+                            "The SVG aspect-ratio E2E test could not terminate its WINWORD process: $ownedProcessId")
                     }
                 }
             }
@@ -454,7 +454,7 @@ finally {
         if ($unexpectedWord.Count -gt 0) {
             $processIds = ($unexpectedWord | ForEach-Object Id) -join ","
             $cleanupFailures.Add(
-                "SVG 比例 E2E 后存在非测试身份的 WINWORD 进程：$processIds")
+                "WINWORD processes not owned by the test remained after the SVG aspect-ratio E2E test: $processIds")
         }
     }
     catch {

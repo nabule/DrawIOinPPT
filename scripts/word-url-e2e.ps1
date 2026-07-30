@@ -68,7 +68,7 @@ function Restore-Settings {
 function Assert-NoRunningWord {
     $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
     if ($runningWord) {
-        throw "请先关闭正在运行的 Word，再执行 Word E2E 测试。"
+        throw "Close Word before running the Word E2E test."
     }
 }
 
@@ -83,7 +83,7 @@ function Wait-ForTestWordExit {
         Start-Sleep -Milliseconds 200
     } while ([DateTime]::UtcNow -lt $deadlineUtc)
 
-    throw "Word E2E 结束后仍检测到 WINWORD.EXE；请关闭 Word 后再重试。"
+    throw "WINWORD.EXE remained after the Word E2E test; close Word and try again."
 }
 
 function Disable-RegisteredWordAddIn {

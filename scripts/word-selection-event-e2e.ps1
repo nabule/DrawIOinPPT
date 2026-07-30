@@ -30,7 +30,7 @@ $testWordProcessIdsBefore = @()
 function Assert-NoRunningWord {
     $runningWord = Get-Process -Name WINWORD -ErrorAction SilentlyContinue
     if ($runningWord) {
-        throw "请先关闭正在运行的 Word，再执行 Word 选区事件 E2E 测试。"
+        throw "Close Word before running the Word selection-event E2E test."
     }
 }
 
@@ -87,7 +87,7 @@ function Stop-TestWordProcesses {
         $script:testWordProcessIdsBefore -notcontains $_.ProcessId
     })
     if ($remainingTestProcesses.Count -gt 0) {
-        throw "测试启动的 Word 自动化进程未能退出：PID=$($remainingTestProcesses.ProcessId -join ',')"
+        throw "The test-owned Word automation process did not exit: PID=$($remainingTestProcesses.ProcessId -join ',')"
     }
 }
 
@@ -97,7 +97,7 @@ function Remove-TestTempRoot {
     }
 
     if (-not $tempRoot.StartsWith($tempRootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "拒绝清理不属于 Word 选区事件 E2E 的临时目录：$tempRoot"
+        throw "Refusing to delete a temporary directory not owned by the Word selection-event E2E test: $tempRoot"
     }
 
     Remove-Item -LiteralPath $tempRoot -Recurse -Force
