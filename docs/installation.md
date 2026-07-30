@@ -19,7 +19,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. 面向最终用户的安装
 
-如果你拿到的是发布包 `DrawioPpt-v1.0.8.zip`，推荐按下面流程安装：
+如果你拿到的是发布包 `DrawioPpt-v1.0.9.zip`，推荐按下面流程安装：
 
 1. 解压 zip 到一个本地目录
 2. 确认 PowerPoint 和 Word 当前没有运行
@@ -27,9 +27,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 4. 等待脚本提示安装成功
 5. 打开 PowerPoint 或 Word，确认功能区里出现 `Draw.io`
 
-安装成功输出会包含 `BuildId`，格式为 `v1.0.8+<git-short-hash>`。同一值也会写入发布包根目录和安装目录中的 `BuildInfo.txt` / `PACKAGE.txt`，便于核对当前安装到底来自哪个提交。
+安装成功输出会包含 `BuildId`，格式为 `v1.0.9+<git-short-hash>`。同一值也会写入发布包根目录和安装目录中的 `BuildInfo.txt` / `PACKAGE.txt`，便于核对当前安装到底来自哪个提交；安装验收还会从实际 Word 和 PowerPoint 加载项读取相同的版本文本。
 
-已安装过旧版本的机器，升级时仍然运行新发布包里的 `install.cmd`。修复后的 v1.0.8 安装包会先把新包内容暂存到 `%TEMP%`，再清理旧安装目录，所以即使你把新包解压到当前安装目录或其子目录，也不会在升级过程中删除安装源。仍需先关闭 Word 和 PowerPoint；如果 WebView2 或 Office 锁住了旧 DLL，关闭 Office 后重试，必要时重启 Windows 再运行新包里的 `install.cmd`。
+已安装过旧版本的机器，升级时仍然运行新发布包里的 `install.cmd`。新安装包会先把新包内容暂存到 `%TEMP%`，再清理旧安装目录，所以即使你把新包解压到当前安装目录或其子目录，也不会在升级过程中删除安装源。仍需先关闭 Word 和 PowerPoint；如果 WebView2 或 Office 锁住了旧 DLL，关闭 Office 后重试，必要时重启 Windows 再运行新包里的 `install.cmd`。
 
 发布包内的核心安装文件包括：
 
@@ -47,9 +47,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 - `scripts\register-word-addin.ps1`
 - `scripts\unregister-word-addin.ps1`
 - `scripts\install-release-upgrade-safety-test.ps1`
-- `docs\release-notes-v1.0.8.md`
-- `docs\e2e-test-report-v1.0.8.md`
-- `docs\release-evidence-v1.0.8.md`
+- `docs\release-notes-v1.0.9.md`
+- `docs\e2e-test-report-v1.0.9.md`
+- `docs\release-evidence-v1.0.9.md`
 
 默认安装位置：
 
@@ -163,7 +163,7 @@ powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\
 
 1. 插件能正常加载
 2. 设置窗口能打开
-3. 设置窗口底部和功能区信息区能看到 `版本：v1.0.8+<git-short-hash>`
+3. 设置窗口底部和功能区信息区能看到 `版本：v1.0.9+<git-short-hash>`
 4. `Desktop` 模式可探测本地 `draw.io.exe`
 5. `Url` 模式的 `Test URL` 能通过
 6. 能创建一个新图形并成功回写
@@ -176,7 +176,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 完整测试报告：
 
-- [v1.0.8 E2E 测试报告](./e2e-test-report-v1.0.8.md)
+- [v1.0.9 E2E 测试报告](./e2e-test-report-v1.0.9.md)
 
 ## 9. 桌面模式验证
 

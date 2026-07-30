@@ -10,6 +10,36 @@ using DrawioPpt.PowerPointAddIn.Services;
 namespace DrawioPpt.PowerPointAddIn
 {
     [ComVisible(true)]
+    [Guid("9C0C05A5-FA1D-4B34-B7DD-7C5C8592D844")]
+    [InterfaceType(ComInterfaceType.InterfaceIsDual)]
+    public interface IPowerPointAddInAutomation
+    {
+        string GetVersionSummary();
+    }
+
+    [ComVisible(true)]
+    [ClassInterface(ClassInterfaceType.AutoDispatch)]
+    public sealed class PowerPointAddInAutomation : MarshalByRefObject, IPowerPointAddInAutomation
+    {
+        private readonly AddInHost _host;
+
+        public PowerPointAddInAutomation(AddInHost host)
+        {
+            _host = host;
+        }
+
+        public string GetVersionSummary()
+        {
+            return _host == null ? "版本：初始化中" : _host.GetVersionSummary();
+        }
+
+        public override object InitializeLifetimeService()
+        {
+            return null;
+        }
+    }
+
+    [ComVisible(true)]
     [Guid("0B8996D8-D6B9-4D61-8E8C-6F2081BFEA31")]
     [ProgId(AddInProgId)]
     public class Connect : IDTExtensibility2, IRibbonExtensibility
@@ -18,6 +48,8 @@ namespace DrawioPpt.PowerPointAddIn
 
         private const string OfficeAddinsRegistryRoot = "Software\\Microsoft\\Office\\PowerPoint\\Addins\\";
         private PptInterop.Application _application;
+        private COMAddIn _comAddIn;
+        private PowerPointAddInAutomation _automation;
         private AddInHost _host;
         private RibbonController _ribbonController;
 
@@ -42,8 +74,14 @@ namespace DrawioPpt.PowerPointAddIn
                 return;
             }
 
+            _comAddIn = addInInst as COMAddIn;
             _host = new AddInHost(_application);
             _ribbonController = new RibbonController(_host);
+            _automation = new PowerPointAddInAutomation(_host);
+            if (_comAddIn != null)
+            {
+                _comAddIn.Object = _automation;
+            }
         }
 
         public void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom)
@@ -53,8 +91,21 @@ namespace DrawioPpt.PowerPointAddIn
                 _host.Dispose();
             }
 
+            if (_comAddIn != null)
+            {
+                try
+                {
+                    _comAddIn.Object = null;
+                }
+                catch
+                {
+                }
+            }
+
             _ribbonController = null;
             _host = null;
+            _automation = null;
+            _comAddIn = null;
             _application = null;
         }
 
@@ -180,6 +231,16 @@ namespace DrawioPpt.PowerPointAddIn
             }
 
             return _ribbonController.GetEditorModeSummary(control);
+        }
+
+        public string GetVersionSummary(IRibbonControl control)
+        {
+            if (_ribbonController == null)
+            {
+                return "版本：初始化中";
+            }
+
+            return _ribbonController.GetVersionSummary(control);
         }
 
         public string GetSelectionDetailSummary(IRibbonControl control)

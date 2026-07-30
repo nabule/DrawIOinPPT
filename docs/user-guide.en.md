@@ -17,9 +17,9 @@ Recommended companion docs:
 
 - [Installation and local debugging guide](./installation.en.md)
 - [Word add-in design and usage](./word-addin.en.md)
-- [v1.0.8 full E2E test report](./e2e-test-report-v1.0.8.en.md)
-- [v1.0.8 release evidence and log index](./release-evidence-v1.0.8.en.md)
-- [Release notes for v1.0.8](./release-notes-v1.0.8.en.md)
+- [v1.0.9 full E2E test report](./e2e-test-report-v1.0.9.en.md)
+- [v1.0.9 release evidence and log index](./release-evidence-v1.0.9.en.md)
+- [Release notes for v1.0.9](./release-notes-v1.0.9.en.md)
 - [Optimization backlog](./optimization-backlog.en.md)
 
 ## 2. What the Current Version Can Do
@@ -101,9 +101,9 @@ The right side of the Ribbon also shows status information, such as:
 - Whether the selected shape is a normal shape or a recognized Draw.io shape
 - Whether the current editor mode is desktop or URL
 - Whether the main edit button is acting as `Edit` or `Re-edit`
-- The current add-in BuildId, for example `v1.0.8+0704dce`
+- The current add-in BuildId, for example `v1.0.9+<git-short-hash>`
 
-The settings window footer shows the same BuildId. Word and PowerPoint share that settings window, so both add-ins can verify the loaded build there.
+The settings window footer shows the same BuildId. Word and PowerPoint share that settings window, so both add-ins can verify the loaded build there; release-package verification also reads the version text returned by both Office add-ins and compares it with `BuildInfo.txt`.
 
 ## 5. Settings Explained
 

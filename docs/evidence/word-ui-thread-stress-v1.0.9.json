@@ -1,0 +1,7 @@
+{
+  "version": "v1.0.9",
+  "scope": "Ribbon version callback and installation verification only",
+  "wordUiStressRerun": false,
+  "reason": "No Word UI hot-path behavior changed in this release",
+  "baselineVersion": "v1.0.8"
+}

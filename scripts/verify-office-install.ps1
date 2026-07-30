@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 $targetRoot = [System.IO.Path]::GetFullPath($InstallRoot)
 $powerPointAssemblyPath = Join-Path $targetRoot "bin\DrawioPpt.PowerPointAddIn.dll"
 $wordAssemblyPath = Join-Path $targetRoot "bin\DrawioPpt.WordAddIn.dll"
+$buildInfoPath = Join-Path $targetRoot "BuildInfo.txt"
 
 function Assert-FileExists {
     param(
@@ -18,6 +19,24 @@ function Assert-FileExists {
     if (-not (Test-Path $Path)) {
         throw "Required installed file not found: $Path"
     }
+}
+
+function Read-BuildInfoValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $prefix = $Name + ":"
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        if ($line.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $line.Substring($prefix.Length).Trim()
+        }
+    }
+
+    return ""
 }
 
 function Get-CodeBaseUri {
@@ -158,6 +177,44 @@ function Assert-NoRunningOfficeProcess {
     }
 }
 
+function Read-OfficeAddInVersion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Automation
+    )
+
+    if ($null -eq ("DrawioPpt.OfficeAddInVersionReader" -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Reflection;
+
+namespace DrawioPpt
+{
+    public static class OfficeAddInVersionReader
+    {
+        public static string Read(object automation)
+        {
+            if (automation == null)
+            {
+                throw new ArgumentNullException("automation");
+            }
+
+            object value = automation.GetType().InvokeMember(
+                "GetVersionSummary",
+                BindingFlags.InvokeMethod,
+                null,
+                automation,
+                new object[0]);
+            return Convert.ToString(value);
+        }
+    }
+}
+'@ -ErrorAction Stop
+    }
+
+    return [DrawioPpt.OfficeAddInVersionReader]::Read($Automation)
+}
+
 function Assert-ComAddInConnects {
     param(
         [Parameter(Mandatory = $true)]
@@ -165,7 +222,9 @@ function Assert-ComAddInConnects {
         [Parameter(Mandatory = $true)]
         [string]$ProcessName,
         [Parameter(Mandatory = $true)]
-        [string]$ProgId
+        [string]$ProgId,
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedBuildId
     )
 
     Assert-NoRunningOfficeProcess -ProcessName $ProcessName
@@ -184,6 +243,14 @@ function Assert-ComAddInConnects {
         }
 
         Write-Host "$ApplicationProgId COM load verified: $ProgId"
+
+        $versionSummary = Read-OfficeAddInVersion -Automation $addin.Object
+        $expectedVersionSummary = "版本：" + $ExpectedBuildId
+        if ($versionSummary -ne $expectedVersionSummary) {
+            throw "$ProgId returned version '$versionSummary' in $ApplicationProgId. Expected '$expectedVersionSummary'."
+        }
+
+        Write-Host "$ApplicationProgId COM version callback verified: $ProgId ($versionSummary)"
     }
     finally {
         if ($application -ne $null) {
@@ -206,8 +273,14 @@ function Assert-ComAddInConnects {
 
 Assert-FileExists -Path $powerPointAssemblyPath
 Assert-FileExists -Path $wordAssemblyPath
+Assert-FileExists -Path $buildInfoPath
 Assert-FileExists -Path (Join-Path $targetRoot "scripts\register-office-addins.ps1")
 Assert-FileExists -Path (Join-Path $targetRoot "scripts\register-word-addin.ps1")
+
+$installedBuildId = Read-BuildInfoValue -Path $buildInfoPath -Name "BuildId"
+if ([string]::IsNullOrWhiteSpace($installedBuildId)) {
+    throw "BuildInfo.txt does not contain BuildId: $buildInfoPath"
+}
 
 Assert-AddInRegistration `
     -HostName "PowerPoint" `
@@ -232,8 +305,8 @@ Assert-NotDisabledByOffice `
     -Patterns @("Greensoft.DrawioPptAddIn", "DrawioPpt.PowerPointAddIn", "{0B8996D8-D6B9-4D61-8E8C-6F2081BFEA31}", "DrawioPpt")
 
 if (-not $SkipComLoad) {
-    Assert-ComAddInConnects -ApplicationProgId "Word.Application" -ProcessName "WINWORD" -ProgId "Greensoft.DrawioWordAddIn"
-    Assert-ComAddInConnects -ApplicationProgId "PowerPoint.Application" -ProcessName "POWERPNT" -ProgId "Greensoft.DrawioPptAddIn"
+    Assert-ComAddInConnects -ApplicationProgId "Word.Application" -ProcessName "WINWORD" -ProgId "Greensoft.DrawioWordAddIn" -ExpectedBuildId $installedBuildId
+    Assert-ComAddInConnects -ApplicationProgId "PowerPoint.Application" -ProcessName "POWERPNT" -ProgId "Greensoft.DrawioPptAddIn" -ExpectedBuildId $installedBuildId
 }
 
 Write-Host "DrawioPpt Office installation verified."

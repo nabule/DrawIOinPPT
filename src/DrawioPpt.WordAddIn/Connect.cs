@@ -16,6 +16,7 @@ namespace DrawioPpt.WordAddIn
     public interface IWordAddInAutomation
     {
         string GetInteractionMode();
+        string GetVersionSummary();
         void EditSelectedDiagram();
     }
 
@@ -51,6 +52,11 @@ namespace DrawioPpt.WordAddIn
         public string GetInteractionMode()
         {
             return "ExplicitSelectionCommand";
+        }
+
+        public string GetVersionSummary()
+        {
+            return _host == null ? "版本：初始化中" : _host.GetVersionSummary();
         }
 
         public override object InitializeLifetimeService()
@@ -257,6 +263,16 @@ namespace DrawioPpt.WordAddIn
             }
 
             return _ribbonController.GetEditorModeSummary(control);
+        }
+
+        public string GetVersionSummary(IRibbonControl control)
+        {
+            if (_ribbonController == null)
+            {
+                return "版本：初始化中";
+            }
+
+            return _ribbonController.GetVersionSummary(control);
         }
 
         public string GetSelectionDetailSummary(IRibbonControl control)

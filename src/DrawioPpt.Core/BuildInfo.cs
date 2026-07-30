@@ -7,7 +7,7 @@ namespace DrawioPpt.Core
 {
     public static class BuildInfo
     {
-        private const string DefaultProductVersion = "v1.0.8";
+        private const string DefaultProductVersion = "v1.0.9";
         private const string UnknownGitShortHash = "unknown";
         private const string BuildInfoFileName = "BuildInfo.txt";
         private const string PackageFileName = "PACKAGE.txt";

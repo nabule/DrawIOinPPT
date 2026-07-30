@@ -17,9 +17,9 @@ DrawioPpt 是一个面向 PowerPoint 和 Word Desktop 的原生插件，用来�
 
 - [安装与联调说明](./installation.md)
 - [Word 插件设计与使用说明](./word-addin.md)
-- [v1.0.8 完整 E2E 测试报告](./e2e-test-report-v1.0.8.md)
-- [v1.0.8 发布证据与日志索引](./release-evidence-v1.0.8.md)
-- [v1.0.8 发布说明](./release-notes-v1.0.8.md)
+- [v1.0.9 完整 E2E 测试报告](./e2e-test-report-v1.0.9.md)
+- [v1.0.9 发布证据与日志索引](./release-evidence-v1.0.9.md)
+- [v1.0.9 发布说明](./release-notes-v1.0.9.md)
 - [待优化功能点](./optimization-backlog.md)
 
 ## 2. 当前能做什么
@@ -38,7 +38,7 @@ DrawioPpt 是一个面向 PowerPoint 和 Word Desktop 的原生插件，用来�
 - 为导出的 SVG 补写 draw.io `content` 元数据
 - 记录日志，方便排查 URL 模式和回写失败问题
 - Ribbon 已按“创建 / 当前图形 / 工作流 / 信息”重新分组
-- Ribbon 信息区和设置窗口会显示当前版本号，格式为 `v1.0.8+<git-short-hash>`，便于确认实际加载的构建
+- Ribbon 信息区和设置窗口会显示当前版本号，格式为 `v1.0.9+<git-short-hash>`，便于确认实际加载的构建
 - 已支持 sidecar `.drawio` 在 `PPT` 保存、另存为和跨机器迁移后自动按当前文档路径重定位
 
 Word 中的复杂图形采用下面的存储方式：
@@ -101,9 +101,9 @@ Word 中的复杂图形采用下面的存储方式：
 - 当前是普通图形还是已识别的 Draw.io 图形
 - 当前编辑模式是桌面模式还是 URL 模式
 - 当前“编辑”按钮是否会显示为“重新编辑”
-- 当前插件 BuildId，例如 `v1.0.8+0704dce`
+- 当前插件 BuildId，例如 `v1.0.9+<git-short-hash>`
 
-设置窗口底部也会显示同一个 BuildId。Word 和 PowerPoint 共用这套设置窗口，因此两个插件都可以在设置里核对实际加载版本。
+设置窗口底部也会显示同一个 BuildId。Word 和 PowerPoint 共用这套设置窗口，因此两个插件都可以在设置里核对实际加载版本；发布包验收还会直接读取两个 Office 加载项返回的版本文本并与 `BuildInfo.txt` 比对。
 
 ## 5. 设置项详解
 

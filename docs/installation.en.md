@@ -19,7 +19,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 ## 2. Installation for End Users
 
-If you received a release package such as `DrawioPpt-v1.0.8.zip`, the recommended installation flow is:
+If you received a release package such as `DrawioPpt-v1.0.9.zip`, the recommended installation flow is:
 
 1. Extract the zip file to a local directory.
 2. Make sure PowerPoint and Word are not currently running.
@@ -27,9 +27,9 @@ If you received a release package such as `DrawioPpt-v1.0.8.zip`, the recommende
 4. Wait for the script to report success.
 5. Open PowerPoint or Word and confirm that the `Draw.io` tab appears on the Ribbon.
 
-Successful installation output includes `BuildId` in the form `v1.0.8+<git-short-hash>`. The same value is written to `BuildInfo.txt` / `PACKAGE.txt` in the package root and installed root, so you can identify the exact commit behind the installed add-in.
+Successful installation output includes `BuildId` in the form `v1.0.9+<git-short-hash>`. The same value is written to `BuildInfo.txt` / `PACKAGE.txt` in the package root and installed root, and installation verification reads the same text from the actual Word and PowerPoint add-ins.
 
-On machines where an older build is already installed, upgrade by running `install.cmd` from the new release package. The fixed v1.0.8 installer stages the new package payload under `%TEMP%` before cleaning the old installation directory, so it can upgrade even when the package is extracted into the current install root or a child folder. Word and PowerPoint still need to be closed first; if Office or WebView2 keeps an old DLL locked, close Office and retry, or reboot Windows and run the new package's `install.cmd` again.
+On machines where an older build is already installed, upgrade by running `install.cmd` from the new release package. The installer stages the new package payload under `%TEMP%` before cleaning the old installation directory, so it can upgrade even when the package is extracted into the current install root or a child folder. Word and PowerPoint still need to be closed first; if Office or WebView2 keeps an old DLL locked, close Office and retry, or reboot Windows and run the new package's `install.cmd` again.
 
 Core installation files included in the release package:
 
@@ -47,9 +47,9 @@ Core installation files included in the release package:
 - `scripts\register-word-addin.ps1`
 - `scripts\unregister-word-addin.ps1`
 - `scripts\install-release-upgrade-safety-test.ps1`
-- `docs\release-notes-v1.0.8.en.md`
-- `docs\e2e-test-report-v1.0.8.en.md`
-- `docs\release-evidence-v1.0.8.en.md`
+- `docs\release-notes-v1.0.9.en.md`
+- `docs\e2e-test-report-v1.0.9.en.md`
+- `docs\release-evidence-v1.0.9.en.md`
 
 Default installation path:
 
@@ -163,7 +163,7 @@ Use this order to confirm that installation succeeded:
 
 1. The add-in loads correctly.
 2. The settings window opens.
-3. The settings window footer and Ribbon information area show `版本：v1.0.8+<git-short-hash>`.
+3. The settings window footer and Ribbon information area show `版本：v1.0.9+<git-short-hash>`.
 4. `Desktop` mode can detect a local `draw.io.exe`.
 5. `Test URL` succeeds in `Url` mode.
 6. You can create a new diagram and write it back successfully.
@@ -176,7 +176,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1
 
 Full test report:
 
-- [v1.0.8 E2E test report](./e2e-test-report-v1.0.8.en.md)
+- [v1.0.9 E2E test report](./e2e-test-report-v1.0.9.en.md)
 
 ## 9. Desktop Mode Validation
 

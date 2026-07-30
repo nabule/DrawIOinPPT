@@ -56,9 +56,37 @@ if ($pptHost -notmatch 'BuildInfo\.DisplayVersion' -or
     throw "Both hosts must return BuildInfo.DisplayVersion for the Ribbon."
 }
 
+$pptConnect = Read-Text "src\DrawioPpt.PowerPointAddIn\Connect.cs"
+$wordConnect = Read-Text "src\DrawioPpt.WordAddIn\Connect.cs"
+foreach ($connect in @(
+    @{ Name = "PowerPoint"; Source = $pptConnect },
+    @{ Name = "Word"; Source = $wordConnect }
+)) {
+    if ($connect.Source -notmatch 'public\s+string\s+GetVersionSummary\s*\(\s*IRibbonControl\s+control\s*\)') {
+        throw "$($connect.Name) Connect must expose the GetVersionSummary Office Ribbon callback."
+    }
+
+    if ($connect.Source -notmatch '_ribbonController\.GetVersionSummary\(control\)') {
+        throw "$($connect.Name) Connect must forward GetVersionSummary to its Ribbon controller."
+    }
+}
+
+if ($wordConnect -notmatch 'interface\s+IWordAddInAutomation' -or
+    $wordConnect -notmatch 'string\s+GetVersionSummary\s*\(\s*\)' -or
+    $wordConnect -notmatch 'class\s+WordAddInAutomation') {
+    throw "Word automation must expose GetVersionSummary for installed-host verification."
+}
+
+if ($pptConnect -notmatch 'interface\s+IPowerPointAddInAutomation' -or
+    $pptConnect -notmatch 'class\s+PowerPointAddInAutomation' -or
+    $pptConnect -notmatch '_comAddIn\.Object\s*=\s*_automation') {
+    throw "PowerPoint automation must expose GetVersionSummary for installed-host verification."
+}
+
 $buildScript = Read-Text "scripts\build.ps1"
 $packageScript = Read-Text "scripts\package-release.ps1"
 $installScript = Read-Text "scripts\install-release.ps1"
+$verifyInstallScript = Read-Text "scripts\verify-office-install.ps1"
 $writerScript = Read-Text "scripts\write-build-info.ps1"
 if ($buildScript -notmatch 'write-build-info\.ps1' -or
     $packageScript -notmatch 'write-build-info\.ps1') {
@@ -87,6 +115,16 @@ if ($packageScript -notmatch 'BuildId:' -or
 if ($installScript -notmatch 'BuildId' -or
     $installScript -notmatch 'BuildInfo\.txt') {
     throw "Install script must report the installed BuildId."
+}
+
+if ($verifyInstallScript -notmatch 'Read-OfficeAddInVersion' -or
+    $verifyInstallScript -notmatch 'OfficeAddInVersionReader' -or
+    $verifyInstallScript -notmatch 'Add-Type' -or
+    $verifyInstallScript -notmatch 'InvokeMember' -or
+    $verifyInstallScript -notmatch 'GetVersionSummary' -or
+    $verifyInstallScript -notmatch 'COM version callback verified' -or
+    $verifyInstallScript -notmatch 'BuildInfo\.txt') {
+    throw "Installed Office verification must call the COM version callback and compare it to BuildInfo.txt."
 }
 
 Write-Host "VERSION_DISPLAY_SAFETY_TEST_PASS"
