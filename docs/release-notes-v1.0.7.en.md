@@ -4,6 +4,12 @@
 
 `v1.0.7` fixes the possible “Cannot initialize URL editor” access-denied failure when Word uses the URL editor. It does not change Draw.io XML, SVG, picture layout, or the document metadata storage format.
 
+## Problems Solved First
+
+- Some machines failed to open the Word URL editor with an access-denied error because WebView2 tried to write beside Office executables.
+- Users should not need to change `Program Files` or Office installation-directory permissions just to use the embedded editor.
+- URL-mode failures needed real Word-host regression coverage and log evidence to identify whether initialization was still the problem.
+
 ## Highlights
 
 - The URL editor now explicitly creates a WebView2 environment and stores its profile at `%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2`.

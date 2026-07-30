@@ -2,6 +2,15 @@
 
 [English](./release-notes-v1.0.8.en.md) | [中文](./release-notes-v1.0.8.md) | [English Home](../README.en.md) | [中文首页](../README.md)
 
+## Problems Solved First
+
+- Complex Draw.io pictures in Word should not make ordinary selection, dragging, resizing, or repositioning noticeably slower because the add-in reads metadata.
+- Selecting a Word picture should not open the editor by itself; the add-in workflow should start only after an explicit Re-edit, Refresh, or similar command.
+- Word diagram previews should not be stretched into squares or gain unexpected blank padding; landscape and portrait diagrams should preserve their source ratio as much as possible.
+- Refreshing or re-editing should not unexpectedly change the picture width, position, or aspect ratio that the user already arranged.
+- If draw.io Desktop export fails, users should still see a recognizable placeholder preview and the source XML must not be lost.
+- During installation or troubleshooting, users need to see exactly which build Office has loaded.
+
 ## Highlights
 
 - The Word selection hot path no longer subscribes to `WindowSelectionChange`, and startup does not read selection, picture properties, `AlternativeText`, or `CustomXMLParts`. Ordinary selection, dragging, resizing, and repositioning perform no add-in metadata work.

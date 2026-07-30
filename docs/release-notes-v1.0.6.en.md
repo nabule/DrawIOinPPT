@@ -4,6 +4,12 @@
 
 `v1.0.6` improves responsiveness while Draw.io pictures in Word are moved, resized, or repositioned. SVG, Draw.io XML, picture format, the `AlternativeText`/`CustomXMLParts` storage model, and floating-picture layout behavior are unchanged.
 
+## Problems Solved First
+
+- Moving, resizing, or repositioning Draw.io pictures in Word could feel sluggish because the add-in kept reading selection metadata in the background.
+- Users who were only arranging a picture did not want the add-in checking metadata every half second.
+- Manual commands still needed to work reliably even when the Ribbon state did not refresh immediately.
+
 ## Highlights
 
 - Removes the Word host's 500 ms `System.Windows.Forms.Timer`, so picture metadata is no longer parsed periodically.

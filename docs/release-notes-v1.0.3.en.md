@@ -4,6 +4,13 @@
 
 `v1.0.3` is a release for the Word add-in delivery and the recommended desktop editor configuration. It documents the Word COM Add-in, the in-document Draw.io XML storage model, and the draw.io Desktop build with XML clipboard tools.
 
+## Problems Solved First
+
+- Users needed the same Draw.io maintenance workflow in Word, not only in PowerPoint.
+- When delivering `.pptx` / `.docx` files, users needed to know whether the editable source XML actually stayed inside the Office file.
+- Troubleshooting or recovering diagrams was difficult without an easy way to paste embedded XML back into draw.io Desktop.
+- Release packages should not include debug symbols or historical logs that may expose local paths.
+
 ## Highlights
 
 - Adds Word Desktop COM Add-in delivery documentation for creating, re-editing, refreshing, binding, and clearing Draw.io pictures.

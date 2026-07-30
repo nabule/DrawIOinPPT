@@ -4,6 +4,13 @@
 
 `v1.0.2` is a small editing-experience and delivery release. It adds a setting that controls whether diagram information is shown when creating or editing Draw.io diagrams, and it ships as an installable release package.
 
+## Problems Solved First
+
+- Diagram information popups were useful for troubleshooting, but interrupted experienced users during routine create/edit work.
+- Users still needed a way to keep those details available when checking diagram IDs, working-file paths, or editor mode.
+- Users needed the option to suppress ordinary success prompts while still seeing real error messages.
+- The release needed to look more like an end-user installable package instead of relying only on repository registration scripts.
+
 ## Changes
 
 - Added `Show diagram information when creating or editing` to the settings dialog

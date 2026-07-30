@@ -4,6 +4,12 @@
 
 `v1.0.7` 修复 Word 使用 URL 编辑器时可能出现的“无法初始化 URL 编辑器，拒绝访问”。本次不改变 Draw.io XML、SVG、图片布局或 Office 文档内的元数据存储格式。
 
+## 这版先解决什么问题
+
+- Word 中使用 URL 编辑器时，部分机器会因为 Office 安装目录不可写而报“拒绝访问”。
+- 用户不应该为了打开 WebView2 编辑器去修改 `Program Files` 或 Office 安装目录权限。
+- URL 模式失败时需要有真实 Word 宿主回归和日志证据，方便判断是否仍是初始化问题。
+
 ## 主要变化
 
 - URL 编辑器现在显式创建 WebView2 环境，并将 profile 放到 `%LOCALAPPDATA%\Greensoft\DrawioPpt\WebView2`。

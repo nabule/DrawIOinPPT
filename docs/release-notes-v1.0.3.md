@@ -4,6 +4,13 @@
 
 `v1.0.3` 是面向 Word 插件交付和桌面编辑器配置说明的发布版本。它收口了 Word COM Add-in、Office 文件内嵌 Draw.io XML 的说明，并推荐配合使用支持 XML 剪贴板工具的 draw.io Desktop 修改版。
 
+## 这版先解决什么问题
+
+- 用户希望在 Word 里也能维护 Draw.io 图形，而不是只能在 PowerPoint 中使用插件。
+- 交付 `.pptx` / `.docx` 时，用户需要知道源 XML 是否真的跟着 Office 文件走。
+- 排查或恢复图形时，需要一个更方便的方式把 Office 内嵌 XML 放回 draw.io Desktop 查看。
+- 发布包不应夹带调试符号、历史日志等容易暴露本机路径的信息。
+
 ## 主要变化
 
 - 新增 Word Desktop COM Add-in 交付说明，覆盖新建、重新编辑、刷新、绑定和清除绑定 Draw.io 图片。

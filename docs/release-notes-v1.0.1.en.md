@@ -4,6 +4,12 @@
 
 `v1.0.1` is a maintenance release focused on release-pipeline reliability and SVG rendering fidelity. The main goal is to fix the issue where diagrams edited in draw.io could look blurry in PowerPoint even though they were expected to stay vector-sharp.
 
+## Problems Solved First
+
+- Text in diagrams could look blurry in PowerPoint after editing in draw.io and writing back, which was not acceptable for formal presentations.
+- Local build, packaging, installation, and E2E scripts could fail on Windows machines where a plain `powershell` command was unavailable.
+- URL-mode smoke tests depended too much on external environment details, making release verification less repeatable.
+
 ## Highlights
 
 ### 1. Fix for blurry text after Draw.io write-back

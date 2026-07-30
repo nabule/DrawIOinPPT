@@ -4,6 +4,13 @@
 
 This is the first stable `1.0` release of DrawioPpt. The goal of this release is to make the main workflow of keeping editable Draw.io diagrams maintained together with PowerPoint deliverable end-to-end, while also tightening installation, testing, logging, and release materials.
 
+## Problems Solved First
+
+- Users needed a deliverable PowerPoint add-in release, not a development-only prototype.
+- Sidecar `.drawio` paths could become stale after saving, Save As, moving a deck, or opening it on another machine.
+- First-time users needed clearer guidance about whether the selected shape was editable, which mode was active, and which command to click next.
+- Installation, logs, and test evidence needed to travel with the package so issues could be reproduced and traced.
+
 ## Release Positioning
 
 - A stable release for PowerPoint Desktop

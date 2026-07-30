@@ -4,6 +4,13 @@
 
 `v1.0.5` is a Word installation acceptance fix. The `v1.0.4` release package already included the Word registration entry, but the old `word-addin-load-check.ps1` unregistered the Word add-in at the end of the test, leaving the default environment in a "Word is not installed" state after the check. This release fixes that test script and adds default-install-path plus real Word COM loading acceptance.
 
+## Problems Solved First
+
+- After installation, users needed a direct way to confirm that both Word and PowerPoint actually loaded the add-ins, not just that files were copied.
+- The old check script could remove Word registration after it ran, causing a “verified, then broken” environment.
+- The default install environment could retain stale folders or registration state, making the same package behave differently across machines.
+- Release validation needed to prove real Office COM loading from the default install directory before a package was considered ready.
+
 ## Highlights
 
 - Adds `scripts\verify-office-install.ps1` to validate release-package installation results.

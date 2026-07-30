@@ -4,6 +4,13 @@
 
 `v1.0.4` is an installer-focused release. It adds a unified repository and release-package registration entry so the PowerPoint and Word add-ins can be registered and unregistered together.
 
+## Problems Solved First
+
+- Users could install PowerPoint successfully but still miss the Word add-in, making Word look unsupported.
+- Development registration and release-package installation used different paths, which risked “works locally but not from the package” differences.
+- Uninstall needed to clean both Office hosts together so stale registration did not affect later installs.
+- Users needed confirmation that both PowerPoint and Word could load, not just that an installation script finished.
+
 ## Highlights
 
 - Adds `scripts\register-office-addins.ps1` to register both current-user COM Add-ins: PowerPoint and Word.
