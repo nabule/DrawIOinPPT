@@ -29,6 +29,8 @@ If you received a release package such as `DrawioPpt-v1.0.8.zip`, the recommende
 
 Successful installation output includes `BuildId` in the form `v1.0.8+<git-short-hash>`. The same value is written to `BuildInfo.txt` / `PACKAGE.txt` in the package root and installed root, so you can identify the exact commit behind the installed add-in.
 
+On machines where an older build is already installed, upgrade by running `install.cmd` from the new release package. The fixed v1.0.8 installer stages the new package payload under `%TEMP%` before cleaning the old installation directory, so it can upgrade even when the package is extracted into the current install root or a child folder. Word and PowerPoint still need to be closed first; if Office or WebView2 keeps an old DLL locked, close Office and retry, or reboot Windows and run the new package's `install.cmd` again.
+
 Core installation files included in the release package:
 
 - `install.cmd`
@@ -44,6 +46,7 @@ Core installation files included in the release package:
 - `scripts\unregister-addin.ps1`
 - `scripts\register-word-addin.ps1`
 - `scripts\unregister-word-addin.ps1`
+- `scripts\install-release-upgrade-safety-test.ps1`
 - `docs\release-notes-v1.0.8.en.md`
 - `docs\e2e-test-report-v1.0.8.en.md`
 - `docs\release-evidence-v1.0.8.en.md`
@@ -233,6 +236,12 @@ Useful for diagnosing:
 - Storage migration and orphan cleanup issues
 
 ## 12. Frequently Asked Questions
+
+### An already-installed machine cannot upgrade from the installer
+
+This is usually not a Word or PowerPoint registration problem. The old installer sequence deleted the default install directory before copying from the release package. If the user had extracted the new package into the existing install directory or one of its child folders, the cleanup step deleted the package itself, and the following registration step could not find the scripts or DLLs.
+
+Use the fixed package and run `install.cmd` from that new package. Do not run an old `install.cmd` left in the previous installation directory. The fixed installer first copies the package payload listed in `PACKAGE.txt` into a temporary staging directory, then cleans the old install root and installs from staging, so it can replace the old version without bringing stale files back.
 
 ### The URL window opens, but save is never called back
 

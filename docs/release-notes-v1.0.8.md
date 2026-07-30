@@ -10,6 +10,7 @@
 - 刷新或重新编辑后，不应该意外改变用户已经摆好的图片宽度、位置和纵横比。
 - draw.io Desktop 导出失败时，用户仍应看到可识别的占位预览，并且源 XML 不能丢。
 - 安装或排障时，用户需要直接看到当前 Office 实际加载的是哪个构建版本。
+- 已安装过旧版本的机器重新安装 v1.0.8 时，不应该因为新包解压在旧安装目录里而升级失败。
 
 ## 主要变化
 
@@ -20,6 +21,7 @@
 - Word 重新编辑或刷新时保留图片宽度，按源比例重算高度和位置。完整 Draw.io XML 仍以 `Document.CustomXMLParts` 为主存储，图片 `AlternativeText` 正常只保留轻量引用。
 - `CustomXMLParts.Upsert` 失败时，图片回退保留完整 envelope；旧版只在图片 `AlternativeText` 保存全量 envelope 的文档会在首次读取时迁入文档级主存储。
 - Word 和 PowerPoint 功能区信息区新增版本号显示；共享设置窗口底部也显示同一 BuildId。发布包生成 `BuildInfo.txt`，`PACKAGE.txt` 同步记录 `BuildId` 和 `GitShortHash`，安装完成时会输出安装后的 BuildId。
+- 安装脚本在清理旧安装目录前，先按 `PACKAGE.txt` 清单把新发布包暂存到 `%TEMP%`。这样用户把新包放在旧安装目录本身或子目录里运行时，也不会删除安装源；清单复制同时避免把旧目录里的残留文件带回新安装。
 
 ## 兼容取舍
 
@@ -31,11 +33,12 @@ Word PNG 负责显示而非主存储。正常路径需要可用的 draw.io Deskt
 
 - `Release|x64` 构建通过：0 warnings，0 errors。
 - 版本显示安全测试通过：确认 `BuildInfo`、Word/PPT Ribbon、设置窗口、构建脚本、发布包清单和安装输出均包含 BuildId / Git short hash。
+- 安装包升级安全测试通过：覆盖新包位于旧安装目录本身、位于旧安装目录子目录，以及旧残留文件必须被清理的场景。
 - Word 零被动选区路径、WebView2 用户目录、URL 宿主安全约束和 full E2E 清理安全约束均通过。
 - 最新 `word-preview-image-provider-e2e.ps1` 覆盖正常 1240px 等比例 PNG、2:1 失败样本的 1240×620 等比例轻量 PNG 占位预览，以及即时临时源、预览和回退目录清理。实现仍包含临时 XML 有限重试、延迟和启动清理，但该脚本不把这些未做故障注入的路径冒充为已覆盖。
 - 最新 `word-svg-aspect-ratio-e2e.ps1` 通过：真实 Word 中 2:1 PNG 新建和替换保持 2:1；纵向图 `VerticalRatio=0.25`、`VerticalContained=True`；失败替换 `FailedReplacementPreservedOriginal=True`，证明新图成功前不会删除原图。
 - `powerpoint-svg-aspect-ratio-e2e.ps1` 通过：真实 PowerPoint 直接插入原始 SVG，按边界 `contain` 等比居中，替换保持源比例且不扩展 `viewBox`。
-- 最终发布包的完整 Office 功能 E2E 为 `12/12 PASS`，覆盖 `InstalledWordSvgAspectE2E`、`InstalledWordPreviewProviderE2E` 和 `InstalledPowerPointSvgAspectE2E`。
+- 最终发布包的完整 Office 功能 E2E 为 `13/13 PASS`，新增覆盖 `NestedInstallUpgrade`，并继续覆盖 `InstalledWordSvgAspectE2E`、`InstalledWordPreviewProviderE2E` 和 `InstalledPowerPointSvgAspectE2E`。
 - full E2E 在执行前快照 Word / PowerPoint 加载项注册树，结束时精确恢复原状态，包括原本不存在的键；最终 `WINWORD` / `POWERPNT` 零残留硬门槛通过，`FullE2ECleanupSucceeded=True`。
 - Core、PowerPoint 和 Word DLL 在源码 Release、发布包和标准本地安装中均一致；Word DLL 为 `A6AB59AA…3492E8`。完整 DLL 哈希见[发布证据](./release-evidence-v1.0.8.md)。
 
@@ -51,6 +54,6 @@ Word PNG 负责显示而非主存储。正常路径需要可用的 draw.io Deskt
 
 ## 发布状态
 
-v1.0.8 已作为 GitHub Release 公开发布：<https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>。最终包已重建、标准本地安装已更新、`12/12` full E2E 和包内链接门槛均已通过。ZIP SHA256 不写入会再次进入 ZIP 的文档，由 GitHub Release 资产记录和包外交付摘要记录。
+v1.0.8 已作为 GitHub Release 公开发布：<https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>。最终包已重建、标准本地安装已更新、`13/13` full E2E 和包内链接门槛均已通过。ZIP SHA256 不写入会再次进入 ZIP 的文档，由 GitHub Release 资产记录和包外交付摘要记录。
 
 完整结果见 [v1.0.8 E2E 测试报告](./e2e-test-report-v1.0.8.md)、[v1.0.8 发布证据](./release-evidence-v1.0.8.md)和 [Word UI 线程压力测试报告](./word-ui-thread-stress-report-v1.0.8.md)。

@@ -18,6 +18,7 @@ Real Office commands ran serially. No user Word or PowerPoint process could be p
 | Release x64 build | PASS | 0 warnings, 0 errors |
 | Word zero-passive-selection-path source contract | PASS | `WORD_SELECTION_SYNC_TEST_PASS`: no `WindowSelectionChange`, auto-open, or startup selection read; each of the four explicit commands captures one live picture |
 | WebView2 user-data-folder source contract | PASS | `WEBVIEW2_USER_DATA_FOLDER_SOURCE_TEST_PASS` |
+| Installer upgrade safety contract | PASS | `INSTALL_RELEASE_UPGRADE_SAFETY_TEST_PASS`: when the new package is run from the old install root or a child folder, it does not delete its own source, and stale old files are removed |
 | Word URL-host safety contract | PASS | `WORD_URL_ADDIN_HOST_E2E_SAFETY_TEST_PASS` |
 | Full-E2E cleanup safety contract | PASS | `FULL_E2E_CLEANUP_SAFETY_TEST_PASS`: snapshots Word/PowerPoint registration trees before installation; `finally` restores values, types, subkeys, and originally absent state; residual Office PIDs enter FatalError and fail E2E |
 | Word complex-metadata E2E | PASS | Document-level primary storage, lightweight reference, failure fallback, legacy migration, stable part ID, and save-close-reopen persistence satisfied their assertions |
@@ -34,11 +35,12 @@ Command:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.8 -SkipBuild
 ```
 
-Result: `12/12 PASS`.
+Result: `13/13 PASS`.
 
 | Check | Result | Evidence |
 | --- | --- | --- |
 | `ReleasePackage` | PASS | The v1.0.8 release directory was created |
+| `NestedInstallUpgrade` | PASS | The real release package was run from a child folder under the old install root; the installer did not delete its own source and stale old files were removed |
 | `InstallRelease` | PASS | The package was installed into an isolated temporary directory |
 | `InstalledOfficeAddInsVerify` | PASS | Word / PowerPoint registration and COM loading passed |
 | `PowerPointAddInLoad` | PASS | `Connect=True` |
@@ -51,7 +53,7 @@ Result: `12/12 PASS`.
 | `PowerPointUrlE2E` | PASS | PowerPoint URL create, reopen, edit, and persistence passed |
 | `DesktopExporter` | PASS | draw.io Desktop exported SVG successfully |
 
-Packaging reported `PackageMarkdownMissingLinkCount=0`. The summary and log copy are content-identical, with SHA256 `7D5AC38245C29AF08B04C24414480E1024E270210657EC0AFB97D0ABF52CF73C`.
+Packaging reported `PackageMarkdownMissingLinkCount=0`. The summary and log copy are content-identical; final rerun hashes are recorded in the [release evidence](./release-evidence-v1.0.8.en.md).
 
 After the temporary test installation was uninstalled, cleanup restored Word and PowerPoint add-in registration to the exact pre-run state, including keys that were absent before the run. Settings restoration completed, `FullE2ECleanupSucceeded=True`, and no `WINWORD` or `POWERPNT` process remained.
 
@@ -88,4 +90,4 @@ The latest PNG is opaque 24bpp, so transparent-padding pixel inspection is not a
 
 ## Acceptance Boundary
 
-This report records `12/12 PASS` for the final package, and the standard local installation was updated and reverified. Word stress gates are separate: managed-picture rounds stayed below 300ms, but a normal-control round exceeded the gate, so `OverallPassed=false`. The user chose to skip real-pointer drag, resize, reposition, and a manual Re-edit click; skipped must not be represented as passed.
+This report records `13/13 PASS` for the final package, and the standard local installation was updated and reverified; the added gate covers upgrading from inside an existing install root. Word stress gates are separate: managed-picture rounds stayed below 300ms, but a normal-control round exceeded the gate, so `OverallPassed=false`. The user chose to skip real-pointer drag, resize, reposition, and a manual Re-edit click; skipped must not be represented as passed.

@@ -359,6 +359,7 @@ Copy-Item (Join-Path $repoRoot "scripts\\powerpoint-svg-aspect-ratio-e2e.ps1") (
 Copy-Item (Join-Path $repoRoot "scripts\\webview2-user-data-folder-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\word-url-addin-host-e2e-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\version-display-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
+Copy-Item (Join-Path $repoRoot "scripts\\install-release-upgrade-safety-test.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\write-build-info.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\install-release.ps1") (Join-Path $packageRoot "scripts") -Force
 Copy-Item (Join-Path $repoRoot "scripts\\uninstall-release.ps1") (Join-Path $packageRoot "scripts") -Force
@@ -418,6 +419,7 @@ Contents:
 - scripts\webview2-user-data-folder-test.ps1
 - scripts\word-url-addin-host-e2e-safety-test.ps1
 - scripts\version-display-safety-test.ps1
+- scripts\install-release-upgrade-safety-test.ps1
 - scripts\write-build-info.ps1
 - scripts\install-release.ps1
 - scripts\uninstall-release.ps1

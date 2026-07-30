@@ -9,7 +9,7 @@
 - 发布压缩包：`artifacts\releases\v1.0.8\DrawioPpt-v1.0.8.zip`
 - 标准本地安装根：`%LOCALAPPDATA%\Greensoft\DrawioPpt`
 - 版本信息文件：`BuildInfo.txt`，并在 `PACKAGE.txt` 中记录 `BuildId` / `GitShortHash`
-- 新增安装包回归：`word-svg-aspect-ratio-e2e.ps1`、`word-preview-image-provider-e2e.ps1`、`powerpoint-svg-aspect-ratio-e2e.ps1`
+- 新增安装包回归：`install-release-upgrade-safety-test.ps1`、`word-svg-aspect-ratio-e2e.ps1`、`word-preview-image-provider-e2e.ps1`、`powerpoint-svg-aspect-ratio-e2e.ps1`
 
 v1.0.8 已作为 GitHub Release 公开发布：<https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>。
 
@@ -20,6 +20,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Con
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-selection-sync-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\webview2-user-data-folder-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\version-display-safety-test.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-release-upgrade-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-cleanup-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-complex-metadata-e2e.ps1 -Configuration Release -SkipBuild
@@ -37,10 +38,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread
 
 - `Release|x64` 构建通过：0 warnings，0 errors。
 - `version-display-safety-test.ps1` 通过，覆盖 `BuildInfo` 读取、Word/PPT Ribbon 版本标签、共享设置窗口版本标签、构建/打包生成 `BuildInfo.txt`、`PACKAGE.txt` 中的 `BuildId` / `GitShortHash` 以及安装脚本输出。
-- 最终发布包的完整 Office 功能 E2E 为 `12/12 PASS`：`ReleasePackage`、`InstallRelease`、`InstalledOfficeAddInsVerify`、`PowerPointAddInLoad`、`InstalledUrlSmoke`、`InstalledWordUrlHostE2E`、`InstalledWordComplexMetadataE2E`、`InstalledWordSvgAspectE2E`、`InstalledWordPreviewProviderE2E`、`InstalledPowerPointSvgAspectE2E`、`PowerPointUrlE2E`、`DesktopExporter` 全部为 PASS。
-- full E2E 汇总报告与日志副本内容一致，SHA256 为 `7D5AC38245C29AF08B04C24414480E1024E270210657EC0AFB97D0ABF52CF73C`；transcript SHA256 为 `0E629301AEE84FE71733B0FD956747201E99EADE70A2B3FE4E1DDBDBC55E4932`。
+- `install-release-upgrade-safety-test.ps1` 通过，覆盖新包根目录等于旧安装目录、新包位于旧安装目录子目录，以及升级后旧残留文件必须消失。
+- 最终发布包的完整 Office 功能 E2E 为 `13/13 PASS`：`ReleasePackage`、`NestedInstallUpgrade`、`InstallRelease`、`InstalledOfficeAddInsVerify`、`PowerPointAddInLoad`、`InstalledUrlSmoke`、`InstalledWordUrlHostE2E`、`InstalledWordComplexMetadataE2E`、`InstalledWordSvgAspectE2E`、`InstalledWordPreviewProviderE2E`、`InstalledPowerPointSvgAspectE2E`、`PowerPointUrlE2E`、`DesktopExporter` 全部为 PASS。
+- full E2E 汇总报告与日志副本内容一致；最终复跑会重新生成 `artifacts\test-reports\full-e2e-v1.0.8.md` 和 `artifacts\logs\v1.0.8\full-e2e-v1.0.8.transcript.log`。
 - 压缩阶段的包内 Markdown 链接门槛输出 `PackageMarkdownMissingLinkCount=0`。
 - full E2E 只按 PID、启动时间和进程名识别测试拥有的 Office 进程，不终止用户预存进程。它在安装前快照 Word / PowerPoint 注册树，finally 精确恢复值、类型、子键和原本不存在状态；残留 `WINWORD` / `POWERPNT` PID 会写入 FatalError 并令 E2E 失败。
+- `NestedInstallUpgrade` 使用真实发布包验证“新包在旧安装目录子目录内”的升级路径，确认安装脚本不会删除自身，且不会保留旧安装目录中的残留文件。
 - 最终临时包卸载、注册状态恢复和设置恢复成功，输出 `FullE2ECleanupSucceeded=True`，没有 Office 进程残留。
 - 最新源码 Word 正常展示为 1240px 等比例 PNG 和 `wdWrapFront` 浮动图片；横向/纵向图均 `contain`。增强后的真实回归输出 `VerticalRatio=0.25`、`VerticalContained=True`、`FailedReplacementPreservedOriginal=True`，验证先建新图、成功后才删原图。导出失败按 1240px 基准生成等比例轻量 PNG 占位预览，极端纵向图高度限制为 1200px，不回退复杂 SVG；临时 XML 实现包含重试、延迟和启动清理。先选中、再点击显式命令才读取选区并编辑。
 - PowerPoint 直接插入原始 SVG，在幻灯片边界内按源比例 `contain` 居中，不改写 `viewBox`，不制造图内留白。
@@ -91,4 +94,4 @@ ZIP SHA256 不写入会再次进入同一 ZIP 的本证据文档，避免自引�
 
 ## 已知边界
 
-最终包、标准本地安装和最新源码 DLL 已同步，功能性 `12/12 PASS` 已覆盖本次 Word 增强。最新独立压力测试的受管图和普通对照图都存在超过 300ms 的轮次，且相对门槛失败，`OverallPassed=false`；真实指针验收由用户决定略过，不得写成通过。最终 ZIP 哈希在包外交付摘要记录。
+最终包、标准本地安装和最新源码 DLL 已同步，功能性 `13/13 PASS` 已覆盖本次 Word 增强和已安装目录升级修复。最新独立压力测试的受管图和普通对照图都存在超过 300ms 的轮次，且相对门槛失败，`OverallPassed=false`；真实指针验收由用户决定略过，不得写成通过。最终 ZIP 哈希在包外交付摘要记录。

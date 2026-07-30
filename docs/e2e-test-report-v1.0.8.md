@@ -18,6 +18,7 @@
 | Release x64 构建 | 通过 | 0 warnings，0 errors |
 | Word 零被动选区路径源码约束 | 通过 | `WORD_SELECTION_SYNC_TEST_PASS`：无 `WindowSelectionChange`、自动打开或启动时选区读取；四个显式命令各捕获一次实时图片 |
 | WebView2 用户目录源码约束 | 通过 | `WEBVIEW2_USER_DATA_FOLDER_SOURCE_TEST_PASS` |
+| 安装包升级安全约束 | 通过 | `INSTALL_RELEASE_UPGRADE_SAFETY_TEST_PASS`：新包在旧安装目录本身或子目录内运行时不会删除安装源，升级后旧残留文件被清理 |
 | Word URL 宿主测试安全约束 | 通过 | `WORD_URL_ADDIN_HOST_E2E_SAFETY_TEST_PASS` |
 | full E2E 清理安全约束 | 通过 | `FULL_E2E_CLEANUP_SAFETY_TEST_PASS`：安装前快照 Word / PowerPoint 注册树；finally 精确恢复值、类型、子键和原本不存在状态；最终残留 Office PID 会写入 FatalError 并令 E2E 失败 |
 | Word 复杂元数据 E2E | 通过 | 文档级主存储、轻量引用、失败回退、旧版迁移、稳定 part ID 和保存关闭重开均满足断言 |
@@ -34,11 +35,12 @@
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.ps1 -Version v1.0.8 -SkipBuild
 ```
 
-结果：`12/12 PASS`。
+结果：`13/13 PASS`。
 
 | 检查项 | 结果 | 关键证据 |
 | --- | --- | --- |
 | `ReleasePackage` | PASS | v1.0.8 发布目录生成成功 |
+| `NestedInstallUpgrade` | PASS | 真实发布包放在旧安装目录子目录里运行，安装脚本不会删除自身，旧残留文件被清理 |
 | `InstallRelease` | PASS | 发布包安装到隔离临时目录 |
 | `InstalledOfficeAddInsVerify` | PASS | Word / PowerPoint 注册和 COM 加载通过 |
 | `PowerPointAddInLoad` | PASS | `Connect=True` |
@@ -51,7 +53,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.
 | `PowerPointUrlE2E` | PASS | PowerPoint URL 创建、重开、编辑和持久化通过 |
 | `DesktopExporter` | PASS | draw.io Desktop 导出 SVG 成功 |
 
-打包阶段输出 `PackageMarkdownMissingLinkCount=0`。汇总报告和日志副本内容一致，SHA256 为 `7D5AC38245C29AF08B04C24414480E1024E270210657EC0AFB97D0ABF52CF73C`。
+打包阶段输出 `PackageMarkdownMissingLinkCount=0`。汇总报告和日志副本内容一致；最终复跑的哈希以[发布证据](./release-evidence-v1.0.8.md)记录为准。
 
 临时安装结束后卸载测试包，并把 Word / PowerPoint 加载项注册精确恢复到执行前状态，包括执行前不存在的键。设置恢复完成，最终输出 `FullE2ECleanupSucceeded=True`，没有 `WINWORD` / `POWERPNT` 残留。
 
@@ -88,4 +90,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-test.
 
 ## 验收边界
 
-本报告记录的最终包功能性 Office E2E 为 `12/12 PASS`，标准本地安装也已更新并复核。Word 压力门槛为独立结果：受管图低于 300ms，普通对照图存在单轮超限，`OverallPassed=false`。用户已决定略过真实指针拖动、缩放、重定位和人工点击“重新编辑”验收；不得把略过写成通过。
+本报告记录的最终包功能性 Office E2E 为 `13/13 PASS`，标准本地安装也已更新并复核；新增门槛覆盖已安装目录内升级。Word 压力门槛为独立结果：受管图低于 300ms，普通对照图存在单轮超限，`OverallPassed=false`。用户已决定略过真实指针拖动、缩放、重定位和人工点击“重新编辑”验收；不得把略过写成通过。

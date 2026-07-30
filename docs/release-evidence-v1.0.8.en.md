@@ -9,7 +9,7 @@
 - Release archive: `artifacts\releases\v1.0.8\DrawioPpt-v1.0.8.zip`
 - Standard local install root: `%LOCALAPPDATA%\Greensoft\DrawioPpt`
 - Version info file: `BuildInfo.txt`, with `BuildId` / `GitShortHash` also recorded in `PACKAGE.txt`
-- New installed-package regressions: `word-svg-aspect-ratio-e2e.ps1`, `word-preview-image-provider-e2e.ps1`, and `powerpoint-svg-aspect-ratio-e2e.ps1`
+- New installed-package regressions: `install-release-upgrade-safety-test.ps1`, `word-svg-aspect-ratio-e2e.ps1`, `word-preview-image-provider-e2e.ps1`, and `powerpoint-svg-aspect-ratio-e2e.ps1`
 
 v1.0.8 has been published as a GitHub Release: <https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>.
 
@@ -20,6 +20,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build.ps1 -Con
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-selection-sync-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\webview2-user-data-folder-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\version-display-safety-test.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-release-upgrade-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-url-addin-host-e2e-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\full-e2e-cleanup-safety-test.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-complex-metadata-e2e.ps1 -Configuration Release -SkipBuild
@@ -37,10 +38,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread
 
 - The `Release|x64` build passed with 0 warnings and 0 errors.
 - `version-display-safety-test.ps1` passed, covering `BuildInfo` lookup, Word/PPT Ribbon version labels, the shared settings-window version label, build/package generation of `BuildInfo.txt`, `BuildId` / `GitShortHash` in `PACKAGE.txt`, and installer output.
-- Full functional Office E2E against the final package reported `12/12 PASS`: `ReleasePackage`, `InstallRelease`, `InstalledOfficeAddInsVerify`, `PowerPointAddInLoad`, `InstalledUrlSmoke`, `InstalledWordUrlHostE2E`, `InstalledWordComplexMetadataE2E`, `InstalledWordSvgAspectE2E`, `InstalledWordPreviewProviderE2E`, `InstalledPowerPointSvgAspectE2E`, `PowerPointUrlE2E`, and `DesktopExporter` all passed.
-- The full-E2E summary and log copy are content-identical, with SHA256 `7D5AC38245C29AF08B04C24414480E1024E270210657EC0AFB97D0ABF52CF73C`. The transcript SHA256 is `0E629301AEE84FE71733B0FD956747201E99EADE70A2B3FE4E1DDBDBC55E4932`.
+- `install-release-upgrade-safety-test.ps1` passed, covering the new package root equal to the old install root, the new package under a child folder of the old install root, and stale old files being removed after upgrade.
+- Full functional Office E2E against the final package reported `13/13 PASS`: `ReleasePackage`, `NestedInstallUpgrade`, `InstallRelease`, `InstalledOfficeAddInsVerify`, `PowerPointAddInLoad`, `InstalledUrlSmoke`, `InstalledWordUrlHostE2E`, `InstalledWordComplexMetadataE2E`, `InstalledWordSvgAspectE2E`, `InstalledWordPreviewProviderE2E`, `InstalledPowerPointSvgAspectE2E`, `PowerPointUrlE2E`, and `DesktopExporter` all passed.
+- The full-E2E summary and log copy are content-identical; the final rerun regenerates `artifacts\test-reports\full-e2e-v1.0.8.md` and `artifacts\logs\v1.0.8\full-e2e-v1.0.8.transcript.log`.
 - The pre-compression internal Markdown-link gate reported `PackageMarkdownMissingLinkCount=0`.
 - Full E2E identifies only test-owned Office processes by PID, start time, and process name; it does not stop pre-existing user processes. It snapshots Word and PowerPoint registration trees before installation, then restores values, types, subkeys, and originally absent state in `finally`. Residual `WINWORD` / `POWERPNT` PIDs enter FatalError and fail E2E.
+- `NestedInstallUpgrade` uses the real release package to validate the upgrade path where the new package is inside the old install root, confirming that the installer does not delete its own source and does not keep stale files from the previous installation.
 - Temporary-package uninstall, registration-state restoration, and settings restoration succeeded. The run reported `FullE2ECleanupSucceeded=True`, with no residual Office process.
 - Latest-source Word normally displays a 1240px aspect-preserving PNG as a floating `wdWrapFront` picture, with horizontal and vertical diagrams using `contain`. The enhanced real regression reports `VerticalRatio=0.25`, `VerticalContained=True`, and `FailedReplacementPreservedOriginal=True`, proving create-new-before-delete-old replacement. Export failure generates a lightweight aspect-preserving PNG placeholder from a 1240px baseline, caps extreme portrait height at 1200px, and does not use complex SVG; temporary XML implementation includes retry, deferred, and startup cleanup. Only an explicit command after selection reads the live selection and starts editing.
 - PowerPoint inserts the original SVG directly, centers it with source-proportional `contain` sizing inside the slide bounds, and neither rewrites the `viewBox` nor introduces internal blank padding.
@@ -91,4 +94,4 @@ ZIP SHA256 is not embedded in this evidence document because the document is pac
 
 ## Known Boundary
 
-The final package, standard local installation, and latest source DLLs are synchronized, and functional `12/12 PASS` covers this Word refinement. The latest independent stress run has managed and normal-control rounds above 300ms and also fails the relative gate, so `OverallPassed=false`; the user chose to skip real-pointer acceptance, and it must not be represented as passed. Record the final ZIP hash outside the archive.
+The final package, standard local installation, and latest source DLLs are synchronized, and functional `13/13 PASS` covers this Word refinement plus the installed-root upgrade fix. The latest independent stress run has managed and normal-control rounds above 300ms and also fails the relative gate, so `OverallPassed=false`; the user chose to skip real-pointer acceptance, and it must not be represented as passed. Record the final ZIP hash outside the archive.

@@ -95,6 +95,8 @@ These tools are useful for inspecting embedded Office XML, manually recovering d
 5. Open PowerPoint or Word and confirm that the `Draw.io` Ribbon appears.
 6. Check the BuildId in the Ribbon info area or settings footer; the release installer prints the same BuildId.
 
+On a machine with an older build already installed, run `install.cmd` from the new release package again to upgrade; do not run an old `install.cmd` left in the previous install directory. The fixed v1.0.8 package supports upgrading even when the new package is inside the current install root or one of its child folders.
+
 To uninstall, close PowerPoint and Word, then run `uninstall.cmd`.
 
 The release installer registers both the PowerPoint and Word add-ins. For repository-based development, build first and then run:

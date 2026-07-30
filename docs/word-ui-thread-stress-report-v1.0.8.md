@@ -63,7 +63,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\word-ui-thread
 - 目标图片选择操作共 `96` 次，独立计数器确认 `96` 次，缺失 `0`，即 `96/96`，`SelectionChangeEventsPassed=true`。
 - 保存并重开后宽高比、位置、尺寸和 `Document.CustomXMLParts` 中的 26,106 字符源 XML 均保留；`WordAddInConnect=true`，清理后没有残留 `WINWORD`。
 - 受管图两轮位置 P95 为 `303.892/337.339 ms`，普通对照图为 `328.256/318.748 ms`，均存在超过 `300 ms` 的轮次，导致 `AbsoluteLatencyGatePassed=false`。此前确认轮相对门槛曾通过且受管图两轮低于 300ms，说明时延存在波动，但不能据此放宽门槛。
-- 机器结果为 `ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`OverallPassed=false`；两类图片的选择、位置和缩放最终失败均为 0，Word 无响应采样均为 0。这与完整 Office E2E 的功能性 `12/12 PASS` 是两类门槛，不能混写。
+- 机器结果为 `ComparisonPassed=false`、`AbsoluteLatencyGatePassed=false`、`OverallPassed=false`；两类图片的选择、位置和缩放最终失败均为 0，Word 无响应采样均为 0。这与完整 Office E2E 的功能性 `13/13 PASS` 是两类门槛，不能混写。
 
 ## 结论
 

@@ -6,7 +6,7 @@
 
 | 状态 | 项目 |
 | --- | --- |
-| 通过 | 临时安装发布包完整 Office E2E 12/12；该结果仅代表隔离临时安装。 |
+| 通过 | 临时安装发布包完整 Office E2E 13/13；新增覆盖发布包位于旧安装目录子目录内的升级探针。 |
 | 通过 | 标准本地目录 `%LOCALAPPDATA%\Greensoft\DrawioPpt` 安装、DLL 哈希、Office 注册和真实 COM 加载。 |
 | 压力总体未通过 | 修正留白检测后的最新 1240×1753 PNG / `Front` 富文档轮中，普通/受管位置 P95 为 321.844 / 325.764 ms；相对和绝对门槛均失败，`OverallPassed=false`。 |
 | 用户决定略过 | `PointerInputCovered=false`；自动化不能代替真实指针拖动、缩放、重定位和命令点击。用户已决定略过该人工验收，状态不是“通过”。 |
@@ -78,6 +78,8 @@
 
 ## 8. 注册与卸载
 
+- 已安装旧版本时，运行新发布包中的 `install.cmd` 可完成升级；安装器先暂存新包，再清理旧目录，不会因新包位于旧安装目录本身或子目录内而删除安装源。
+- `scripts\install-release-upgrade-safety-test.ps1` 通过：覆盖 same-root 升级、nested-package 升级和旧残留文件清理。
 - 卸载脚本可正常移除注册项
 - 卸载后 PowerPoint 和 Word 不再加载对应插件
 

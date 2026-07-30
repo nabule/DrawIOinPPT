@@ -95,6 +95,8 @@ win-unpacked\draw.io.exe
 5. 打开 PowerPoint 或 Word，确认出现 `Draw.io` 功能区。
 6. 在功能区信息区或设置窗口底部核对 BuildId；发布包安装脚本也会输出同一个 BuildId。
 
+已安装过旧版本时，重复运行新发布包里的 `install.cmd` 就是升级；不要运行旧安装目录里遗留的旧 `install.cmd`。修复后的 v1.0.8 包支持从当前安装目录或其子目录内升级。
+
 卸载时关闭 PowerPoint 和 Word，然后运行 `uninstall.cmd`。
 
 发布包安装脚本会同时安装 PowerPoint 和 Word 插件。仓库开发调试时，先构建再运行：

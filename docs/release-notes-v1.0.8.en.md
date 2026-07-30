@@ -10,6 +10,7 @@
 - Refreshing or re-editing should not unexpectedly change the picture width, position, or aspect ratio that the user already arranged.
 - If draw.io Desktop export fails, users should still see a recognizable placeholder preview and the source XML must not be lost.
 - During installation or troubleshooting, users need to see exactly which build Office has loaded.
+- Reinstalling v1.0.8 on a machine that already has an older build should not fail just because the new package was extracted into the old installation directory.
 
 ## Highlights
 
@@ -20,6 +21,7 @@
 - Word Re-edit and Refresh retain picture width and recalculate height and position from the source ratio. Complete Draw.io XML remains in `Document.CustomXMLParts`; picture `AlternativeText` normally carries only a lightweight reference.
 - If `CustomXMLParts.Upsert` fails, the picture fallback retains the full envelope. Legacy documents with a full envelope only in picture `AlternativeText` migrate it into document-level primary storage on first read.
 - The Word and PowerPoint Ribbon info areas now show the build version; the shared settings window footer shows the same BuildId. The release package generates `BuildInfo.txt`, records `BuildId` and `GitShortHash` in `PACKAGE.txt`, and prints the installed BuildId after installation.
+- Before cleaning the old installation directory, the installer now stages the new package payload under `%TEMP%` from the `PACKAGE.txt` manifest. This prevents the installer from deleting its own source when the package is inside the old install root, and manifest-based copying avoids carrying stale old files into the new installation.
 
 ## Compatibility Tradeoff
 
@@ -31,11 +33,12 @@ The Word PNG is a display artifact, not primary storage. The normal path require
 
 - The `Release|x64` build passed with 0 warnings and 0 errors.
 - The version-display safety test passed, confirming `BuildInfo`, Word/PPT Ribbon labels, the settings window, build scripts, package manifest, and installation output all carry BuildId / Git short hash information.
+- The installer upgrade safety test passed, covering the new package at the old install root, the new package under a child folder of the old install root, and stale old files being removed.
 - The Word zero-passive-selection path, WebView2 user-data-folder contract, URL-host safety contract, and full-E2E cleanup safety contract passed.
 - The latest `word-preview-image-provider-e2e.ps1` covers the normal 1240px aspect-preserving PNG, a 1240×620 lightweight PNG placeholder for its 2:1 failure sample, and immediate temporary-source, preview, and fallback-directory cleanup. The implementation still includes bounded retry, deferred, and startup cleanup for temporary XML, but this script does not claim coverage for those paths without fault injection.
 - The latest `word-svg-aspect-ratio-e2e.ps1` passed in real Word: a 2:1 PNG remains 2:1 after create and replacement; the vertical case reports `VerticalRatio=0.25` and `VerticalContained=True`; a failed replacement reports `FailedReplacementPreservedOriginal=True`, proving the original is not deleted before the new picture succeeds.
 - `powerpoint-svg-aspect-ratio-e2e.ps1` passed in real PowerPoint: the original SVG is inserted directly, centered with proportional `contain` sizing, and replacement retains source ratio without expanding the `viewBox`.
-- Full functional Office E2E against the final package reported `12/12 PASS`, including `InstalledWordSvgAspectE2E`, `InstalledWordPreviewProviderE2E`, and `InstalledPowerPointSvgAspectE2E`.
+- Full functional Office E2E against the final package reported `13/13 PASS`, adding `NestedInstallUpgrade` and still covering `InstalledWordSvgAspectE2E`, `InstalledWordPreviewProviderE2E`, and `InstalledPowerPointSvgAspectE2E`.
 - Before full E2E changes registration, it snapshots the Word and PowerPoint add-in registry trees; cleanup restores the exact prior state, including keys that were originally absent. The final zero-residual `WINWORD` / `POWERPNT` gate passed, with `FullE2ECleanupSucceeded=True`.
 - Core, PowerPoint, and Word DLLs match across source Release output, the package, and the standard local installation. The Word DLL is `A6AB59AA…3492E8`. See the [release evidence](./release-evidence-v1.0.8.en.md) for the complete DLL hashes.
 
@@ -51,6 +54,6 @@ The latest PNG is an opaque 24bpp raster with no alpha channel, so transparent-p
 
 ## Release Status
 
-v1.0.8 has been published as a GitHub Release: <https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>. The final package has been rebuilt, the standard local installation updated, and both `12/12` full E2E and the internal-link gate passed. ZIP SHA256 is not embedded in a document packaged into the same ZIP; the GitHub Release asset record and external delivery summary record it.
+v1.0.8 has been published as a GitHub Release: <https://github.com/nabule/DrawIOinPPT/releases/tag/v1.0.8>. The final package has been rebuilt, the standard local installation updated, and both `13/13` full E2E and the internal-link gate passed. ZIP SHA256 is not embedded in a document packaged into the same ZIP; the GitHub Release asset record and external delivery summary record it.
 
 See the [v1.0.8 E2E test report](./e2e-test-report-v1.0.8.en.md), [v1.0.8 release evidence](./release-evidence-v1.0.8.en.md), and [Word UI-thread stress test report](./word-ui-thread-stress-report-v1.0.8.en.md) for details.

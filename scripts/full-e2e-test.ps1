@@ -19,6 +19,7 @@ $releaseRoot = [IO.Path]::GetFullPath(
     (Join-Path $releaseBase $Version))
 $packageRoot = Join-Path $releaseRoot "package"
 $installRoot = Join-Path $env:TEMP ("DrawioPpt\\installed-" + [Guid]::NewGuid().ToString("N"))
+$upgradeInstallRoot = Join-Path $env:TEMP ("DrawioPpt\\upgrade-installed-" + [Guid]::NewGuid().ToString("N"))
 $reportRoot = [IO.Path]::GetFullPath(
     (Join-Path $repoRoot "artifacts\\test-reports"))
 $reportPath = [IO.Path]::GetFullPath(
@@ -398,6 +399,63 @@ function Add-Result {
     if (-not $Passed) {
         throw "$Name failed: $Detail"
     }
+}
+
+function Invoke-ReleasePackageNestedUpgradeProbe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageRoot,
+        [Parameter(Mandatory = $true)]
+        [string]$UpgradeInstallRoot
+    )
+
+    if (Test-Path -LiteralPath $UpgradeInstallRoot) {
+        Remove-Item -LiteralPath $UpgradeInstallRoot -Recurse -Force
+    }
+
+    New-Item -ItemType Directory -Force -Path $UpgradeInstallRoot | Out-Null
+    Set-Content `
+        -LiteralPath (Join-Path $UpgradeInstallRoot "stale-old-file.txt") `
+        -Value "stale from previous install" `
+        -Encoding UTF8
+
+    $nestedPackageRoot = Join-Path $UpgradeInstallRoot "upgrade-package"
+    New-Item -ItemType Directory -Force -Path $nestedPackageRoot | Out-Null
+    Copy-Item (Join-Path $PackageRoot "*") $nestedPackageRoot -Recurse -Force
+
+    $nestedInstallScript = Join-Path $nestedPackageRoot "scripts\\install-release.ps1"
+    $nestedInstallOutput = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $nestedInstallScript -InstallRoot $UpgradeInstallRoot 2>&1
+    $nestedInstallExitCode = $LASTEXITCODE
+    foreach ($line in @($nestedInstallOutput)) {
+        Write-Host $line
+    }
+
+    if ($nestedInstallExitCode -ne 0) {
+        throw "Nested package upgrade install failed with exit code $nestedInstallExitCode."
+    }
+
+    $requiredFiles = @(
+        "BuildInfo.txt",
+        "PACKAGE.txt",
+        "bin\\DrawioPpt.PowerPointAddIn.dll",
+        "bin\\DrawioPpt.WordAddIn.dll",
+        "scripts\\verify-office-install.ps1"
+    )
+    foreach ($relativePath in $requiredFiles) {
+        if (-not (Test-Path -LiteralPath (Join-Path $UpgradeInstallRoot $relativePath))) {
+            throw "Nested package upgrade did not install required file: $relativePath"
+        }
+    }
+
+    if (Test-Path -LiteralPath (Join-Path $UpgradeInstallRoot "stale-old-file.txt")) {
+        throw "Nested package upgrade kept stale files from the previous install."
+    }
+
+    if (Test-Path -LiteralPath $nestedPackageRoot) {
+        throw "Nested package upgrade did not replace the old install root."
+    }
+
+    return "Package extracted under existing install root upgraded successfully"
 }
 
 function ConvertTo-ReportSafeDetail {
@@ -995,6 +1053,11 @@ try {
     }
     Add-Result -Name "ReleasePackage" -Passed (Test-Path $packageRoot) -Detail $packageRoot
 
+    $nestedUpgradeDetail = Invoke-ReleasePackageNestedUpgradeProbe `
+        -PackageRoot $packageRoot `
+        -UpgradeInstallRoot $upgradeInstallRoot
+    Add-Result -Name "NestedInstallUpgrade" -Passed $true -Detail $nestedUpgradeDetail
+
     $installScript = Join-Path $packageRoot "scripts\\install-release.ps1"
     & powershell.exe -ExecutionPolicy Bypass -File $installScript -InstallRoot $installRoot
     if ($LASTEXITCODE -ne 0) {
@@ -1105,6 +1168,15 @@ finally {
         catch {
             $cleanupErrors.Add("UninstallRelease: $(Get-ErrorDetail $_)") | Out-Null
         }
+    }
+
+    try {
+        if (Test-Path -LiteralPath $upgradeInstallRoot) {
+            Remove-Item -LiteralPath $upgradeInstallRoot -Recurse -Force
+        }
+    }
+    catch {
+        $cleanupErrors.Add("RemoveUpgradeProbeInstallRoot: $(Get-ErrorDetail $_)") | Out-Null
     }
 
     if ($null -ne $officeAddInRegistrationSnapshot) {

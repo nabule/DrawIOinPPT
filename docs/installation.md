@@ -29,6 +29,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 
 安装成功输出会包含 `BuildId`，格式为 `v1.0.8+<git-short-hash>`。同一值也会写入发布包根目录和安装目录中的 `BuildInfo.txt` / `PACKAGE.txt`，便于核对当前安装到底来自哪个提交。
 
+已安装过旧版本的机器，升级时仍然运行新发布包里的 `install.cmd`。修复后的 v1.0.8 安装包会先把新包内容暂存到 `%TEMP%`，再清理旧安装目录，所以即使你把新包解压到当前安装目录或其子目录，也不会在升级过程中删除安装源。仍需先关闭 Word 和 PowerPoint；如果 WebView2 或 Office 锁住了旧 DLL，关闭 Office 后重试，必要时重启 Windows 再运行新包里的 `install.cmd`。
+
 发布包内的核心安装文件包括：
 
 - `install.cmd`
@@ -44,6 +46,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-check.ps1
 - `scripts\unregister-addin.ps1`
 - `scripts\register-word-addin.ps1`
 - `scripts\unregister-word-addin.ps1`
+- `scripts\install-release-upgrade-safety-test.ps1`
 - `docs\release-notes-v1.0.8.md`
 - `docs\e2e-test-report-v1.0.8.md`
 - `docs\release-evidence-v1.0.8.md`
@@ -233,6 +236,12 @@ C:\Users\<你的用户名>\AppData\Roaming\Greensoft\DrawioPpt\Logs\drawioppt.lo
 - 存储迁移与孤儿清理异常
 
 ## 12. 常见问题
+
+### 已安装过的机器运行安装包不能升级
+
+这类问题通常不是 Word 或 PowerPoint 注册失败，而是旧安装脚本的升级顺序有问题：它先删除默认安装目录，再从发布包目录复制新文件。如果用户把新包解压在旧安装目录本身或子目录里，删除旧安装目录时会把新包也删掉，随后就会出现注册脚本或 DLL 找不到。
+
+处理办法是换用修复后的发布包，并运行新包里的 `install.cmd`。不要运行旧安装目录里遗留的旧 `install.cmd`。修复后的脚本会先把新包按 `PACKAGE.txt` 清单复制到临时目录，再清理旧目录并安装，可以覆盖旧版本，同时不会把旧目录里的残留文件带回去。
 
 ### URL 窗口打开但没有保存回调
 

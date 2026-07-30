@@ -68,6 +68,7 @@ Word 不订阅 `WindowSelectionChange`，启动时也不读取当前选区、图
 - `scripts\verify-office-install.ps1` 是安装验收入口，会检查插件文件、当前用户级 COM 注册、`CodeBase` 指向、Office 禁用项，以及可选的 Word/PowerPoint COM 加载。
 - `scripts\register-addin.ps1`、`scripts\register-word-addin.ps1` 以及对应注销脚本保留为单宿主排障入口。
 - 发布包的 `install.cmd` 调用 `scripts\install-release.ps1`，安装脚本复制文件后调用统一注册入口，并立即执行非交互注册验收，避免只安装 PowerPoint 而遗漏 Word。
+- 升级安装遵循“先暂存、再清理、后复制”的顺序：`install-release.ps1` 先按 `PACKAGE.txt` 清单把发布包有效载荷复制到 `%TEMP%`，再删除旧安装目录并从暂存目录安装，避免新包位于旧安装目录内时删除安装源，也避免旧残留文件回流。
 
 ## 4. 数据存储策略
 

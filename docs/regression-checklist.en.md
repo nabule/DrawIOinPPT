@@ -6,7 +6,7 @@
 
 | Status | Item |
 | --- | --- |
-| PASS | Full Office E2E against the temporary release-package installation passed 12/12; this result covers only the isolated temporary installation. |
+| PASS | Full Office E2E against the temporary release-package installation passed 13/13, adding a probe where the release package sits under the old install root. |
 | PASS | Standard local installation at `%LOCALAPPDATA%\Greensoft\DrawioPpt`, DLL hashes, Office registration, and real COM loading. |
 | Overall stress gate failed | In the latest 1240×1753 PNG / `Front` rich-document run after blank-padding validation was corrected, normal/managed position P95 values were 321.844/325.764 ms. Both relative and absolute gates failed, with `OverallPassed=false`. |
 | Skipped by user | `PointerInputCovered=false`; automation cannot substitute for real-pointer drag, resize, reposition, and command-click acceptance. The user chose to skip that manual acceptance, whose status is not “passed.” |
@@ -78,6 +78,8 @@
 
 ## 8. Registration and Uninstall
 
+- On a machine with an older build installed, running `install.cmd` from the new release package upgrades the installation; the installer stages the new package before cleaning the old directory, so it does not delete its own source when the package is at or under the old install root.
+- `scripts\install-release-upgrade-safety-test.ps1` passes: it covers same-root upgrade, nested-package upgrade, and stale old-file cleanup.
 - The uninstall script removes registration entries correctly
 - After uninstall, PowerPoint and Word no longer load the add-ins
 

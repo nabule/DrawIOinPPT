@@ -68,6 +68,7 @@ Responsibilities:
 - `scripts\verify-office-install.ps1` is the installation acceptance entry. It checks installed files, current-user COM registration, `CodeBase` targets, Office disabled items, and optional Word/PowerPoint COM loading.
 - `scripts\register-addin.ps1`, `scripts\register-word-addin.ps1`, and their unregister counterparts remain available for single-host diagnostics.
 - The release package's `install.cmd` calls `scripts\install-release.ps1`; after copying files, the installer calls the unified registration entry and immediately runs non-interactive registration acceptance checks so Word is not missed when PowerPoint is installed.
+- Upgrade installation follows a stage-clean-copy order: `install-release.ps1` first copies the manifest-listed package payload into `%TEMP%`, then removes the old install directory and installs from staging. This avoids deleting the installer source when the new package is inside the old install root, and avoids bringing stale old files back.
 
 ## 4. Data Storage Strategy
 

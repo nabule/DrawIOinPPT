@@ -63,7 +63,7 @@ Execution date: 2026-07-29.
 - The independent counter confirmed all `96` expected target-picture selection events, with zero missing: `96/96` and `SelectionChangeEventsPassed=true`.
 - Save and reopen preserved aspect ratio, position, size, and all 26,106 source-XML characters in `Document.CustomXMLParts`; `WordAddInConnect=true`, and cleanup left no residual `WINWORD`.
 - Managed-picture round position P95 values were `303.892/337.339 ms`, while the normal control reported `328.256/318.748 ms`; every pair contains values above `300 ms`, so `AbsoluteLatencyGatePassed=false`. An earlier confirmation run passed the relative gates and kept both managed rounds below 300ms, showing timing variation but not grounds to relax the gate.
-- The machine result is `ComparisonPassed=false`, `AbsoluteLatencyGatePassed=false`, and `OverallPassed=false`. Both pictures have zero final selection, position, and resize failures and zero Word-unresponsive samples. These stress gates are distinct from the functional full Office E2E result of `12/12 PASS`.
+- The machine result is `ComparisonPassed=false`, `AbsoluteLatencyGatePassed=false`, and `OverallPassed=false`. Both pictures have zero final selection, position, and resize failures and zero Word-unresponsive samples. These stress gates are distinct from the functional full Office E2E result of `13/13 PASS`.
 
 ## Conclusion
 
