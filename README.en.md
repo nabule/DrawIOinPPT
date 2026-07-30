@@ -16,6 +16,7 @@ DrawioPpt is built for long-lived diagrams in Office documents:
 - A selected managed diagram can be reopened in Draw.io and written back to the same Office object after save.
 - Draw.io source XML is embedded inside the `.pptx` / `.docx` file, so documents are not dependent only on neighboring `.drawio` files.
 - PowerPoint and Word share the same editor settings.
+- The PowerPoint and Word Ribbon info areas, plus the shared settings window, show the current BuildId so the loaded add-in build is easy to identify.
 - Word does not monitor ordinary selection changes or read picture metadata at startup; selecting, dragging, resizing, and repositioning perform no add-in work.
 - Both local draw.io Desktop and embedded URL editor modes are supported, covering offline, internal-network, and private diagrams.net deployments.
 
@@ -47,6 +48,7 @@ DrawioPpt is built for long-lived diagrams in Office documents:
 - `Clear Binding`: remove add-in metadata while keeping the visible diagram.
 - `Auto Open` (PowerPoint only): automatically enter edit flow when selecting a managed diagram. Word omits it to keep the drag hot path free of add-in overhead.
 - `Settings`: configure desktop editor path, URL editor, sidecar behavior, and information dialogs.
+- Version check: the Ribbon info area and settings footer show a BuildId in the form `v1.0.8+<git-short-hash>`.
 
 ## Source Data Storage
 
@@ -91,6 +93,7 @@ These tools are useful for inspecting embedded Office XML, manually recovering d
 3. Close PowerPoint and Word.
 4. Double-click `install.cmd`.
 5. Open PowerPoint or Word and confirm that the `Draw.io` Ribbon appears.
+6. Check the BuildId in the Ribbon info area or settings footer; the release installer prints the same BuildId.
 
 To uninstall, close PowerPoint and Word, then run `uninstall.cmd`.
 
@@ -107,6 +110,8 @@ After installation, run this acceptance check to confirm both Word and PowerPoin
 ```powershell
 powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\scripts\verify-office-install.ps1"
 ```
+
+The package root and `bin` folder contain `BuildInfo.txt`, and `PACKAGE.txt` records `BuildId` and `GitShortHash`. These fields help confirm whether Office loaded DLLs from the current release package.
 
 ## Documentation
 

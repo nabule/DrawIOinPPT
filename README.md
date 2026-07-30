@@ -16,6 +16,7 @@ DrawioPpt 解决的是 Office 文档里流程图、架构图和说明图的长�
 - 选中已有图形后可以重新进入 Draw.io 编辑，保存后回写原图形。
 - Draw.io 源 XML 会嵌入 `.pptx` / `.docx` 文件内部，文件移动或发给别人时不必只依赖旁边的 `.drawio` 文件。
 - PowerPoint 和 Word 使用同一套编辑器配置，减少重复设置。
+- PowerPoint 和 Word 的功能区信息区、共享设置窗口都会显示当前 BuildId，便于确认 Office 实际加载的插件版本。
 - 支持桌面 draw.io 和内嵌 URL 编辑器两种模式，适合离线、内网和私有化 diagrams.net 场景。
 
 ## 支持的 Office 宿主
@@ -47,6 +48,7 @@ DrawioPpt 解决的是 Office 文档里流程图、架构图和说明图的长�
 - `清除绑定`：移除插件元数据，保留可见图形。
 - `自动打开`（仅 PowerPoint）：选中已绑定图形时自动进入编辑流程；Word 为保证拖动热路径零插件开销，不提供此入口。
 - `设置`：配置桌面编辑器路径、URL 编辑器地址、sidecar 保存策略和信息弹窗。
+- 版本核对：功能区信息区和设置窗口底部显示 `v1.0.8+<git-short-hash>` 形式的 BuildId。
 
 ## 源数据如何保存
 
@@ -91,6 +93,7 @@ win-unpacked\draw.io.exe
 3. 关闭 PowerPoint 和 Word。
 4. 双击 `install.cmd`。
 5. 打开 PowerPoint 或 Word，确认出现 `Draw.io` 功能区。
+6. 在功能区信息区或设置窗口底部核对 BuildId；发布包安装脚本也会输出同一个 BuildId。
 
 卸载时关闭 PowerPoint 和 Word，然后运行 `uninstall.cmd`。
 
@@ -107,6 +110,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\register-office-addins.ps1
 ```powershell
 powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Greensoft\DrawioPpt\scripts\verify-office-install.ps1"
 ```
+
+发布包根目录和 `bin` 目录会包含 `BuildInfo.txt`，`PACKAGE.txt` 也会记录 `BuildId` 和 `GitShortHash`，用于排查“Office 加载的 DLL 是否来自当前发布包”。
 
 ## 文档入口
 
